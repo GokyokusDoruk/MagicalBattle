@@ -400,6 +400,24 @@ export class ArenaView {
     this.director.setShot(null);
   }
 
+  /** Büyü yapılamadı: asa kalkar ama büyü oluşmaz, gri duman tüter. */
+  async fizzle(ref: SlotRef): Promise<void> {
+    const caster = this.combatant(ref);
+    const pos = this.position(ref);
+    const facing = this.slots.find((x) => x.team === ref.team && x.index === ref.index)!;
+    const forward = new THREE.Vector3(Math.sin(facing.yaw), 0, Math.cos(facing.yaw));
+    const orb = pos.clone().add(forward.multiplyScalar(0.8)).add(new THREE.Vector3(0, 2.6, 0));
+    caster.cast(0.9);
+    this.director.setShot({
+      position: pos.clone().add(new THREE.Vector3(0, 3.2, 0)).add(forward.clone().multiplyScalar(-5.5 * this.closeScale)).add(new THREE.Vector3(0, 0, 3 * this.closeScale)),
+      lookAt: pos.clone().add(new THREE.Vector3(0, 2, 0)),
+    });
+    await this.tweens.add(0.8, (t) => {
+      if (t < 0.9) this.particles.emit(orb, { color: 0x8a8fa8, count: 2, speed: 1.1, life: 0.9, gravity: -0.7 });
+    });
+    this.director.setShot(null);
+  }
+
   /** Savaşçı yenildi: yere yığılır, kıvılcım saçar. */
   defeat(ref: SlotRef): void {
     const c = this.combatant(ref);
