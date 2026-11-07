@@ -3,7 +3,7 @@ import type { Axis } from '../input/axis';
 import { moveWithCollision } from './collision';
 import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
-import { MAIN_QUEST_MARKERS, markersInRange, type QuestTracker } from './questMarkers';
+import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
 import { PLAYER_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
@@ -22,6 +22,8 @@ export interface WorldContext {
   quests: QuestTracker;
   /** Ekranda kısa bildirim göster */
   notify: (message: string) => void;
+  /** Oyuncu aktif bir ana görev işaretine ulaştı (sahne burada başlatılır) */
+  onMarkerEnter: (marker: MainQuestMarker) => void;
   /** Her karede oyuncunun dünya konumu (piksel) */
   onFrame?: (player: { x: number; y: number }) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
@@ -149,7 +151,7 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  /** Sarı işaretlerin görünürlüğünü günceller, yanına gelince bildirim verir. */
+  /** Sarı işaretlerin görünürlüğünü günceller, yanına gelince görev sahnesini başlatır. */
   private checkMarkers(): void {
     const active = this.ctx.quests.activeMarkers();
     for (const m of MAIN_QUEST_MARKERS) {
@@ -159,7 +161,7 @@ export class WorldScene extends Phaser.Scene {
     for (const id of near) {
       if (this.insideMarkers.has(id)) continue;
       const marker = active.find((m) => m.id === id)!;
-      this.ctx.notify(`[Ana Görev] ${marker.title}`);
+      this.ctx.onMarkerEnter(marker);
     }
     this.insideMarkers = near;
   }

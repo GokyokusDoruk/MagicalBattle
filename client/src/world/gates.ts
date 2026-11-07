@@ -23,6 +23,11 @@ export class GateRegistry {
     this.listeners.forEach((l) => l(cityId, false));
   }
 
+  /** Tüm kapıları yeniden kilitler (kayıt yüklerken temiz başlangıç için). */
+  lockAll(): void {
+    for (const id of [...this.unlocked]) this.lock(id);
+  }
+
   onChange(listener: (cityId: string, unlocked: boolean) => void): void {
     this.listeners.add(listener);
   }
