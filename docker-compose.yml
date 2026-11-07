@@ -1,0 +1,59 @@
+# MagicalBattle sunucusu: PostgreSQL + API + Caddy (otomatik HTTPS).
+# Kullanım: .env.example dosyasını .env olarak kopyalayıp doldur, sonra:
+#   docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: magicalbattle
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env içinde tanımlı olmalı}
+      POSTGRES_DB: magicalbattle
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U magicalbattle -d magicalbattle"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Yalnızca sunucunun kendisinden erişilir (yerelde geliştirmek için); dışarıya açılmaz
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgresql://magicalbattle:${POSTGRES_PASSWORD}@db:5432/magicalbattle
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET .env içinde tanımlı olmalı (en az 32 karakter)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://magicalbattle.dorukplays.com}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.dorukplays.com}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:-api.dorukplays.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

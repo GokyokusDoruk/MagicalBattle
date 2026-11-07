@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Oyuncu hesabı. Misafir hesaplarda ad, soyad ve e-posta boştur.
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  /// Görünen kullanıcı adı (büyük/küçük harf korunur)
+  username     String
+  /// Küçük harfe çevrilmiş hali; benzersizlik bunun üzerinden sağlanır
+  usernameKey  String   @unique
+  passwordHash String
+  isGuest      Boolean  @default(false)
+  firstName    String?
+  lastName     String?
+  /// Küçük harfe çevrilmiş e-posta
+  email        String?  @unique
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}

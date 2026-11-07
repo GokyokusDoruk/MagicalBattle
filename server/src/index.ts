@@ -1,14 +1,23 @@
-import Fastify from 'fastify';
+import { buildApp } from './app.js';
+import { loadConfig } from './config.js';
+import { createPrisma } from './db.js';
+import { PrismaUserRepository } from './users/prismaRepository.js';
 
-// Task 1: sadece iskelet. Hesap, kayıt ve Colyseus sonraki task'larda gelecek.
-const app = Fastify({ logger: true });
+const config = loadConfig();
+const prisma = createPrisma(config.databaseUrl);
+const app = await buildApp({ config, users: new PrismaUserRepository(prisma), logger: true });
 
-app.get('/health', async () => ({ status: 'ok', game: 'MagicalBattle' }));
+const shutdown = async (): Promise<void> => {
+  await app.close();
+  await prisma.$disconnect();
+  process.exit(0);
+};
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
-const port = Number(process.env.PORT ?? 3000);
-const host = process.env.HOST ?? '0.0.0.0';
-
-app.listen({ port, host }).catch((err) => {
+try {
+  await app.listen({ port: config.port, host: config.host });
+} catch (err) {
   app.log.error(err);
   process.exit(1);
-});
+}
