@@ -40,4 +40,6 @@ npm run test:db -w server  # gerçek PostgreSQL'e karşı testler (Docker gerekm
 3. Pages projesi → *Custom domains* → `magicalbattle.dorukplays.com`.
 4. Yayına girince `dorukplays` deposunda MagicalBattle kartını `<a class="game" href="https://magicalbattle.dorukplays.com">` yap.
 
+Büyü çizimini denemek için oyun adresine `?lab=draw` ekle ([docs/cizim-sistemi.md](docs/cizim-sistemi.md)).
+
 Sunucu: API ve hesap sistemi için [docs/backend.md](docs/backend.md), Oracle Cloud kurulumu için [docs/deploy-oracle.md](docs/deploy-oracle.md).
