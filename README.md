@@ -8,7 +8,7 @@ Canlı adres: **https://magicalbattle.dorukplays.com** (henüz yayında değil).
 | Klasör | İçerik |
 |---|---|
 | `client/` | Vite + TypeScript + Phaser + Three.js + TailwindCSS (oyun arayüzü) |
-| `server/` | Node.js + TypeScript + Fastify (hesap, kayıt, çok oyunculu; sonraki task'larda genişleyecek) |
+| `server/` | Node.js + TypeScript + Fastify + Prisma + PostgreSQL (hesap sistemi; çok oyunculu sonraki task'larda) |
 
 Gereksinim: Node 20 veya üstü.
 
@@ -21,7 +21,8 @@ npm run dev:server   # server (izleme modunda)
 npm run build        # client üretim derlemesi -> client/dist
 npm run build:server # server derlemesi -> server/dist
 npm run typecheck    # client + server tip kontrolü
-npm test             # client birim testleri (Vitest)
+npm test             # client + server birim testleri (Vitest)
+npm run test:db -w server  # gerçek PostgreSQL'e karşı testler (Docker gerekmez)
 ```
 
 ## Yayın (Cloudflare Pages)
@@ -38,4 +39,4 @@ npm test             # client birim testleri (Vitest)
 3. Pages projesi → *Custom domains* → `magicalbattle.dorukplays.com`.
 4. Yayına girince `dorukplays` deposunda MagicalBattle kartını `<a class="game" href="https://magicalbattle.dorukplays.com">` yap.
 
-Backend (Oracle Cloud, Docker Compose) kurulumu Task 7'de eklenecek.
+Sunucu: API ve hesap sistemi için [docs/backend.md](docs/backend.md), Oracle Cloud kurulumu için [docs/deploy-oracle.md](docs/deploy-oracle.md).

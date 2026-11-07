@@ -16,6 +16,6 @@
     "build": "npm run build -w client",
     "build:server": "npm run build -w server",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
-    "test": "npm run test -w client"
+    "test": "npm test --workspaces --if-present"
   }
 }

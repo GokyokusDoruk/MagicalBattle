@@ -1,0 +1,6 @@
+# Caddy, Let's Encrypt sertifikasını kendiliğinden alır ve yeniler.
+# WebSocket (Colyseus, Task 21) de aynı adresten geçer.
+{$API_DOMAIN:api.dorukplays.com} {
+	encode zstd gzip
+	reverse_proxy server:3000
+}
