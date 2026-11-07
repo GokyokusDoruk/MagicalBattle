@@ -58,4 +58,4 @@ Gerçek değerlerden örnekler (saldırı: yarıçapı 70 olan daire):
 
 ## Sonraki adımlar
 
-- **Task 11:** Hasar hesabı; çizim gücü (büyüklük ve süre ağırlığı) burada kullanılır.
+- Hasar hesabı (çizim gücü, baş bölgesi, element, skill, zırh): [hasar-hesabi.md](hasar-hesabi.md)
