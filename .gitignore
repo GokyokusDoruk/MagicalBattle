@@ -10,3 +10,4 @@ Thumbs.db
 
 # Prisma tarafından üretilir (npm run build / pretest)
 server/src/generated/
+server/.devdb/

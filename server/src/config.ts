@@ -13,6 +13,8 @@ export interface Config {
 }
 
 const DEV_SECRET = 'gelistirme-icin-gizli-anahtar-uretimde-kullanma';
+/** `npm run dev:db` ile açılan yerel veritabanı */
+const DEV_DATABASE_URL = 'postgresql://postgres:dev@localhost:54320/magicalbattle';
 
 /** Ortam değişkenlerinden yapılandırmayı okur. Üretimde eksik/zayıf ayar varsa hata verir. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -29,7 +31,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     port: Number(env.PORT ?? 3000),
     host: env.HOST ?? '0.0.0.0',
     isProduction,
-    databaseUrl: env.DATABASE_URL ?? '',
+    databaseUrl: env.DATABASE_URL ?? (isProduction ? '' : DEV_DATABASE_URL),
     jwtSecret,
     corsOrigins: (env.CORS_ORIGINS ?? 'http://localhost:5173,http://localhost:4173')
       .split(',')

@@ -21,6 +21,8 @@ Tüm istekler `Content-Type: application/json` olmalı. Tarayıcıdan `fetch(...
 | POST | `/auth/login` | `username, password` | `200 { user }` + çerez |
 | POST | `/auth/logout` | - | `200 { ok: true }`, çerez silinir |
 | GET | `/auth/me` | - | `200 { user }` ya da `401` |
+| GET | `/save` | - | `200 { save }` (yoksa `save: null`), oturum gerekir |
+| PUT | `/save` | kayıt dosyası (aşağıda) | `200 { ok: true }`, oturum gerekir |
 | GET | `/health` | - | `200 { status: "ok" }` |
 
 `user` = `{ id, username, isGuest, firstName }`. Şifre, hash ve e-posta asla geri dönmez.
@@ -36,6 +38,29 @@ Hatalar `{ code, error }` biçimindedir (`error` Türkçe, kullanıcıya göster
 | 409 | `USERNAME_TAKEN` / `EMAIL_TAKEN` | Çakışma |
 | 429 | `RATE_LIMITED` | Giriş/kayıt/misafir için dakikada IP başına 10 deneme aşıldı |
 | 500 | `SERVER_ERROR` | Beklenmeyen hata (ayrıntı yalnızca sunucu günlüğüne yazılır) |
+
+## Kayıt dosyası
+
+Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar.
+
+```json
+{
+  "version": 1,
+  "playerName": "Aylin",
+  "completedChapters": [1, 2],
+  "savePoint": { "cityId": "ignis", "tileX": 64, "tileY": 64 }
+}
+```
+
+Sunucu istemciye güvenmez ve her yazmada doğrular:
+- `playerName`: 2-20 karakter (harf, rakam, boşluk, `_ . -`)
+- `completedChapters`: aralıksız `[1..n]`, en fazla 8 bölüm
+- `savePoint`: `null` (yeni oyun) ya da bilinen bir şehir (`ignis`, `abyss`, `stone-heart`, `still-crystal`) ve 0-500 arası tam sayı karo
+- Fazla alanlar atılır, gövde en fazla 4 KB
+
+Geçersiz kayıt `400` ile reddedilir ve eski kayıt bozulmaz. Veritabanındaki kayıt bozuksa oyuncu yeni oyunla başlar.
+
+İstemci güvenliği: kayıt **yüklenemezse** o oturumda kaydetme kapatılır, böylece yüklenemeyen gerçek ilerlemenin üzerine yeni oyun yazılmaz.
 
 ## Güvenlik notları
 
@@ -57,18 +82,20 @@ Hatalar `{ code, error }` biçimindedir (`error` Türkçe, kullanıcıya göster
 | `AUTH_RATE_LIMIT` | Dakikada IP başına deneme sınırı (varsayılan 10) |
 | `PORT` / `HOST` | Dinlenen port (3000) ve adres |
 
-## Yerelde çalıştırma
+## Yerelde çalıştırma (Docker gerekmez)
+
+Üç ayrı terminalde, depo kökünden:
 
 ```bash
 npm install
-docker compose up -d db          # yalnız PostgreSQL (127.0.0.1:5432)
-cd server
-export DATABASE_URL=postgresql://magicalbattle:SIFRENIZ@localhost:5432/magicalbattle
-npx prisma migrate deploy
-npm run dev
+npm run dev:db       # yerel PostgreSQL (veriler server/.devdb içinde kalır) + migrasyonlar
+npm run dev:server   # API, http://localhost:3000
+npm run dev          # oyun, http://localhost:5173
 ```
 
-Docker kullanmak istemezsen birim testleri veritabanı olmadan çalışır; gerçek PostgreSQL testi için aşağıya bak.
+Oyun, `localhost` üzerindeyken API'ye `http://localhost:3000` adresinden bağlanır. Yayında (`*.dorukplays.com`) `https://api.dorukplays.com` kullanır. Başka bir adres için derlemeden önce `VITE_API_URL` ortam değişkenini ayarla.
+
+Docker kullanmak istersen: `docker compose up -d db` ve `DATABASE_URL` ile kendi veritabanını göster.
 
 ## Testler
 

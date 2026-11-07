@@ -16,3 +16,10 @@ body {
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Metin girişleri: global "seçilemez" kuralı yazmayı engellemesin (özellikle iOS) */
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
