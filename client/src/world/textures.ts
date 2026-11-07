@@ -1,6 +1,6 @@
 import type * as PhaserTypes from 'phaser';
 import { mulberry32 } from './rng';
-import { TILE_SIZE, Tile } from './tiles';
+import { TILE_COUNT, TILE_SIZE, Tile } from './tiles';
 
 export const TILESET_KEY = 'tiles';
 export const PLAYER_KEY = 'player';
@@ -44,7 +44,32 @@ export function createTilesetTexture(scene: Scene): void {
   speckles(Tile.Sand, 0xc4ad72, 12);
   speckles(Tile.Sand, 0xeedaa4, 6);
 
-  g.generateTexture(TILESET_KEY, S * 4, S);
+  // Sur (taş duvar)
+  g.fillStyle(0x7d7d88, 1).fillRect(origin(Tile.Wall), 0, S, S);
+  g.fillStyle(0x5e5e69, 1);
+  for (let row = 0; row < 4; row++) {
+    g.fillRect(origin(Tile.Wall), row * 8 + 7, S, 1);
+    const offset = row % 2 === 0 ? 8 : 16;
+    g.fillRect(origin(Tile.Wall) + offset, row * 8, 1, 8);
+    g.fillRect(origin(Tile.Wall) + offset + 16, row * 8, 1, 8);
+  }
+  g.fillStyle(0x9a9aa6, 1).fillRect(origin(Tile.Wall), 0, S, 2);
+
+  // Kapı (taş kemer içinde ahşap kapı)
+  g.fillStyle(0x7d7d88, 1).fillRect(origin(Tile.Gate), 0, S, S);
+  g.fillStyle(0x5b3a1e, 1).fillRect(origin(Tile.Gate) + 4, 6, 24, 26);
+  g.fillStyle(0x3d2512, 1);
+  g.fillRect(origin(Tile.Gate) + 15, 6, 2, 26);
+  g.fillRect(origin(Tile.Gate) + 4, 14, 24, 2);
+  g.fillRect(origin(Tile.Gate) + 4, 24, 24, 2);
+  g.fillStyle(0xd7b66d, 1).fillRect(origin(Tile.Gate) + 12, 19, 2, 3);
+
+  // Yol
+  g.fillStyle(0xa67c52, 1).fillRect(origin(Tile.Path), 0, S, S);
+  speckles(Tile.Path, 0x8d6841, 12);
+  speckles(Tile.Path, 0xc09a6b, 8);
+
+  g.generateTexture(TILESET_KEY, S * TILE_COUNT, S);
   g.destroy();
 }
 
