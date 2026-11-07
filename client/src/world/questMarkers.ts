@@ -51,6 +51,12 @@ export class QuestTracker {
     this.active.delete(chapter);
   }
 
+  /** Başlangıç durumuna döner (yalnızca 1. bölüm aktif). */
+  reset(): void {
+    this.active.clear();
+    this.active.add(1);
+  }
+
   activeMarkers(): MainQuestMarker[] {
     return MAIN_QUEST_MARKERS.filter((m) => this.active.has(m.chapter));
   }
