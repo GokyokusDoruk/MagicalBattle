@@ -12,14 +12,14 @@ Yüzyıllardır dengeyi **Düzen Bekçileri** korurdu. Bir gece **Malakor**, yan
 elementin kaynağını ele geçirdi, Bekçileri dağıttı ve diyarı dört surlu şehir ile dört köye böldü.
 Şehirlerin kapıları halka kapatıldı, her şehre bir **general** ya da onun kuklası yerleştirildi.
 
-Oyuncu, Bekçilerin son çırağıdır. Adı oyuncu tarafından girilir. Şehirleri tek tek özgürleştirir ve
+Oyuncu, Bekçilerin son çırağıdır. Adını oyun başında kendisi seçer. Şehirleri tek tek özgürleştirir ve
 Malakor'la yüzleşir.
 
 ## 2. Ana karakterler
 
 | Karakter | Rol | Element | Not |
 |---|---|---|---|
-| **Oyuncu** | Son Bekçi çırağı | Seçilebilir | Ahlak seçimiyle yönü belirlenir |
+| **Oyuncu** | Son Bekçi çırağı | Dört elementi de kullanır | Ahlak puanı yönünü belirler |
 | **Elysia** | Yoldaş, Rüzgar Büyücüsü | Hava | Neşeli, çabuk sinirlenen, Bekçilerin kayıp kızı. Her zaman yanında değil |
 | **Malakor** | Gölge Hükümdarı, ana kötü | Gölge (4 element üstü) | Soğukkanlı, sakin konuşur |
 | **General Vael** | Ateş generali | Ateş | Kaba kuvvet, kibirli |
@@ -111,24 +111,51 @@ savaşlarda oyuncu tek başınadır.
 - **Boss: Malakor.**
   - **Düzen Bekçisi yolu:** Elysia ile **2v2**.
   - **Karanlık Büyücü yolu:** Oyuncu **tek başına** savaşır.
-- **Final:** Bkz. bölüm 5 (Ahlak sistemi) tablosundaki "Final" satırı.
+- **Final:** Bkz. bölüm 5 (Ahlak sistemi), "Final" paragrafı.
 
 ## 5. Ahlak sistemi
 
-Her büyük seçim iki yönden birine puan ekler. Yön, savaş dışındaki akışı değiştirir.
+Oyuncunun bir **ahlak puanı** vardır (-100 ile +100 arası, oyuna 0 ile başlar). Hikâyedeki **her büyük
+seçim** puanı iyi yönde (+) ya da kötü yönde (-) değiştirir, tarafsız seçim yoktur. Seçimin ağırlığına
+göre puan 5 ile 15 arasında değişir. Sayılar ayarlanabilir.
 
-| | Düzen Bekçisi | Karanlık Büyücü |
-|---|---|---|
-| Efekt rengi | Altın / Mavi | Mor / Siyah |
-| Tüccar | İndirim | Yüksek satış değeri |
-| Görev ödülü | Daha çok altın | Daha çok ganimet düşme oranı |
-| Final | 8 şehri Elysia ile özgürleştirir | Elysia'ya ihanet eder, mutlak tiran olur |
+Puan arttıkça (ya da eksildikçe) etkiler **kademeli olarak güçlenir**:
 
-**Seçim örnekleri:**
-- Bölüm 1: Esir köle işçilerin hepsini mi kurtarırsın, yoksa en güçlüleri ordun için mi alırsın?
-- Bölüm 4: Soyluların sırlarını yalnızca kendini korumak için mi kullanırsın, yoksa onları ezmek için mi?
-- Bölüm 6: Cadı Morga'yı bağışlar mısın, yoksa gücünü mü alırsın?
-- Bölüm 7: Morwenna'nın zihin kontrolünü kıran büyü, ona da zarar verir. Kıracak mısın?
+| Kademe | Puan | Düzen Bekçisi (+) | Karanlık Büyücü (-) |
+|---|---|---|---|
+| Yok | -19 ile +19 | Etki yok | Etki yok |
+| I | ±20 ile ±49 | Hafif altın/mavi efekt, tüccar %5 indirim, görev altını +%10 | Hafif mor/siyah efekt, satış değeri +%5, düşme oranı +%10 |
+| II | ±50 ile ±79 | Belirgin efekt, %10 indirim, görev altını +%20 | Belirgin efekt, satış +%10, düşme oranı +%20 |
+| III | ±80 ile ±100 | Tam efekt, %15 indirim, görev altını +%30 | Tam efekt, satış +%15, düşme oranı +%30 |
+
+**Final:** Bölüm 8'e girerken puan 0 ya da üstündeyse Düzen Bekçisi yolu (8 şehri Elysia ile
+özgürleştirir, Malakor'la 2v2). Puan 0'ın altındaysa Karanlık Büyücü yolu (Elysia'ya ihanet eder,
+mutlak tiran olur, Malakor'la tek başına). Ne kadar uç bir puandaysa final sahnesi o kadar güçlü
+bir şekilde işlenir (kademeye göre farklı sahne metni).
+
+### Seçimler (16 adet, bölüm başına 2)
+
+| Bölüm | Seçim | İyi (+) | Kötü (-) |
+|---|---|---|---|
+| 1 | Esir köle işçiler | Hepsini kurtar | En güçlüleri ordun için al |
+| 1 | Yaralı Ignis nöbetçisi | Şifacıya götür | Susturmak için bırak |
+| 2 | Ambargodaki köylüler | Erzakı paylaştır | Fazlasını sat |
+| 2 | Yakalanan kervancı | Serbest bırak | Eşyasına el koy |
+| 3 | Tapınak bekçisi teslim olursa | Merhamet göster | Haberi ağzından almak için sıkıştır |
+| 3 | Tapınağın kutsal emaneti | Yerinde bırak | Gücünü al |
+| 4 | Soyluların sırları | Yalnız Malakor'dan kopmaları için kullan | Onları ezmek için kullan |
+| 4 | Soylu şampiyonun ailesi | Zarar verme | Rehin al |
+| 5 | Kale işçileri deprem sırasında | Önce onları tahliye et | Sabotajı aksatma, devam et |
+| 5 | Kaelen'in son isteği | Yerine getir | Reddet |
+| 6 | Cadı Morga yenilince | Bağışla | Gücünü al |
+| 6 | Bataklık köylüleri sisten çıkarken | Hepsini koru | Önce yolu aç, geride kalanlar kalsın |
+| 7 | Morwenna'nın zihin kontrolünü kıran büyü ona da zarar verir | Kır ve riske gir | Kırmadan Elysia'yı çek |
+| 7 | Zindandaki mahkûmlar | Hepsini serbest bırak | Yalnız işine yarayanları al |
+| 8 | Özgürleşen şehir temsilcileri | Gönüllü destek iste | Zorla ordu kur |
+| 8 | Malakor'un teslim teklifi | Reddet | Kabul et ve gücü paylaş |
+
+Bölüm 8'in iki seçimi, finalden önce puanı son kez değiştirir. Bu yüzden final yolu, puan bölüm 8'in
+sonunda hesaplanarak belirlenir (yukarıdaki kural bölüm 8 seçimleri bittikten sonra uygulanır).
 
 ## 6. Elysia'nın seyri
 
@@ -162,8 +189,8 @@ Sahne verisi şu biçimde tutulacak (örnek):
 }
 ```
 
-## 8. Onay bekleyen sorular
+## 8. Onaylanan kararlar
 
-1. Oyuncu karakterinin adı ve elementi baştan mı seçilecek, yoksa hikâye içinde mi belirlenecek?
-2. Yukarıdaki yan karakter ve ahlak seçimi örnekleri uygun mu? Eklemek ya da çıkarmak istediğin var mı?
-3. Bölüm 5 ve 6'daki Elysia flashback'leri istediğin gibi mi?
+1. Oyuncunun **adı** oyun başında seçilir. Element seçimi yok, oyuncu dört elementin büyüsünü de kullanabilir.
+2. Ahlak sistemi: her seçim iyi ya da kötü puan değiştirir, etkiler kademeli olarak artar (bölüm 5).
+3. Bölüm 5 ve 6'daki Elysia flashback'leri onaylandı.
