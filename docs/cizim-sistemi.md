@@ -4,7 +4,10 @@ Savaşta büyü, tuvale çizilir. Saldıran ve savunan **aynı sabit tuvalde** �
 
 ## Denemek için
 
-Oyunun adresine `?lab=draw` ekle (örn. `https://magicalbattle.dorukplays.com/?lab=draw`). Giriş gerekmez. Bir büyü çiz, sistemin çizimini nasıl ölçtüğünü ve yoğunluk haritasını gör.
+Oyunun adresine `?lab=draw` ekle (örn. `https://magicalbattle.dorukplays.com/?lab=draw`). Giriş gerekmez. İki mod var:
+
+- **Tek çizim:** Bir büyü çiz, sistemin çizimini nasıl ölçtüğünü ve yoğunluk haritasını gör.
+- **Saldırı & savunma:** Önce saldırı, sonra savunma çiz; kaçta kaçının savunulduğunu ve hasarın nereden geleceğini gör.
 
 ## Kurallar
 
@@ -25,11 +28,34 @@ Oyunun adresine `?lab=draw` ekle (örn. `https://magicalbattle.dorukplays.com/?l
 
 Tek nokta, basılı tutma ve küçük karalamalar bu yüzden geçersizdir. Uzun bir düz çizgi geçerlidir.
 
+## Savunma eşleşmesi (Task 10)
+
+Kod: `client/src/battle/match/defense.ts`. Saldırı ve savunma yoğunluk haritaları aynı tuvalde üst üste konur:
+
+- Saldırının her hücredeki **ağırlığı** (orada harcanan süre), savunmanın o hücredeki **korumasıyla** azalır.
+- **Korunan kısım savunulmuştur, korunmayan kısım hasar verir.** `savunulan + hasar verecek = saldırı` her hücrede korunur.
+- Savunma izinin içindeki hücreler tam, kenarından **2 hücreye** kadar uzaktakiler kademeli olarak korunur (küçük kaymalar cezalandırılmaz).
+- Saldırıda çok vakit harcanan nokta daha ağırdır: orayı savunmak, hafif bir noktayı savunmaktan çok daha değerlidir.
+- Savunmanın **kendi** hızı ve süresi sonucu değiştirmez, yalnızca nereyi kapattığı önemlidir. Saldırıdan geniş çizmek %100'ü geçmez.
+- Savunma yapılamadıysa (minimum hacim altı) hiçbir şey savunulmaz, saldırının tamamı hasar verir.
+
+Gerçek değerlerden örnekler (saldırı: yarıçapı 70 olan daire):
+
+| Savunma | Savunulan |
+|---|---|
+| Aynı daire | %100 |
+| Aynı daire, 8 birim (1 hücre) kaymış | %92 |
+| Aynı daire, 24 birim kaymış | %47 |
+| Yarıçapı 60 olan daire | %79 |
+| Yarıçapı 50 olan daire | %16 |
+| Yarım çember | %55 |
+
+`savunulmayan` haritası, Task 11'de baş bölgesi çarpanı (×1.5) ve diğer hasar adımlarına girdi olacak.
+
 ## Ayarlar
 
-Hepsi `client/src/battle/gesture/config.ts` içinde: süreler, ızgara boyutu, fırça yarıçapı ve minimum hacim eşikleri. Eşikleri laboratuvar sayfasında deneyerek ayarla.
+Çizim için `client/src/battle/gesture/config.ts` (süreler, ızgara boyutu, fırça yarıçapı, minimum hacim eşikleri), eşleşme için `DEFENSE_SOFT_EDGE_CELLS` (`battle/match/defense.ts`). Eşikleri laboratuvar sayfasında deneyerek ayarla.
 
 ## Sonraki adımlar
 
-- **Task 10:** Saldırı ve savunma yoğunluk haritalarının eşleşmesi (eşleşen kısım savunulmuş sayılır).
 - **Task 11:** Hasar hesabı; çizim gücü (büyüklük ve süre ağırlığı) burada kullanılır.

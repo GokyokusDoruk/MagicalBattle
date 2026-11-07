@@ -1,10 +1,12 @@
 import { BRUSH_RADIUS, DRAW_TIME_MS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
-import type { DrawingResult } from '../battle/gesture/types';
+import type { DrawingResult, Stroke } from '../battle/gesture/types';
 
 export interface DrawingCanvasOptions extends SessionOptions {
   /** Fırça rengi (elementin rengi) */
   color: string;
+  /** Soluk "hayalet" olarak gösterilecek çizgiler (savunan, gelen saldırıyı görür) */
+  ghost?: readonly Stroke[];
 }
 
 /**
@@ -126,6 +128,32 @@ export class DrawingCanvas {
     done?.(result);
   }
 
+  /** Çizgileri verilen renkte çizer; `glow` açıksa parlama ekler. */
+  private drawStrokes(strokes: readonly Stroke[], color: string, scale: number, glow: boolean): void {
+    const { ctx } = this;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = glow ? 7 * scale : 0;
+    ctx.lineWidth = BRUSH_RADIUS * 1.2 * scale;
+    for (const stroke of strokes) {
+      if (stroke.length === 0) continue;
+      if (stroke.length === 1) {
+        ctx.beginPath();
+        ctx.arc(stroke[0].x * scale, stroke[0].y * scale, BRUSH_RADIUS * 0.6 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
+      ctx.beginPath();
+      ctx.moveTo(stroke[0].x * scale, stroke[0].y * scale);
+      for (let k = 1; k < stroke.length; k++) ctx.lineTo(stroke[k].x * scale, stroke[k].y * scale);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+  }
+
   private render(now: number): void {
     const { ctx, canvas } = this;
     const scale = canvas.width / LOGICAL_SIZE;
@@ -141,27 +169,8 @@ export class DrawingCanvas {
     ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
 
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = this.options.color;
-    ctx.fillStyle = this.options.color;
-    ctx.shadowColor = this.options.color;
-    ctx.shadowBlur = 14 * scale * 0.5;
-    ctx.lineWidth = BRUSH_RADIUS * 1.2 * scale;
-    for (const stroke of this.session.liveStrokes) {
-      if (stroke.length === 0) continue;
-      if (stroke.length === 1) {
-        ctx.beginPath();
-        ctx.arc(stroke[0].x * scale, stroke[0].y * scale, (BRUSH_RADIUS * 0.6) * scale, 0, Math.PI * 2);
-        ctx.fill();
-        continue;
-      }
-      ctx.beginPath();
-      ctx.moveTo(stroke[0].x * scale, stroke[0].y * scale);
-      for (let k = 1; k < stroke.length; k++) ctx.lineTo(stroke[k].x * scale, stroke[k].y * scale);
-      ctx.stroke();
-    }
-    ctx.shadowBlur = 0;
+    if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
+    this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
 
     const total = this.options.drawTimeMs ?? DRAW_TIME_MS;
     const remaining = this.session.remainingMs(now);
