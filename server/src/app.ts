@@ -5,19 +5,22 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import { registerAuthRoutes, SESSION_COOKIE } from './routes/auth.js';
+import { registerSaveRoutes } from './routes/save.js';
+import type { SaveRepository } from './save/repository.js';
 import type { UserRepository } from './users/repository.js';
 
 export interface AppDeps {
   config: Config;
   users: UserRepository;
+  saves: SaveRepository;
   logger?: boolean;
 }
 
 /** Uygulamayı kurar. Veritabanı `users` üzerinden verildiği için testlerde bellek deposu kullanılır. */
-export async function buildApp({ config, users, logger = false }: AppDeps): Promise<FastifyInstance> {
+export async function buildApp({ config, users, saves, logger = false }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy: true });
 
-  await app.register(cors, { origin: config.corsOrigins, credentials: true, methods: ['GET', 'POST'] });
+  await app.register(cors, { origin: config.corsOrigins, credentials: true, methods: ['GET', 'POST', 'PUT'] });
   await app.register(cookie);
   await app.register(jwt, {
     secret: config.jwtSecret,
@@ -42,6 +45,7 @@ export async function buildApp({ config, users, logger = false }: AppDeps): Prom
 
   app.get('/health', async () => ({ status: 'ok', game: 'MagicalBattle' }));
   registerAuthRoutes(app, { config, users });
+  registerSaveRoutes(app, saves);
 
   return app;
 }

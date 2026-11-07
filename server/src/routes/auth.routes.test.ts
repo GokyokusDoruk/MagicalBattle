@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../app.js';
 import { loadConfig } from '../config.js';
+import { MemorySaveRepository } from '../save/repository.js';
 import { MemoryUserRepository } from '../users/memoryRepository.js';
 import { SESSION_COOKIE } from './auth.js';
 
@@ -11,7 +12,7 @@ let users: MemoryUserRepository;
 
 async function start(authRateLimit = 1000): Promise<void> {
   users = new MemoryUserRepository();
-  app = await buildApp({ config: { ...loadConfig({}), authRateLimit, corsOrigins: [ORIGIN] }, users });
+  app = await buildApp({ config: { ...loadConfig({}), authRateLimit, corsOrigins: [ORIGIN] }, users, saves: new MemorySaveRepository() });
 }
 
 beforeEach(() => start());
@@ -195,7 +196,7 @@ describe('güvenlik', () => {
       },
       findById: async () => null,
     };
-    app = await buildApp({ config: { ...loadConfig({}), authRateLimit: 1000 }, users: broken });
+    app = await buildApp({ config: { ...loadConfig({}), authRateLimit: 1000 }, users: broken, saves: new MemorySaveRepository() });
     const res = await post('/auth/login', { username: 'Doruk42', password: 'guvenli-sifre-1' });
     expect(res.statusCode).toBe(500);
     expect(res.json()).toEqual({ code: 'SERVER_ERROR', error: 'Sunucu hatası. Lütfen biraz sonra tekrar dene.' });

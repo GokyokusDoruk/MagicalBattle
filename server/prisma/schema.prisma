@@ -21,6 +21,17 @@ model User {
   /// Küçük harfe çevrilmiş e-posta
   email        String?  @unique
   createdAt    DateTime @default(now())
+  save         SaveGame?
 
   @@map("users")
+}
+
+/// Oyuncunun tek kayıt dosyası (hesap başına bir tane). İçerik sunucuda doğrulanır.
+model SaveGame {
+  userId    String   @id @db.Uuid
+  data      Json
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("save_games")
 }

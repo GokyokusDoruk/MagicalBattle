@@ -3,6 +3,7 @@ import type { Axis } from '../input/axis';
 import { moveWithCollision } from './collision';
 import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
+import { CityEntryTracker, cityAt } from '../save/cityEntry';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
 import { PLAYER_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
@@ -26,6 +27,10 @@ export interface WorldContext {
   onMarkerEnter: (marker: MainQuestMarker) => void;
   /** Her karede oyuncunun dünya konumu (piksel) */
   onFrame?: (player: { x: number; y: number }) => void;
+  /** Oyunun başlayacağı karo (kayıttan devam); yoksa haritanın başlangıç noktası */
+  startTile?: { x: number; y: number };
+  /** Oyuncu bir şehrin surlarının içine yeni girdi (kayıt noktası) */
+  onCityEnter?: (cityId: string) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
   takeTeleport?: () => { x: number; y: number } | null;
 }
@@ -37,6 +42,7 @@ export class WorldScene extends Phaser.Scene {
   private markerSprites = new Map<string, Phaser.GameObjects.Text>();
   private insideMarkers = new Set<string>();
   private lastGateNotice = new Map<string, number>();
+  private cityTracker = new CityEntryTracker();
 
   constructor(private readonly ctx: WorldContext) {
     super('world');
@@ -55,7 +61,10 @@ export class WorldScene extends Phaser.Scene {
     this.createLocationLabels();
     this.createMarkerSprites();
 
-    this.pos = { x: map.spawn.x * TILE_SIZE + TILE_SIZE / 2, y: map.spawn.y * TILE_SIZE + TILE_SIZE / 2 };
+    const start = this.ctx.startTile ?? map.spawn;
+    this.pos = { x: start.x * TILE_SIZE + TILE_SIZE / 2, y: start.y * TILE_SIZE + TILE_SIZE / 2 };
+    // Kayıttan şehrin içinde başlanıyorsa bu yeni bir "giriş" sayılmaz (tekrar kayıt tetiklenmesin)
+    this.cityTracker = new CityEntryTracker(cityAt(map.locations, start.x, start.y));
     this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.8).setDepth(10);
 
     const cam = this.cameras.main;
@@ -115,6 +124,7 @@ export class WorldScene extends Phaser.Scene {
     this.movePlayer(delta);
     this.checkGates(time);
     this.checkMarkers();
+    this.checkCityEntry();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
@@ -149,6 +159,13 @@ export class WorldScene extends Phaser.Scene {
       const city = map.locations.find((l) => l.id === gate.cityId)!;
       this.ctx.notify(`${city.name} kapısı kilitli. Bu bölgenin ana görevini tamamla.`);
     }
+  }
+
+  /** Surların içine yeni girildiğinde kayıt noktasını tetikler. */
+  private checkCityEntry(): void {
+    const city = cityAt(this.ctx.map.locations, Math.floor(this.pos.x / TILE_SIZE), Math.floor(this.pos.y / TILE_SIZE));
+    const entered = this.cityTracker.update(city);
+    if (entered) this.ctx.onCityEnter?.(entered);
   }
 
   /** Sarı işaretlerin görünürlüğünü günceller, yanına gelince görev sahnesini başlatır. */

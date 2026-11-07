@@ -1,11 +1,17 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPrisma } from './db.js';
+import { PrismaSaveRepository } from './save/prismaRepository.js';
 import { PrismaUserRepository } from './users/prismaRepository.js';
 
 const config = loadConfig();
 const prisma = createPrisma(config.databaseUrl);
-const app = await buildApp({ config, users: new PrismaUserRepository(prisma), logger: true });
+const app = await buildApp({
+  config,
+  users: new PrismaUserRepository(prisma),
+  saves: new PrismaSaveRepository(prisma),
+  logger: true,
+});
 
 const shutdown = async (): Promise<void> => {
   await app.close();

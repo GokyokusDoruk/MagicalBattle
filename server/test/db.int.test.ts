@@ -9,6 +9,7 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { createPrisma } from '../src/db.js';
 import type { PrismaClient } from '../src/generated/prisma/client.js';
+import { PrismaSaveRepository } from '../src/save/prismaRepository.js';
 import { PrismaUserRepository } from '../src/users/prismaRepository.js';
 import { DuplicateError } from '../src/users/repository.js';
 
@@ -49,9 +50,27 @@ beforeAll(async () => {
     shell: true,
   });
 
+  // Migrasyon dosyaları schema.prisma ile birebir aynı sonucu vermeli (unutulmuş migrasyon yakalanır)
+  await pg.createDatabase(`${DB}_shadow`);
+  execFileSync(
+    'npx',
+    [
+      'prisma', 'migrate', 'diff',
+      '--from-migrations', 'prisma/migrations',
+      '--to-schema', 'prisma/schema.prisma',
+      '--exit-code',
+    ],
+    {
+      cwd: join(import.meta.dirname, '..'),
+      env: { ...process.env, DATABASE_URL: URL, SHADOW_DATABASE_URL: URL.replace(`/${DB}`, `/${DB}_shadow`) },
+      stdio: 'pipe',
+      shell: true,
+    },
+  );
+
   prisma = createPrisma(URL);
   repo = new PrismaUserRepository(prisma);
-  app = await buildApp({ config: { ...loadConfig({}), authRateLimit: 1000 }, users: repo });
+  app = await buildApp({ config: { ...loadConfig({}), authRateLimit: 1000 }, users: repo, saves: new PrismaSaveRepository(prisma) });
 }, 180_000);
 
 afterAll(async () => {
@@ -135,5 +154,47 @@ describe('uygulama + gerçek veritabanı', () => {
     expect(row?.passwordHash.startsWith('scrypt$')).toBe(true);
     const login = await app.inject({ method: 'POST', url: '/auth/login', payload: { username: 'misafir9', password: 'misafir-sifre' } });
     expect(login.statusCode).toBe(200);
+  });
+});
+
+describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
+  const saves = () => new PrismaSaveRepository(prisma);
+  const data = {
+    version: 1 as const,
+    playerName: 'Aylin',
+    completedChapters: [1, 2],
+    savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
+  };
+
+  it('kaydı yazar, okur ve üzerine yazar', async () => {
+    const user = await repo.create(base('s1'));
+    expect(await saves().get(user.id)).toBeNull();
+    await saves().put(user.id, data);
+    expect(await saves().get(user.id)).toEqual(data);
+    await saves().put(user.id, { ...data, completedChapters: [1, 2, 3] });
+    expect((await saves().get(user.id))?.completedChapters).toEqual([1, 2, 3]);
+    expect(await prisma.saveGame.count({ where: { userId: user.id } })).toBe(1);
+  });
+
+  it('hesap silinince kaydı da silinir (CASCADE)', async () => {
+    const user = await repo.create(base('s2'));
+    await saves().put(user.id, data);
+    await prisma.user.delete({ where: { id: user.id } });
+    expect(await prisma.saveGame.count({ where: { userId: user.id } })).toBe(0);
+  });
+
+  it('veritabanındaki bozuk kayıt yokmuş gibi davranılır', async () => {
+    const user = await repo.create(base('s3'));
+    await prisma.saveGame.create({ data: { userId: user.id, data: { version: 1, hile: true } } });
+    expect(await saves().get(user.id)).toBeNull();
+  });
+
+  it('uygulama üzerinden: kayıt → oturum → /save yaz-oku', async () => {
+    const g = await app.inject({ method: 'POST', url: '/auth/guest', payload: { username: 'SaveGuest', password: 'misafir-sifre' } });
+    const cookie = `mb_session=${g.cookies.find((c) => c.name === 'mb_session')!.value}`;
+    const w = await app.inject({ method: 'PUT', url: '/save', payload: data, headers: { cookie } });
+    expect(w.statusCode).toBe(200);
+    const r = await app.inject({ method: 'GET', url: '/save', headers: { cookie } });
+    expect(r.json().save).toEqual(data);
   });
 });

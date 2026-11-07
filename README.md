@@ -17,6 +17,7 @@ Gereksinim: Node 20 veya üstü.
 ```bash
 npm install          # tüm paketleri kurar
 npm run dev          # client geliştirme sunucusu
+npm run dev:db       # yerel PostgreSQL (Docker gerekmez)
 npm run dev:server   # server (izleme modunda)
 npm run build        # client üretim derlemesi -> client/dist
 npm run build:server # server derlemesi -> server/dist

@@ -12,7 +12,8 @@
     "test:db": "vitest run --config vitest.int.config.ts",
     "predev": "prisma generate",
     "pretypecheck": "prisma generate",
-    "pretest:db": "prisma generate"
+    "pretest:db": "prisma generate",
+    "dev:db": "node scripts/dev-db.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
