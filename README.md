@@ -21,6 +21,7 @@ npm run dev:server   # server (izleme modunda)
 npm run build        # client üretim derlemesi -> client/dist
 npm run build:server # server derlemesi -> server/dist
 npm run typecheck    # client + server tip kontrolü
+npm test             # client birim testleri (Vitest)
 ```
 
 ## Yayın (Cloudflare Pages)
