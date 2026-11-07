@@ -1,14 +1,16 @@
 import { GRID, LOGICAL_SIZE, MIN_EXTENT, MIN_INKED_CELLS } from '../battle/gesture/config';
+import { calculateDamage, type DamageBreakdown } from '../battle/damage/calculate';
+import { ELEMENT_NAMES, ELEMENTS as ELEMENT_IDS, type Element } from '../battle/damage/elements';
 import type { DensityMap, DrawingResult } from '../battle/gesture/types';
 import { matchDefense, type MatchResult } from '../battle/match/defense';
 import { DrawingCanvas } from './drawingCanvas';
 import { lockTouchScroll } from './touchLock';
 
 const ELEMENTS = [
-  { name: 'Ateş', color: '#ff7a3d' },
-  { name: 'Su', color: '#4db8ff' },
-  { name: 'Toprak', color: '#c8a15a' },
-  { name: 'Hava', color: '#d6efff' },
+  { id: 'fire', name: 'Ateş', color: '#ff7a3d' },
+  { id: 'water', name: 'Su', color: '#4db8ff' },
+  { id: 'earth', name: 'Toprak', color: '#c8a15a' },
+  { id: 'air', name: 'Hava', color: '#d6efff' },
 ] as const;
 
 const DEFENSE_COLOR = '#7df0c4';
@@ -94,6 +96,7 @@ export function startDrawLab(root: HTMLElement): void {
 
   let mode: Mode = 'solo';
   let color: string = ELEMENTS[0].color;
+  const elementOf = (c: string): Element => ELEMENTS.find((e) => e.color === c)!.id;
   let showGhost = true;
 
   const render = (): void => {
@@ -159,7 +162,7 @@ export function startDrawLab(root: HTMLElement): void {
 
   const runDuel = async (stage: HTMLElement): Promise<void> => {
     stage.insertAdjacentHTML('beforeend', '<h2 class="font-bold text-amber-200">1. Saldırı: büyünü çiz</h2>');
-    const attackCanvas = new DrawingCanvas({ color });
+    const attackCanvas = new DrawingCanvas({ color, showHeadZone: true });
     stage.appendChild(attackCanvas.element);
     const attack = await attackCanvas.start();
 
@@ -170,11 +173,11 @@ export function startDrawLab(root: HTMLElement): void {
 
     attackCanvas.element.style.display = 'none';
     stage.insertAdjacentHTML('beforeend', '<h2 class="font-bold text-emerald-200">2. Savunma: saldırıyı durdur</h2>');
-    const defenseCanvas = new DrawingCanvas({ color: DEFENSE_COLOR, ghost: showGhost ? attack.strokes : undefined });
+    const defenseCanvas = new DrawingCanvas({ color: DEFENSE_COLOR, ghost: showGhost ? attack.strokes : undefined, showHeadZone: true });
     stage.appendChild(defenseCanvas.element);
     const defense = await defenseCanvas.start();
 
-    stage.appendChild(duelPanel(attack, defense, render));
+    stage.appendChild(duelPanel(attack, defense, elementOf(color), render));
   };
 
   render();
@@ -212,7 +215,7 @@ function soloPanel(result: DrawingResult, again: () => void): HTMLElement {
   return panel;
 }
 
-function duelPanel(attack: DrawingResult, defense: DrawingResult, again: () => void): HTMLElement {
+function duelPanel(attack: DrawingResult, defense: DrawingResult, attackerElement: Element, again: () => void): HTMLElement {
   const defended = defense.validity.valid;
   const match = matchDefense(attack.density, defended ? defense.density : null);
   const ratio = match.defendedRatio;
@@ -240,11 +243,65 @@ function duelPanel(attack: DrawingResult, defense: DrawingResult, again: () => v
     </table>
     <p class="text-sm text-slate-300"><span class="text-emerald-300">Yeşil</span>: savunuldu · <span class="text-red-300">kırmızı</span>: hasar verecek · <span class="text-blue-300">mavi</span>: boşa giden savunma</p>
     <div data-map></div>
+    <h3 class="mt-2 font-bold text-amber-200">Hasar hesabı</h3>
+    <div class="grid w-full grid-cols-2 gap-2 text-sm" data-controls>
+      <label class="text-slate-300">Savunanın elementi
+        <select data-f="defElement" class="mt-1 w-full rounded bg-slate-800 px-2 py-1">${ELEMENT_IDS.map((e) => `<option value="${e}" ${e === attackerElement ? 'selected' : ''}>${ELEMENT_NAMES[e]}</option>`).join('')}</select></label>
+      <label class="text-slate-300">Büyü taban gücü
+        <input data-f="base" type="number" value="100" min="0" class="mt-1 w-full rounded bg-slate-800 px-2 py-1"></label>
+      <label class="text-slate-300">Verilen hasar (skill/ekipman) %
+        <input data-f="dealt" type="number" value="0" class="mt-1 w-full rounded bg-slate-800 px-2 py-1"></label>
+      <label class="text-slate-300">Alınan hasar (skill/ekipman) %
+        <input data-f="taken" type="number" value="0" class="mt-1 w-full rounded bg-slate-800 px-2 py-1"></label>
+      <label class="col-span-2 text-slate-300">Toplam zırh (hasar azaltma) %
+        <input data-f="armor" type="number" value="0" min="0" max="100" class="mt-1 w-full rounded bg-slate-800 px-2 py-1"></label>
+    </div>
+    <div data-damage class="w-full"></div>
     <button type="button" data-again class="rounded bg-amber-300 px-5 py-2 font-bold text-slate-900">Tekrar dene</button>`;
 
   const map = heatCanvas();
   drawMatchMap(map, attack.density, match);
   panel.querySelector('[data-map]')!.appendChild(map);
   panel.querySelector('[data-again]')!.addEventListener('click', again);
+
+  // Hasar hesabı: alanlar değişince anında yeniden hesaplanır (yeniden çizmeye gerek yok)
+  const field = (name: string): HTMLInputElement | HTMLSelectElement => panel.querySelector(`[data-f=${name}]`)!;
+  const num = (name: string, fallback = 0): number => {
+    const v = Number((field(name) as HTMLInputElement).value);
+    return Number.isFinite(v) ? v : fallback;
+  };
+  const recompute = (): void => {
+    const defenderElement = (field('defElement') as HTMLSelectElement).value as Element;
+    const breakdown = calculateDamage({
+      basePower: num('base', 100),
+      attack,
+      defense: defended ? defense.density : null,
+      attackerElement,
+      defenderElement,
+      attackerDealtMultiplier: 1 + num('dealt') / 100,
+      defenderTakenMultiplier: 1 + num('taken') / 100,
+      defenderArmor: num('armor') / 100,
+    });
+    panel.querySelector('[data-damage]')!.innerHTML = damageTable(breakdown, attackerElement, defenderElement);
+  };
+  panel.querySelectorAll('[data-controls] [data-f]').forEach((el) => el.addEventListener('input', recompute));
+  recompute();
   return panel;
+}
+
+const RELATION_TEXT = { advantage: 'üstünlük', disadvantage: 'dezavantaj', neutral: 'etkisiz' } as const;
+
+function damageTable(b: DamageBreakdown, attacker: Element, defender: Element): string {
+  const n = (v: number): string => v.toFixed(1);
+  const row = (label: string, formula: string, value: string): string =>
+    `<tr class="border-t border-white/10"><td class="py-1 pr-2 text-slate-400">${label}</td><td class="py-1 pr-2 text-xs text-slate-300">${formula}</td><td class="py-1 text-right font-bold">${value}</td></tr>`;
+  return `
+    <div class="mb-2 rounded bg-amber-400/20 p-3 text-center text-2xl font-bold text-amber-200">Hasar: ${b.finalDamage}</div>
+    <table class="w-full text-sm">
+      ${row('1. Çizim gücü', `boyut ${b.powerFactor.size.toFixed(2)} × efor ${b.powerFactor.effort.toFixed(2)} = ×${b.powerFactor.total.toFixed(2)}`, n(b.power))}
+      ${row('2. Savunma + bölge', `geçen %${(b.unblockedRatio * 100).toFixed(0)}, bunun %${(b.headShare * 100).toFixed(0)}'i başa (×${b.weightedUnblockedRatio.toFixed(2)})`, n(b.afterRegion))}
+      ${row('3. Element', `${ELEMENT_NAMES[attacker]} → ${ELEMENT_NAMES[defender]}: ${RELATION_TEXT[b.elementRelation]} ×${b.elementMultiplier}`, n(b.afterElement))}
+      ${row('4. Skill/ekipman', `×${b.skillMultiplier.toFixed(2)}`, n(b.afterSkills))}
+      ${row('5. Zırh', `−%${(b.armorReduction * 100).toFixed(0)}`, n(b.afterArmor))}
+    </table>`;
 }

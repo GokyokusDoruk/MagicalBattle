@@ -1,4 +1,5 @@
 import { BRUSH_RADIUS, DRAW_TIME_MS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
+import { HEAD_ZONE_FRACTION } from '../battle/damage/config';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 
@@ -7,6 +8,8 @@ export interface DrawingCanvasOptions extends SessionOptions {
   color: string;
   /** Soluk "hayalet" olarak gösterilecek çizgiler (savunan, gelen saldırıyı görür) */
   ghost?: readonly Stroke[];
+  /** Rakibin baş bölgesini (üstte, ×1.5 hasar) kesikli çizgiyle göster */
+  showHeadZone?: boolean;
 }
 
 /**
@@ -154,6 +157,27 @@ export class DrawingCanvas {
     ctx.shadowBlur = 0;
   }
 
+  /** Üstteki baş bölgesinin sınırı: savunulmayan büyü buraya düşerse daha çok hasar verir. */
+  private drawHeadZone(scale: number): void {
+    const { ctx, canvas } = this;
+    const y = HEAD_ZONE_FRACTION * LOGICAL_SIZE * scale;
+    ctx.save();
+    ctx.fillStyle = 'rgba(248,113,113,0.07)';
+    ctx.fillRect(0, 0, canvas.width, y);
+    ctx.setLineDash([8 * scale, 6 * scale]);
+    ctx.strokeStyle = 'rgba(248,113,113,0.55)';
+    ctx.lineWidth = Math.max(1, scale);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(248,113,113,0.8)';
+    ctx.font = `${Math.round(11 * scale)}px system-ui, sans-serif`;
+    ctx.fillText('BAŞ  ×1.5', 6 * scale, y - 5 * scale);
+    ctx.restore();
+  }
+
   private render(now: number): void {
     const { ctx, canvas } = this;
     const scale = canvas.width / LOGICAL_SIZE;
@@ -169,6 +193,7 @@ export class DrawingCanvas {
     ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
 
+    if (this.options.showHeadZone) this.drawHeadZone(scale);
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
     this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
 
