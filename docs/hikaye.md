@@ -1,7 +1,7 @@
 # MagicalBattle - Hikâye Dokümanı
 
 > Durum: **taslak, onay bekliyor.** Oyun içi tüm metinler Türkçe. Bu doküman onaylandıktan sonra
-> diyaloglar `client/src/data/story/` altına veri olarak taşınacak (Task 6 ve 18).
+> diyaloglar `client/src/data/story/` altına veri olarak taşınacak (Task 6 ve 18). Seçimler ve Elysia Task 18'de koda geçti: [diyalog-ve-ahlak.md](diyalog-ve-ahlak.md).
 
 ## 1. Dünya
 

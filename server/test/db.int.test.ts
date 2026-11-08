@@ -160,7 +160,7 @@ describe('uygulama + gerçek veritabanı', () => {
 describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
   const saves = () => new PrismaSaveRepository(prisma);
   const data = {
-    version: 4 as const,
+    version: 5 as const,
     playerName: 'Aylin',
     completedChapters: [1, 2],
     savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
@@ -173,6 +173,7 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
     skills: ['fire-power-1', 'earth-ward-1'],
     wands: { 'wand-fire-attack-2': 1 },
     wandsEquipped: { 'fire-attack': 'wand-fire-attack-2' },
+    choices: { 'c1-isciler': 'good' as const },
   };
 
   it('kaydı yazar, okur ve üzerine yazar', async () => {
@@ -198,7 +199,7 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
       data: { userId: user.id, data: { version: 1, playerName: 'Eski', completedChapters: [1], savePoint: null } },
     });
     expect(await saves().get(user.id)).toEqual({
-      version: 4,
+      version: 5,
       playerName: 'Eski',
       completedChapters: [1],
       savePoint: null,
@@ -211,6 +212,7 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
       skills: [],
       wands: {},
       wandsEquipped: {},
+      choices: {},
     });
   });
 

@@ -33,10 +33,10 @@ const SAVE = {
   savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
 };
 
-/** v1 kaydın v4'e yükseltilmiş hali: yeni alanlar varsayılan */
-const UPGRADED = { ...SAVE, version: 4, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandsEquipped: {} };
+/** v1 kaydın v5'e yükseltilmiş hali: yeni alanlar varsayılan */
+const UPGRADED = { ...SAVE, version: 5, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandsEquipped: {}, choices: {} };
 
-/** Güncel (v4) biçim: ekonomi, görevler, toplananlar, yetenekler ve asalar dolu */
+/** Güncel (v5) biçim: ekonomi, görevler, toplananlar, yetenekler, asalar ve ahlak seçimleri dolu */
 const SAVE_V2 = {
   ...UPGRADED,
   gold: 250,
@@ -48,6 +48,7 @@ const SAVE_V2 = {
   skills: ['fire-power-1', 'fire-power-2', 'water-ward-1'],
   wands: { 'wand-fire-attack-3': 2, 'wand-air-defense-1': 7 },
   wandsEquipped: { 'fire-attack': 'wand-fire-attack-3' },
+  choices: { 'c1-isciler': 'good', 'c2-kervanci': 'bad' },
 };
 
 const put = (cookie: string | undefined, payload: unknown) =>
@@ -72,7 +73,7 @@ describe('/save', () => {
     expect((await get(cookie)).json()).toEqual({ save: UPGRADED });
   });
 
-  it('v4 kaydı (ekonomi, görevler, toplananlar, yetenekler, asalar) aynen saklar ve geri verir', async () => {
+  it('v5 kaydı (ekonomi, görevler, toplananlar, yetenekler, asalar, ahlak seçimleri) aynen saklar ve geri verir', async () => {
     const cookie = await guestCookie('misafir2');
     expect((await put(cookie, SAVE_V2)).statusCode).toBe(200);
     expect((await get(cookie)).json()).toEqual({ save: SAVE_V2 });
@@ -108,6 +109,12 @@ describe('/save', () => {
       { wandsEquipped: { 'fire-ruh': 'wand-fire-attack-1' } },
       { wandsEquipped: { 'fire-attack': 5 } },
       { wandsEquipped: ['x'] },
+      { choices: 'hepsi' },
+      { choices: { 'c1-isciler': 'tarafsiz' } },
+      { choices: { 'c1-isciler': 1 } },
+      { choices: { 'BÜYÜK': 'good' } },
+      { choices: Object.fromEntries(Array.from({ length: 17 }, (_, i) => [`c-${i}`, 'good'])) },
+      { choices: ['good'] },
     ];
     for (const over of bad) expect((await put(cookie, { ...SAVE_V2, ...over })).statusCode, JSON.stringify(over).slice(0, 50)).toBe(400);
     expect((await get(cookie)).json()).toEqual({ save: null }); // hiçbiri yazılmadı
@@ -121,16 +128,23 @@ describe('/save', () => {
 
   it('eski v2 kayıt (yeteneksiz) kabul edilir ve boş yeteneklerle v3 olur', async () => {
     const cookie = await guestCookie('misafir6');
-    const { skills: _s, wands: _w, wandsEquipped: _e, ...v2 } = { ...SAVE_V2, version: 2 };
+    const { skills: _s, wands: _w, wandsEquipped: _e, choices: _c, ...v2 } = { ...SAVE_V2, version: 2 };
     expect((await put(cookie, v2)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, skills: [], wands: {}, wandsEquipped: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, skills: [], wands: {}, wandsEquipped: {}, choices: {} });
   });
 
   it('eski v3 kayıt (asasız) kabul edilir ve boş asalarla v4 olur', async () => {
     const cookie = await guestCookie('misafir8');
-    const { wands: _w, wandsEquipped: _e, ...v3 } = { ...SAVE_V2, version: 3 };
+    const { wands: _w, wandsEquipped: _e, choices: _c, ...v3 } = { ...SAVE_V2, version: 3 };
     expect((await put(cookie, v3)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wands: {}, wandsEquipped: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wands: {}, wandsEquipped: {}, choices: {} });
+  });
+
+  it('eski v4 kayıt (ahlak seçimsiz) kabul edilir ve boş seçimlerle v5 olur', async () => {
+    const cookie = await guestCookie('misafir9');
+    const { choices: _c, ...v4 } = { ...SAVE_V2, version: 4 };
+    expect((await put(cookie, v4)).statusCode).toBe(200);
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, choices: {} });
   });
 
   it('tekrarlanan yetenek kimlikleri tekilleştirilir', async () => {
@@ -157,7 +171,7 @@ describe('/save', () => {
 
   it('desteklenmeyen sürüm reddedilir', async () => {
     const cookie = await guestCookie('misafir5');
-    expect((await put(cookie, { ...SAVE, version: 5 })).statusCode).toBe(400);
+    expect((await put(cookie, { ...SAVE, version: 6 })).statusCode).toBe(400);
     expect((await put(cookie, { ...SAVE, version: 0 })).statusCode).toBe(400);
   });
 
@@ -196,7 +210,7 @@ describe('parseSave', () => {
   });
 
   it.each([
-    ['sürüm yanlış', { version: 5 }],
+    ['sürüm yanlış', { version: 6 }],
     ['ad çok kısa', { playerName: 'A' }],
     ['ad çok uzun', { playerName: 'x'.repeat(21) }],
     ['addaki özel karakter', { playerName: '<script>' }],
