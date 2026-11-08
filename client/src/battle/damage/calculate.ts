@@ -31,6 +31,8 @@ export interface DamageInput {
   attackerHeadBonus?: number;
   /** Saldıranın yeteneklerinden: aceleyle çizimde güç tabanına eklenen değer */
   attackerEffortBonus?: number;
+  /** Saldırı çizimine tanınan süre (sn); asa süreyi uzatır. Verilmezse temel süre (3 sn). Aceleyle çizim, tanınan süreye göre ölçülür. */
+  attackerDrawTimeSec?: number;
 }
 
 export interface DamageBreakdown {
@@ -64,9 +66,9 @@ const positive = (v: number | undefined, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
 
 /** Çizimin gücü: büyüklük ve çizime harcanan süre. Küçük ya da aceleyle çizilen büyü zayıf kalır. */
-export function powerFactor(metrics: SpellMetrics, effortBonus = 0): { size: number; effort: number; total: number } {
+export function powerFactor(metrics: SpellMetrics, effortBonus = 0, limitSec = DRAW_TIME_MS / 1000): { size: number; effort: number; total: number } {
   const size = clamp01(metrics.coverage / FULL_POWER_COVERAGE);
-  const timeUsed = clamp01(metrics.drawTimeSec / (DRAW_TIME_MS / 1000));
+  const timeUsed = clamp01(metrics.drawTimeSec / (limitSec > 0 ? limitSec : DRAW_TIME_MS / 1000));
   const floor = Math.min(1, MIN_EFFORT_FACTOR + positive(effortBonus, 0));
   const effort = floor + (1 - floor) * timeUsed;
   return { size, effort, total: size * effort };
@@ -87,7 +89,7 @@ function isHeadRow(row: number): boolean {
  * 6. Zırh: oyuncunun toplam zırhı tek bir azaltma yüzdesi (baş/gövde ayrımı yok)
  */
 export function calculateDamage(input: DamageInput): DamageBreakdown {
-  const factor = powerFactor(input.attack.metrics, input.attackerEffortBonus);
+  const factor = powerFactor(input.attack.metrics, input.attackerEffortBonus, input.attackerDrawTimeSec);
   const power = Math.max(0, input.basePower) * factor.total;
 
   const match = matchDefense(input.attack.density, input.defense);

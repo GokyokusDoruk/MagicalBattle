@@ -6,15 +6,18 @@ import { buy, buyPrice, sell, sellPrice } from '../economy/shop';
 import type { QuestDef } from '../quests/catalog';
 import type { QuestCompletion, QuestEngine } from '../quests/engine';
 import { LOCATIONS } from '../world/locations';
-import { COMMON_WAND_PRICE, ELEMENT_ORDER_FOR_SHOP, ROLE_NAMES, SYNTHESIS_COUNT, describeWand, getWand, wandId } from '../wands/catalog';
-import { buyCommonWand, type WandInventory } from '../wands/inventory';
 import { ELEMENT_NAMES } from '../battle/damage/elements';
+import { ELEMENT_COLORS, RARITY_COLORS, RARITY_NAMES, ROLE_NAMES, SYNTHESIS_COUNT, describeWand, getWand } from '../wands/catalog';
+import type { WandInventory } from '../wands/inventory';
+import type { WandStock } from '../wands/stock';
 
 export interface MerchantUiDeps {
   player: PlayerState;
   quests: QuestEngine;
-  /** Asa envanteri: tüccarlar Sıradan asa satar */
+  /** Asa envanteri */
   wands: WandInventory;
+  /** Tüccarın 5 dakikada bir yenilenen asa stoğu */
+  wandStock: (merchantId: string) => WandStock;
   sfx: SoundEngine;
   /** Görev kabulüyle hedef hemen tamamlandıysa */
   onQuestCompletion: (completion: QuestCompletion) => void;
@@ -64,6 +67,8 @@ export class MerchantUi {
     // Panel açıkken altın, çanta ve görevler değişirse yeniden çiz
     deps.player.onChange(() => this.isOpen && this.render());
     deps.quests.onChange(() => this.isOpen && this.render());
+    // Asa sekmesi açıkken geri sayım ve yenileme için her saniye çizilir
+    window.setInterval(() => this.isOpen && this.tab === 'wands' && this.render(), 1000);
   }
 
   get isOpen(): boolean {
@@ -164,21 +169,30 @@ export class MerchantUi {
 
   private wandsHtml(): string {
     const { player, wands } = this.deps;
+    const m = this.merchant!;
+    const stock = this.deps.wandStock(m.id);
     const mult = this.deps.priceMultipliers?.() ?? { buy: 1, sell: 1 };
-    const price = Math.max(1, Math.round(COMMON_WAND_PRICE * mult.buy));
-    const rows = ELEMENT_ORDER_FOR_SHOP.flatMap((element) =>
-      (['attack', 'defense'] as const).map((role) => {
-        const id = wandId(element, role, 1);
-        const w = getWand(id)!;
-        const cant = player.gold < price;
-        return `<li class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2">
-          <div class="min-w-0"><div class="font-bold">${esc(w.name)} <span class="text-slate-400">×${wands.count(id)}</span></div>
-            <div class="text-[11px] text-slate-400">${esc(ELEMENT_NAMES[element])} · ${esc(ROLE_NAMES[role])} · ${esc(describeWand(w))}</div></div>
-          <button type="button" data-action="buy-wand" data-id="${id}" ${cant ? 'disabled' : ''}
-            class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">🪙 ${price}</button></li>`;
-      }),
-    ).join('');
-    return `<p class="mb-2 text-xs text-slate-400">Tüccarlar yalnızca <b>Sıradan</b> asa satar. Aynı asadan <b>${SYNTHESIS_COUNT}</b> tanesini asa ekranında (W) bir üst nadirlikte 1 asaya birleştirebilirsin.</p>
+    const left = Math.ceil(stock.timeLeftMs() / 1000);
+    const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+
+    const rows = stock
+      .entries()
+      .map((e) => {
+        const w = getWand(e.wandId)!;
+        const price = Math.max(1, Math.round(e.price * mult.buy));
+        const tooHigh = w.level > player.level;
+        const cant = e.sold || player.gold < price || !wands.canAdd(e.wandId, 1);
+        return `<li data-stock="${e.slot}" class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2 ${e.sold ? 'opacity-50' : ''}">
+          <div class="min-w-0">
+            <div class="font-bold"><span style="color:${ELEMENT_COLORS[w.element]}">●</span> <span style="color:${RARITY_COLORS[w.rarity]}">${esc(w.name)}</span> <span class="${tooHigh ? 'text-red-300' : 'text-slate-300'}">Sv ${w.level}</span>${e.rare ? ' <span class="text-[11px] text-sky-300">(nadir, pahalı)</span>' : ''}</div>
+            <div class="text-[11px] text-slate-400">${esc(ELEMENT_NAMES[w.element])} · ${esc(ROLE_NAMES[w.role])} · ${esc(RARITY_NAMES[w.rarity])}</div>
+            <div class="text-[11px] text-slate-500">${esc(describeWand(w).join(' · '))}</div>
+            ${tooHigh ? `<div class="text-[11px] text-red-300">${w.level}. seviyeye gelene kadar kullanamazsın</div>` : ''}</div>
+          <button type="button" data-action="buy-wand" data-id="${e.slot}" ${cant ? 'disabled' : ''}
+            class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">${e.sold ? 'Satıldı' : `🪙 ${price}`}</button></li>`;
+      })
+      .join('');
+    return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${clock}</b> sonra yenilenir. En çok bir <b>Nadir</b> asa bulunur, diğerleri Sıradan ya da Gelişmiş. Aynı asadan (element, rol, nadirlik ve seviye) <b>${SYNTHESIS_COUNT}</b> tanesini asa ekranında (W) bir üst nadirlikte 1 asaya birleştirebilirsin. Asa, seviyene gelene kadar kullanılamaz.</p>
       <ul class="flex flex-col gap-2">${rows}</ul>`;
   }
 
@@ -235,8 +249,8 @@ export class MerchantUi {
         break;
       }
       case 'buy-wand': {
-        const r = buyCommonWand(this.deps.wands, { balance: () => player.gold, spend: (n) => player.spendGold(n) }, id, mult.buy);
-        this.message = r.ok ? `Satın alındı: ${getWand(id)!.name} (-${r.price} altın)` : r.reason;
+        const r = this.deps.wandStock(this.merchant.id).buy(Number(id), this.deps.wands, { balance: () => player.gold, spend: (n) => player.spendGold(n) }, mult.buy);
+        this.message = r.ok ? `Satın alındı: ${getWand(r.wandId)!.name} (-${r.price} altın)` : r.reason;
         if (r.ok) this.changed('pick');
         break;
       }

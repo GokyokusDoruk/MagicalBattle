@@ -21,7 +21,7 @@ Sahne, savaş ve seçimler sürerken dünya durur.
 
 - **Can:** 300 + seviye başına 10 (30. seviyede 590).
 - **Zırh:** kuşanılan ekipmanların toplamı ([ekonomi-ve-gorevler.md](ekonomi-ve-gorevler.md)).
-- **Yetenekler** ve **asalar** savaşçıya bağlanır ([yetenek-agaci.md](yetenek-agaci.md), [asalar.md](asalar.md)); artık dünyadaki gerçek savaşlarda da etkililer.
+- **Yetenekler** ve **asa** savaşçıya bağlanır (asa çizim süresini de uzatır) ([yetenek-agaci.md](yetenek-agaci.md), [asalar.md](asalar.md)); artık dünyadaki gerçek savaşlarda da etkililer.
 - **Elysia** yalnız 3. bölümde ve Düzen Bekçisi yolunda 8. bölümde yanındadır (2v2), kendi yapay zekâsıyla ([diyalog-ve-ahlak.md](diyalog-ve-ahlak.md)).
 
 ## Bosslar
@@ -31,17 +31,17 @@ Sahne, savaş ve seçimler sürerken dünya durur.
 | 1 | General Vael | 260 | 115 | 0 | 0.25 | Kaba kuvvet: büyük ve güçlü vurur, savunması zayıf. Yalnız ateş | 120 altın, 110 XP | 1 |
 | 2 | Ambargo Komutanı | 300 | 85 | %20 | 0.70 | Savunma ağırlıklı (toprak, su) | 160, 150 | 4 |
 | 3 | Tapınak Bekçisi + Rüzgâr Çırağı | 420 + 320 | 110 / 100 | %15 / %5 | 0.55 / 0.50 | **2v2**, Elysia yanında. Hava ağırlıklı | 220, 200 | 5 |
-| 4 | Soylu Şampiyonu | 420 | 80 | %35 | 0.50 | Zırhı güçlü, yavaş vurur | 280, 250 | 7 |
-| 5 | General Kaelen | 480 | 90 | %25 | 0.60 | Sağlam, uzun savaş (60 döngü) | 360, 330 | 10 |
+| 4 | Soylu Şampiyonu | 540 | 85 | %35 | 0.55 | Zırhı güçlü, yavaş vurur | 280, 250 | 7 |
+| 5 | General Kaelen | 580 | 95 | %25 | 0.60 | Sağlam, uzun savaş (60 döngü) | 360, 330 | 10 |
 | 6 | Cadı Morga | 560 | 110 | %15 | 0.60 | **Sis:** savunurken gelen saldırıyı göremezsin | 420, 400 | 12 |
 | 7 | General Morwenna | 560 | 108 | %20 | 0.65 | **Zihin kontrolü:** 3. döngüden sonra çizim tuvali bulanıklaşır | 500, 480 | 17 |
-| 8 | Malakor (+ Gölge) | 650 (+300) | 110 / 90 | %20 / %10 | 0.75 / 0.55 | Dört elementi kullanır. **Düzen yolu: Elysia ile 2v2.** **Karanlık yol: tek başına, Malakor tek** (480 can) | 900, 900 | 20 |
+| 8 | Malakor (+ Gölge) | 760 (+340) | 115 / 95 | %20 / %10 | 0.75 / 0.55 | Dört elementi kullanır. **Düzen yolu: Elysia ile 2v2.** **Karanlık yol: tek başına, Malakor tek** (560 can) | 900, 900 | 20 |
 
 "Güç" büyünün taban gücüdür (oyuncununki 100). "Savunma becerisi" botun gelen saldırıyı ne kadar iyi kapattığıdır. Ödüller yalnız ilk zaferde verilir (bölüm tamamlanınca işaretçi kapanır).
 
 ## Denge
 
-Sayılar tahmindir; denge testi (`boss/bosses.test.ts`) oyuncunun yerine geçen bir **vekil bot** kullanır: seviyeye göre makul bir donanım (verilen hasar seviye başına +%3, zırh seviye başına %1.2) ve orta beceri (0.6). Test şunları doğrular:
+Sayılar tahmindir; denge testi (`boss/bosses.test.ts`) oyuncunun yerine geçen bir **vekil bot** kullanır: seviyeye göre makul bir donanım (ekipman/yetenekten verilen hasar seviye başına +%1.5, zırh seviye başına %1.2, her 6 seviyede bir nadirliği artan bir **saldırı asası**) ve orta beceri (0.6). Test şunları doğrular:
 
 - Hedef seviyede boss **yenilebilir ama kolay değil** (kazanma %30-99).
 - 4. bölümden sonrası 1. seviyede neredeyse imkânsız (<%20); 1. boss 1. seviyede yenilebilir (≥%70).

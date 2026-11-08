@@ -6,13 +6,15 @@ import { buy } from '../economy/shop';
 import { QuestEngine } from '../quests/engine';
 import { CARRY_SKILLS, getCarrySkill } from '../skills/catalog';
 import { SkillTree } from '../skills/tree';
-import { wandId } from '../wands/catalog';
-import { WandInventory, buyCommonWand } from '../wands/inventory';
+import { wandIdOf } from '../wands/catalog';
+import { WandInventory } from '../wands/inventory';
+import { WandStock } from '../wands/stock';
 import { BASE_CAPACITY, Carry } from './carry';
 
 function setup(level = 30) {
   const player = new PlayerState();
   const wands = new WandInventory();
+  wands.setLevelProvider(() => level);
   const tree = new SkillTree(() => level);
   const carry = new Carry(player, wands, () => tree.carryBonus);
   carry.install();
@@ -132,19 +134,30 @@ describe('kapasite ve kullanım', () => {
 });
 
 describe('asalar ve kapasite', () => {
-  it('kuşanılı asalar yer kaplamaz, kuşanılmayanlar kaplar; 3 asa sınırı', () => {
+  // Aynı asanın farklı seviyeleri ayrı asadır; seviye 1 asalar her seviyede kullanılabilir
+  const wand = (level: number, rarity: 1 | 2 | 3 = 1, element: 'fire' | 'water' | 'air' = 'fire') =>
+    wandIdOf({ element, role: 'attack', rarity, level });
+
+  it('kuşanılı asa yer kaplamaz, kuşanılmayanlar kaplar; 3 asa sınırı', () => {
     const { wands, carry } = setup(1);
-    expect(wands.add(wandId('fire', 'attack', 1))).toBe(true); // kuşanılır: yer kaplamaz
+    expect(wands.add(wand(1))).toBe(true); // kuşanılır: yer kaplamaz
     expect(carry.usage().wands).toBe(0);
-    expect(wands.add(wandId('fire', 'attack', 1), 3)).toBe(true);
+    expect(wands.add(wand(1), 3)).toBe(true);
     expect(carry.usage().wands).toBe(3);
-    expect(wands.add(wandId('fire', 'attack', 1))).toBe(false); // 4. kuşanılmayan sığmaz
-    expect(wands.count(wandId('fire', 'attack', 1))).toBe(4);
+    expect(wands.add(wand(1))).toBe(false); // 4. kuşanılmayan sığmaz
+    expect(wands.count(wand(1))).toBe(4);
+  });
+
+  it('seviyesi yetmeyen asa kuşanılmaz, bu yüzden çantada yer kaplar', () => {
+    const { wands, carry } = setup(1);
+    wands.add(wand(10)); // seviye 1 oyuncu kullanamaz
+    expect(wands.equipped).toBeNull();
+    expect(carry.usage().wands).toBe(1);
   });
 
   it('çantasız 5 aynı asa birleştirilemez, Küçük Çanta ile birleştirilir', () => {
     const { player, wands, carry } = setup(1);
-    const a1 = wandId('fire', 'attack', 1);
+    const a1 = wand(1);
     wands.add(a1, 4); // 1 kuşanılı + 3 çantada
     expect(wands.add(a1)).toBe(false);
     expect(wands.checkSynthesis(a1).ok).toBe(false);
@@ -153,25 +166,27 @@ describe('asalar ve kapasite', () => {
     expect(carry.capacity().wands).toBe(6);
     expect(wands.add(a1)).toBe(true);
     expect(wands.synthesize(a1).ok).toBe(true);
-    expect(wands.count(wandId('fire', 'attack', 2))).toBe(1);
+    expect(wands.count(wand(1, 2))).toBe(1);
   });
 
-  it('asa satın alırken yer yoksa altın harcanmaz', () => {
+  it('tüccardan asa alırken yer yoksa altın harcanmaz', () => {
     const { wands } = setup(1);
-    const gold = { v: 1000 };
-    const api = { balance: () => gold.v, spend: (n: number) => ((gold.v -= n), true) };
-    const id = wandId('water', 'attack', 1);
-    for (let i = 0; i < 4; i++) expect(buyCommonWand(wands, api, id).ok).toBe(true); // 1 kuşanılı + 3
-    const r = buyCommonWand(wands, api, id);
-    expect(r).toMatchObject({ ok: false });
-    expect(gold.v).toBe(1000 - 4 * 40);
+    const wallet = { gold: 100_000 };
+    const gold = { balance: () => wallet.gold, spend: (n: number) => ((wallet.gold -= n), true) };
+    const stock = new WandStock('tuccar-kazim', () => 0, () => 1);
+    const entries = stock.entries();
+    for (const e of entries.slice(0, 4)) expect(stock.buy(e.slot, wands, gold).ok).toBe(true); // 1 kuşanılı + 3
+    const spent = 100_000 - wallet.gold;
+    const r = stock.buy(entries[4].slot, wands, gold);
+    expect(r).toMatchObject({ ok: false, reason: 'Çantanda asa için yer yok.' });
+    expect(wallet.gold).toBe(100_000 - spent);
   });
 
   it('asayı çıkarmak yer ister', () => {
     const { wands } = setup(1);
-    wands.add(wandId('air', 'defense', 1), 4); // 1 kuşanılı, 3 çantada (dolu)
-    expect(wands.unequip('air', 'defense')).toBe(false);
-    expect(wands.equippedFor('air', 'defense')).not.toBeNull();
+    wands.add(wand(1, 1, 'air'), 4); // 1 kuşanılı, 3 çantada (dolu)
+    expect(wands.unequip()).toBe(false);
+    expect(wands.equipped).not.toBeNull();
   });
 });
 

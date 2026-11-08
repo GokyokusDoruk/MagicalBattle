@@ -33,10 +33,10 @@ const SAVE = {
   savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
 };
 
-/** v1 kaydın v5'e yükseltilmiş hali: yeni alanlar varsayılan */
-const UPGRADED = { ...SAVE, version: 5, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandsEquipped: {}, choices: {} };
+/** v1 kaydın v6'ya yükseltilmiş hali: yeni alanlar varsayılan */
+const UPGRADED = { ...SAVE, version: 6, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} };
 
-/** Güncel (v5) biçim: ekonomi, görevler, toplananlar, yetenekler, asalar ve ahlak seçimleri dolu */
+/** Güncel (v6) biçim: ekonomi, görevler, toplananlar, yetenekler, asalar ve ahlak seçimleri dolu */
 const SAVE_V2 = {
   ...UPGRADED,
   gold: 250,
@@ -46,8 +46,8 @@ const SAVE_V2 = {
   quests: { 'ash-ot-toplama': { status: 'completed', progress: 5 }, 'vine-kristal-avi': { status: 'active', progress: 1 } },
   collected: ['p-herb-0', 'p-herb-3'],
   skills: ['fire-power-1', 'fire-power-2', 'water-ward-1'],
-  wands: { 'wand-fire-attack-3': 2, 'wand-air-defense-1': 7 },
-  wandsEquipped: { 'fire-attack': 'wand-fire-attack-3' },
+  wands: { 'wand-fire-attack-3-12': 2, 'wand-air-defense-1-4': 7 },
+  wandEquipped: 'wand-fire-attack-3-12',
   choices: { 'c1-isciler': 'good', 'c2-kervanci': 'bad' },
 };
 
@@ -73,7 +73,7 @@ describe('/save', () => {
     expect((await get(cookie)).json()).toEqual({ save: UPGRADED });
   });
 
-  it('v5 kaydı (ekonomi, görevler, toplananlar, yetenekler, asalar, ahlak seçimleri) aynen saklar ve geri verir', async () => {
+  it('v6 kaydı (ekonomi, görevler, toplananlar, yetenekler, seviyeli asalar, ahlak seçimleri) aynen saklar ve geri verir', async () => {
     const cookie = await guestCookie('misafir2');
     expect((await put(cookie, SAVE_V2)).statusCode).toBe(200);
     expect((await get(cookie)).json()).toEqual({ save: SAVE_V2 });
@@ -102,13 +102,18 @@ describe('/save', () => {
       { skills: ['BÜYÜK HARF'] },
       { skills: [5] },
       { wands: 'hepsi' },
-      { wands: { 'wand-fire-attack-1': 0 } },
-      { wands: { 'wand-fire-attack-1': 1000 } },
+      { wands: { 'wand-fire-attack-1-1': 0 } },
+      { wands: { 'wand-fire-attack-1-1': 1000 } },
       { wands: { 'BÜYÜK': 1 } },
-      { wands: Object.fromEntries(Array.from({ length: 49 }, (_, i) => [`w-${i}`, 1])) },
-      { wandsEquipped: { 'fire-ruh': 'wand-fire-attack-1' } },
-      { wandsEquipped: { 'fire-attack': 5 } },
-      { wandsEquipped: ['x'] },
+      { wands: { 'wand-fire-attack-7-1': 1 } }, // nadirlik 1-6
+      { wands: { 'wand-fire-attack-1-31': 1 } }, // seviye 1-30
+      { wands: { 'wand-fire-attack-1-0': 1 } },
+      { wands: { 'wand-wind-attack-1-1': 1 } },
+      { wands: { 'w-1': 1 } },
+      { wands: Object.fromEntries(Array.from({ length: 201 }, (_, i) => [`w-${i}`, 1])) },
+      { wandEquipped: 5 },
+      { wandEquipped: 'sahte' },
+      { wandEquipped: 'wand-fire-attack-9-1' },
       { choices: 'hepsi' },
       { choices: { 'c1-isciler': 'tarafsiz' } },
       { choices: { 'c1-isciler': 1 } },
@@ -128,16 +133,16 @@ describe('/save', () => {
 
   it('eski v2 kayıt (yeteneksiz) kabul edilir ve boş yeteneklerle v3 olur', async () => {
     const cookie = await guestCookie('misafir6');
-    const { skills: _s, wands: _w, wandsEquipped: _e, choices: _c, ...v2 } = { ...SAVE_V2, version: 2 };
+    const { skills: _s, wands: _w, wandEquipped: _e, choices: _c, ...v2 } = { ...SAVE_V2, version: 2 };
     expect((await put(cookie, v2)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, skills: [], wands: {}, wandsEquipped: {}, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, skills: [], wands: {}, wandEquipped: null, choices: {} });
   });
 
   it('eski v3 kayıt (asasız) kabul edilir ve boş asalarla v4 olur', async () => {
     const cookie = await guestCookie('misafir8');
-    const { wands: _w, wandsEquipped: _e, choices: _c, ...v3 } = { ...SAVE_V2, version: 3 };
+    const { wands: _w, wandEquipped: _e, choices: _c, ...v3 } = { ...SAVE_V2, version: 3 };
     expect((await put(cookie, v3)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wands: {}, wandsEquipped: {}, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wands: {}, wandEquipped: null, choices: {} });
   });
 
   it('eski v4 kayıt (ahlak seçimsiz) kabul edilir ve boş seçimlerle v5 olur', async () => {
@@ -145,6 +150,31 @@ describe('/save', () => {
     const { choices: _c, ...v4 } = { ...SAVE_V2, version: 4 };
     expect((await put(cookie, v4)).statusCode).toBe(200);
     expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, choices: {} });
+  });
+
+  it('eski v5 kayıt (seviyesiz, 8 yuvalı asalar) yükseltilir: kimlikler seviye 1 olur, en nadir asa kuşanılır', async () => {
+    const cookie = await guestCookie('misafir10');
+    const { wands: _w, wandEquipped: _e, ...rest } = SAVE_V2;
+    const v5 = {
+      ...rest,
+      version: 5,
+      wands: { 'wand-fire-attack-3': 2, 'wand-air-defense-1': 7, 'wand-fire-attack-3-1': 1 },
+      wandsEquipped: { 'fire-attack': 'wand-fire-attack-3', 'air-defense': 'wand-air-defense-1', 'water-attack': 'wand-water-attack-1' },
+    };
+    expect((await put(cookie, v5)).statusCode).toBe(200);
+    const { save } = (await get(cookie)).json();
+    expect(save.version).toBe(6);
+    expect(save.wands).toEqual({ 'wand-fire-attack-3-1': 3, 'wand-air-defense-1-1': 7 }); // eski ve yeni aynı asa toplanır
+    expect(save.wandEquipped).toBe('wand-fire-attack-3-1'); // sahip olunmayan yuva atılır, en nadir seçilir
+    expect(save).not.toHaveProperty('wandsEquipped');
+  });
+
+  it('v6: kuşanılı asa sahip olunmuyorsa null olur; seviye biçimi korunur', async () => {
+    const cookie = await guestCookie('misafir11');
+    await put(cookie, { ...SAVE_V2, wandEquipped: 'wand-earth-defense-2-9' });
+    const { save } = (await get(cookie)).json();
+    expect(save.wandEquipped).toBeNull();
+    expect(save.wands).toEqual({ 'wand-fire-attack-3-12': 2, 'wand-air-defense-1-4': 7 });
   });
 
   it('tekrarlanan yetenek kimlikleri tekilleştirilir', async () => {
@@ -171,7 +201,7 @@ describe('/save', () => {
 
   it('desteklenmeyen sürüm reddedilir', async () => {
     const cookie = await guestCookie('misafir5');
-    expect((await put(cookie, { ...SAVE, version: 6 })).statusCode).toBe(400);
+    expect((await put(cookie, { ...SAVE, version: 7 })).statusCode).toBe(400);
     expect((await put(cookie, { ...SAVE, version: 0 })).statusCode).toBe(400);
   });
 
@@ -210,7 +240,7 @@ describe('parseSave', () => {
   });
 
   it.each([
-    ['sürüm yanlış', { version: 6 }],
+    ['sürüm yanlış', { version: 7 }],
     ['ad çok kısa', { playerName: 'A' }],
     ['ad çok uzun', { playerName: 'x'.repeat(21) }],
     ['addaki özel karakter', { playerName: '<script>' }],

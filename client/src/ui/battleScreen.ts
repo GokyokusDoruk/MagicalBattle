@@ -211,14 +211,14 @@ export class BattleScreen implements BattleIO {
     );
   }
 
-  async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[]): Promise<DrawingResult> {
+  async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult> {
     const bot = this.bots.get(key(ref));
     if (bot) {
       await sleep(this.arenaPause(role));
       return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
     }
     const el = role === 'attack' ? this.turnElements?.attacker : this.turnElements?.defender;
-    return this.drawByHand(role, el ?? 'fire', ghost);
+    return this.drawByHand(role, el ?? 'fire', ghost, limitSec);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -226,7 +226,7 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[]): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
@@ -235,6 +235,8 @@ export class BattleScreen implements BattleIO {
       color: role === 'attack' ? css(ELEMENT_COLORS[element].main) : '#7df0c4',
       ghost,
       showHeadZone: true,
+      // Asa çizim süresini uzatabilir (varsayılan 3 sn)
+      drawTimeMs: limitSec ? Math.round(limitSec * 1000) : undefined,
       drawSound: () => this.sfx.beginDraw(element),
     });
     // Boss mekaniği (zihin kontrolü): belirli döngüden sonra çizim tuvali bulanıklaşır

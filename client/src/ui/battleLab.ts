@@ -1,8 +1,8 @@
 import { BattleEngine, type FighterInit } from '../battle/flow/engine';
 import { SkillTree } from '../skills/tree';
 import { WandInventory } from '../wands/inventory';
-import { ELEMENTS } from '../battle/damage/elements';
-import { RARITY_NAMES, ROLES, wandId, type Rarity } from '../wands/catalog';
+import { RARITY_NAMES, ROLE_NAMES, wandIdOf, type Rarity, type WandRole } from '../wands/catalog';
+import { ELEMENT_NAMES, type Element } from '../battle/damage/elements';
 import { BattleScreen } from './battleScreen';
 import { SkillTreeUi } from './skillTreeUi';
 import { lockTouchScroll } from './touchLock';
@@ -20,7 +20,10 @@ interface Settings {
   /** Denemedeki karakter seviyesi (yetenek puanını belirler) */
   level: number;
   /** Denemede her yuvaya kuşanılan asanın nadirliği (0 = asasız) */
-  wandRarity: 0 | Rarity;
+  wandRarity: Rarity;
+  /** Denemede kuşanılan asanın rolü (null = asasız), elementi; seviyesi karakter seviyesiyle aynıdır */
+  wandRole: WandRole | null;
+  wandElement: Element;
 }
 
 /**
@@ -29,19 +32,18 @@ interface Settings {
  */
 export function startBattleLab(root: HTMLElement): void {
   lockTouchScroll();
-  const settings: Settings = { teamSize: 1, difficulty: 'normal', showGhost: true, level: 1, wandRarity: 0 };
+  const settings: Settings = { teamSize: 1, difficulty: 'normal', showGhost: true, level: 1, wandRarity: 3, wandRole: null, wandElement: 'fire' };
   // Denemede puan seviyeden gelir; yetenekler savaşta "Sen"in büyülerine uygulanır
   const tree = new SkillTree(() => settings.level);
   const skillUi = new SkillTreeUi({ tree, level: () => settings.level, onChanged: () => menu() });
   document.body.appendChild(skillUi.element);
   let screen: BattleScreen | null = null;
 
-  /** Seçilen nadirlikteki 8 asa (her element ve rol için) kuşanılmış envanter */
+  /** Seçilen asa (element, rol, nadirlik; seviyesi karakter seviyesi) kuşanılmış envanter */
   const wandSet = () => {
     const inv = new WandInventory();
-    if (settings.wandRarity > 0) {
-      for (const e of ELEMENTS) for (const r of ROLES) inv.add(wandId(e, r, settings.wandRarity as Rarity));
-    }
+    inv.setLevelProvider(() => settings.level);
+    if (settings.wandRole) inv.add(wandIdOf({ element: settings.wandElement, role: settings.wandRole, rarity: settings.wandRarity, level: settings.level }));
     return inv.resolver;
   };
 
@@ -95,7 +97,10 @@ export function startBattleLab(root: HTMLElement): void {
           <p class="mt-2 text-xs text-slate-400" data-note></p></section>
         <section><h2 class="mb-2 text-sm font-bold text-slate-300">Seviye ve yetenekler</h2>
           <div class="flex gap-2" data-group="level"></div>
-          <div class="mt-3 flex flex-wrap gap-2" data-group="wand"></div>
+          <p class="mt-3 text-xs text-slate-400">Asa (seviyesi karakter seviyesi kadar olur):</p>
+          <div class="mt-1 flex flex-wrap gap-2" data-group="wand"></div>
+          <div class="mt-2 flex flex-wrap gap-2" data-group="wandEl"></div>
+          <div class="mt-2 flex flex-wrap gap-2" data-group="wandR"></div>
           <button data-skills type="button" class="mt-2 w-full rounded bg-slate-800 px-3 py-2 text-sm text-slate-100">✦ Yetenek ağacı (boş puan: ${tree.pointsFree})</button></section>
         <label class="flex items-center gap-2 text-sm text-slate-300">
           <input type="checkbox" data-ghost ${settings.showGhost ? 'checked' : ''}> Savunurken gelen saldırıyı soluk olarak göster</label>
@@ -129,8 +134,18 @@ export function startBattleLab(root: HTMLElement): void {
         tree.restore(tree.snapshot()); // puan azaldıysa fazlası atılır
       },
     })));
-    group('wand', ([0, 1, 2, 3, 4, 5, 6] as const).map((n) => ({
-      label: n === 0 ? 'Asasız' : `Asa: ${RARITY_NAMES[n]}`,
+    group('wand', ([null, 'attack', 'defense'] as const).map((r) => ({
+      label: r === null ? 'Asasız' : ROLE_NAMES[r],
+      active: settings.wandRole === r,
+      pick: () => (settings.wandRole = r),
+    })));
+    group('wandEl', (['fire', 'water', 'earth', 'air'] as const).map((e) => ({
+      label: ELEMENT_NAMES[e],
+      active: settings.wandElement === e,
+      pick: () => (settings.wandElement = e),
+    })));
+    group('wandR', ([1, 2, 3, 4, 5, 6] as const).map((n) => ({
+      label: RARITY_NAMES[n],
       active: settings.wandRarity === n,
       pick: () => (settings.wandRarity = n),
     })));

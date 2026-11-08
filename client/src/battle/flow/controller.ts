@@ -2,6 +2,7 @@ import type { SlotRef } from '../arena/layout';
 import { calculateDamage, type DamageBreakdown } from '../damage/calculate';
 import type { Element } from '../damage/elements';
 import type { DrawingResult, Stroke } from '../gesture/types';
+import { DRAW_TIME_MS } from '../gesture/config';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
 import type { Action, BattleEngine, Winner } from './engine';
 
@@ -43,7 +44,8 @@ export interface BattleIO {
   /** İki element de seçilince birlikte açılır */
   revealElements(action: Action, attackerElement: Element, defenderElement: Element): Promise<void>;
   /** `ghost` verilirse (savunan, gelen saldırıyı görür) tuvalde soluk gösterilir */
-  draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[]): Promise<DrawingResult>;
+  /** `limitSec`: çizime tanınan süre (asa uzatabilir); verilmezse temel süre */
+  draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult>;
   play(report: TurnReport, engine: BattleEngine): Promise<void>;
   announceEnd(winner: Winner, engine: BattleEngine): Promise<void>;
 }
@@ -83,7 +85,14 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     ]);
     await io.revealElements(action, attackerElement, defenderElement);
 
-    const attack = await io.draw(action.attacker, 'attack');
+    // Asalar: saldıranın asası taban gücü, savunanın asası alınan hasarı değiştirir; ikisi de çizim süresini uzatır
+    const attackWand = attacker.wands(attackerElement, 'attack');
+    const defenseWand = defender.wands(defenderElement, 'defense');
+    const baseSec = DRAW_TIME_MS / 1000;
+    const attackSec = baseSec + attackWand.timeBonusSec;
+    const defenseSec = baseSec + defenseWand.timeBonusSec;
+
+    const attack = await io.draw(action.attacker, 'attack', undefined, attackSec);
 
     // Saldıran büyü yapamadı: savunmaya gerek kalmaz, sıra rakibe geçer
     if (!attack.validity.valid) {
@@ -110,15 +119,12 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       continue;
     }
 
-    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined);
+    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, defenseSec);
     const defenseFailed = !defense.validity.valid;
 
     // Yetenek ağaçlarından büyüye özel etkiler: saldıran büyüsünün elementiyle, savunan savunduğu elementle
     const attackFx = attacker.spells(attackerElement, 'attack');
     const defenseFx = defender.spells(defenderElement, 'defense');
-    // Asalar: saldıranın o elementin saldırı asası taban gücü, savunanın savunma asası alınan hasarı etkiler
-    const attackWand = attacker.wands(attackerElement, 'attack');
-    const defenseWand = defender.wands(defenderElement, 'defense');
 
     const breakdown = calculateDamage({
       basePower: attacker.basePower * attackWand.powerMultiplier,
@@ -132,6 +138,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       attackerArmorPierce: attackFx.armorPierce,
       attackerHeadBonus: attackFx.headBonus,
       attackerEffortBonus: attackFx.effortBonus,
+      attackerDrawTimeSec: attackSec,
     });
     const result = engine.applyDamage(action.defender, breakdown.finalDamage);
     const dealt = result.hpBefore - result.hpAfter;

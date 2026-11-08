@@ -12,6 +12,7 @@ import { normalizeSave, savePointForCity, type SaveData } from './save/saveData'
 import { SaveManager } from './save/saveManager';
 import { Carry } from './inventory/carry';
 import { WandInventory } from './wands/inventory';
+import { WandStock } from './wands/stock';
 import { BagUi } from './ui/bagUi';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
@@ -99,6 +100,7 @@ const sideQuests = new QuestEngine(hero);
 const skillTree = new SkillTree(() => hero.level);
 const wands = new WandInventory();
 // Envanter ağırlığı: çanta, Taşıyıcı yeteneği ve başlangıç kapasitesi (3 asa, 20 eşya, 2 kuşanılabilir)
+wands.setLevelProvider(() => hero.level);
 const carry = new Carry(hero, wands, () => skillTree.carryBonus);
 carry.install();
 const morality = new Morality();
@@ -148,7 +150,7 @@ const skillUi = new SkillTreeUi({
   onChanged: () => setDirty(true),
 });
 document.body.appendChild(skillUi.element);
-const wandUi = new WandUi({ wands, onChanged: () => setDirty(true) });
+const wandUi = new WandUi({ wands, level: () => hero.level, onChanged: () => setDirty(true) });
 document.body.appendChild(wandUi.element);
 const bagUi = new BagUi({ player: hero, wands, carry, onChanged: () => setDirty(true) });
 document.body.appendChild(bagUi.element);
@@ -188,6 +190,7 @@ const setDirty = (value: boolean): void => {
   refreshHud();
 };
 hero.onChange(refreshHud);
+hero.onChange(() => wandUi.isOpen && wandUi.refresh()); // seviye değişince asa seviye şartları güncellenir
 sideQuests.onChange(refreshHud);
 skillTree.onChange(refreshHud);
 wands.onChange(refreshHud);
@@ -214,10 +217,22 @@ const handleCompletions = (list: QuestCompletion[]): void => {
   if (list.length > 0) setDirty(true);
 };
 
+// Tüccarların asa stokları: her tüccarın kendi stoğu, 5 dakikada bir yenilenir (oyun süresiyle)
+const wandStocks = new Map<string, WandStock>();
+const wandStock = (merchantId: string): WandStock => {
+  let stock = wandStocks.get(merchantId);
+  if (!stock) {
+    stock = new WandStock(merchantId, () => performance.now(), () => hero.level);
+    wandStocks.set(merchantId, stock);
+  }
+  return stock;
+};
+
 const merchantUi = new MerchantUi({
   player: hero,
   quests: sideQuests,
   wands,
+  wandStock,
   sfx,
   priceMultipliers: () => ({ buy: morality.effects.buyMultiplier, sell: morality.effects.sellMultiplier }),
   onChanged: () => setDirty(true),
