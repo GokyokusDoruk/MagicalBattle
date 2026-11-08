@@ -55,7 +55,7 @@ Kurallar:
 
 ## Kayıt
 
-Kayıt dosyası **sürüm 2**: altın, XP, çanta, kuşanılan ekipman, görevler ve toplanan eşyalar eklendi. Eski (sürüm 1) kayıtlar açılırken varsayılanlarla otomatik yükseltilir, oyuncu bir şey kaybetmez. Sunucu hepsini doğrular (bkz. [backend.md](backend.md)).
+Kayıt dosyası **sürüm 2**'de altın, XP, çanta, kuşanılan ekipman, görevler ve toplanan eşyalar eklendi (sürüm 3'te yetenekler eklendi, bkz. [yetenek-agaci.md](yetenek-agaci.md)). Eski kayıtlar açılırken varsayılanlarla otomatik yükseltilir, oyuncu bir şey kaybetmez. Sunucu hepsini doğrular (bkz. [backend.md](backend.md)).
 
 Kayıt yine **yalnızca şehirlerde** yapılır. Tüccarlar köylerde olduğu için son kayıt noktasından sonra olan değişiklikler (alışveriş, görev, toplama) sunucuya yazılmamıştır; bunu sol üstteki durum çubuğunda **"● Kaydedilmedi: bir şehre girince kaydedilir"** uyarısı gösterir. Kayıtsız modda bu uyarı çıkmaz.
 

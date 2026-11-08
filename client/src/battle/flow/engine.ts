@@ -1,4 +1,5 @@
 import type { SlotRef } from '../arena/layout';
+import { neutralEffects, type SpellResolver } from '../../skills/resolver';
 import { BASE_POWER, MAX_CYCLES, MAX_HP } from './config';
 
 export type Control = 'human' | 'bot';
@@ -15,6 +16,8 @@ export interface FighterInit {
   dealtMultiplier?: number;
   /** Skill/ekipmandan gelen alınan hasar çarpanı (1 = etkisiz) */
   takenMultiplier?: number;
+  /** Yetenek ağacından gelen büyü etkileri (verilmezse yeteneksiz) */
+  spells?: SpellResolver;
 }
 
 export interface Fighter extends Required<FighterInit> {
@@ -67,6 +70,7 @@ export class BattleEngine {
         armor: init.armor ?? 0,
         dealtMultiplier: init.dealtMultiplier ?? 1,
         takenMultiplier: init.takenMultiplier ?? 1,
+        spells: init.spells ?? neutralEffects,
         index,
         hp: maxHp,
       };
@@ -162,5 +166,14 @@ export class BattleEngine {
     const hpBefore = f.hp;
     f.hp = Math.max(0, f.hp - Math.max(0, Math.round(damage)));
     return { hpBefore, hpAfter: f.hp, defeated: hpBefore > 0 && f.hp === 0 };
+  }
+
+  /** Canlı savaşçıyı iyileştirir (azami cana kadar); gerçekte eklenen canı döndürür. */
+  heal(target: SlotRef, amount: number): number {
+    const f = this.fighter(target);
+    if (f.hp <= 0) return 0;
+    const gained = Math.min(f.maxHp - f.hp, Math.max(0, Math.round(amount)));
+    f.hp += gained;
+    return gained;
   }
 }

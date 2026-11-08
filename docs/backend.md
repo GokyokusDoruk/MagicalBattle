@@ -41,11 +41,11 @@ Hatalar `{ code, error }` biçimindedir (`error` Türkçe, kullanıcıya göster
 
 ## Kayıt dosyası
 
-Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 2; eski (v1) kayıtlar okunurken varsayılan ekonomi alanlarıyla otomatik yükseltilir.
+Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 3; eski (v1, v2) kayıtlar okunurken varsayılan alanlarla otomatik yükseltilir.
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "playerName": "Aylin",
   "completedChapters": [1, 2],
   "savePoint": { "cityId": "ignis", "tileX": 64, "tileY": 64 },
@@ -54,7 +54,8 @@ Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) 
   "items": { "sifali-ot": 4, "gezgin-cuppesi": 1 },
   "equipped": { "robe": "gezgin-cuppesi" },
   "quests": { "ash-ot-toplama": { "status": "active", "progress": 2 } },
-  "collected": ["p-ot-0", "p-kristal-0"]
+  "collected": ["p-ot-0", "p-kristal-0"],
+  "skills": ["fire-power-1", "fire-power-2"]
 }
 ```
 
@@ -63,10 +64,10 @@ Sunucu istemciye güvenmez ve her yazmada doğrular:
 - `completedChapters`: aralıksız `[1..n]`, en fazla 8 bölüm
 - `savePoint`: `null` (yeni oyun) ya da bilinen bir şehir (`ignis`, `abyss`, `stone-heart`, `still-crystal`) ve 0-500 arası tam sayı karo
 - `gold` 0-9.999.999, `xp` 0-1.000.000 (tam sayı)
-- `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `amulet`; `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır)
+- `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `amulet`; `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır); `skills`: en çok 36 kimlik, `a-z 0-9 -` (tekrarlar atılır)
 - Fazla alanlar atılır, gövde en fazla 16 KB
 
-Geçersiz kayıt `400` ile reddedilir ve eski kayıt bozulmaz. Veritabanındaki kayıt bozuksa oyuncu yeni oyunla başlar. Eşya ve görev kimliklerinin kataloğa uyup uymadığını sunucu bilmez; istemci yüklerken bilinmeyenleri atar ve sayıları sınırlar.
+Geçersiz kayıt `400` ile reddedilir ve eski kayıt bozulmaz. Veritabanındaki kayıt bozuksa oyuncu yeni oyunla başlar. Eşya, görev ve yetenek kimliklerinin kataloğa uyup uymadığını sunucu bilmez; istemci yüklerken bilinmeyenleri atar ve sayıları sınırlar.
 
 İstemci güvenliği: kayıt **yüklenemezse** o oturumda kaydetme kapatılır, böylece yüklenemeyen gerçek ilerlemenin üzerine yeni oyun yazılmaz.
 
