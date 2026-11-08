@@ -4,6 +4,7 @@ import type { Stroke } from '../gesture/types';
 import { CameraDirector, isPortrait } from './camera';
 import { Combatant } from './combatant';
 import { layoutTeams, slotKey, type Slot, type SlotRef } from './layout';
+import type { ArenaSounds } from './sounds';
 import { ELEMENT_COLORS, SHIELD_COLORS, SKY_COLOR } from './palette';
 import { ParticleSystem } from './particles';
 import { SpellVisual } from './spell';
@@ -95,7 +96,10 @@ export class ArenaView {
   /** Dikey ekranda yakın çekimler biraz uzaktan çekilir (yazılar ve savaşçı sığsın) */
   private closeScale = 1;
 
-  constructor(private readonly container: HTMLElement) {
+  constructor(
+    private readonly container: HTMLElement,
+    private readonly sounds?: ArenaSounds,
+  ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
@@ -279,6 +283,7 @@ export class ArenaView {
     });
 
     // 1) Havada çizilir
+    this.sounds?.charge(element);
     await this.tweens.add(0.95, (t) => {
       visual.setReveal(easeInOut(t));
       visual.setOpacity(Math.min(1, t * 5));
@@ -289,6 +294,7 @@ export class ArenaView {
     await this.tweens.add(0.3, (t) => visual.group.scale.setScalar(0.9 + Math.sin(t * Math.PI) * 0.2));
 
     // 3) Fırlar
+    this.sounds?.launch(element);
     const end = this.shield && slotKey(this.shield.owner) === slotKey(to)
       ? this.shield.visual.group.position.clone()
       : targetPos.clone().add(new THREE.Vector3(0, 1.7, 0));
@@ -326,6 +332,7 @@ export class ArenaView {
     this.shield = { owner, visual };
 
     this.combatant(owner).defend(4);
+    this.sounds?.shieldUp();
     this.director.setShot(null);
     await this.tweens.add(0.5, (t) => {
       visual.setReveal(easeOutCubic(t));
@@ -346,6 +353,8 @@ export class ArenaView {
     const shield = this.shield && slotKey(this.shield.owner) === slotKey(target) ? this.shield : null;
     const hitPoint = targetPos.clone().add(new THREE.Vector3(0, info.head ? 2.35 : 1.4, 0));
 
+    if (shield && blocked > 0) this.sounds?.shieldBlock(blocked);
+    if (blocked < 1 && damage > 0) this.sounds?.impact(info.element, Math.min(1, damage / 100), info.head);
     if (shield && blocked > 0) {
       this.particles.emit(shield.visual.group.position, {
         color: SHIELD_COLORS.glow,
@@ -386,6 +395,7 @@ export class ArenaView {
     if (shield) {
       const visual = shield.visual;
       if (blocked < 0.95) {
+        this.sounds?.shieldBreak();
         this.particles.emit(visual.group.position, { color: SHIELD_COLORS.main, count: 60, speed: 5, life: 0.9, gravity: 5 });
       }
       this.shield = null;
@@ -408,6 +418,7 @@ export class ArenaView {
     const forward = new THREE.Vector3(Math.sin(facing.yaw), 0, Math.cos(facing.yaw));
     const orb = pos.clone().add(forward.multiplyScalar(0.8)).add(new THREE.Vector3(0, 2.6, 0));
     caster.cast(0.9);
+    this.sounds?.fizzle();
     this.director.setShot({
       position: pos.clone().add(new THREE.Vector3(0, 3.2, 0)).add(forward.clone().multiplyScalar(-5.5 * this.closeScale)).add(new THREE.Vector3(0, 0, 3 * this.closeScale)),
       lookAt: pos.clone().add(new THREE.Vector3(0, 2, 0)),
@@ -422,6 +433,7 @@ export class ArenaView {
   defeat(ref: SlotRef): void {
     const c = this.combatant(ref);
     c.defeat();
+    this.sounds?.defeat();
     this.particles.emit(this.position(ref).add(new THREE.Vector3(0, 1.5, 0)), {
       color: 0xffffff,
       count: 40,

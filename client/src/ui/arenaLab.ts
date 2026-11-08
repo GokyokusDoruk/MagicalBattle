@@ -1,3 +1,5 @@
+import { getSoundEngine } from '../audio/sfx/engine';
+import { createArenaSounds } from '../audio/sfx/arenaSounds';
 import { ArenaView, type CombatantSpec } from '../battle/arena/arenaView';
 import { ELEMENT_COLORS } from '../battle/arena/palette';
 import type { SlotRef } from '../battle/arena/layout';
@@ -7,6 +9,7 @@ import { buildDensity } from '../battle/gesture/density';
 import { computeMetrics, validateSpell } from '../battle/gesture/metrics';
 import type { Stroke } from '../battle/gesture/types';
 import { DrawingCanvas } from './drawingCanvas';
+import { createSoundToggle } from './soundToggle';
 import { lockTouchScroll } from './touchLock';
 
 // --- Demo çizimleri (mantıksal 256x256 tuvalde) ---------------------------------------------
@@ -70,7 +73,8 @@ export function startArenaLab(root: HTMLElement): void {
 
   let arena: ArenaView;
   try {
-    arena = new ArenaView(stage);
+    arena = new ArenaView(stage, createArenaSounds(getSoundEngine()));
+    root.appendChild(createSoundToggle(getSoundEngine()));
   } catch {
     stage.innerHTML = '<p class="p-6 text-center text-amber-200">Bu cihazda 3D (WebGL) desteklenmiyor.</p>';
     return;
@@ -181,7 +185,7 @@ export function startArenaLab(root: HTMLElement): void {
     modal.appendChild(title);
 
     title.textContent = '1. Saldırı: büyünü çiz';
-    const atkCanvas = new DrawingCanvas({ color: `#${ELEMENT_COLORS[playerElement].main.toString(16).padStart(6, '0')}`, showHeadZone: true });
+    const atkCanvas = new DrawingCanvas({ color: `#${ELEMENT_COLORS[playerElement].main.toString(16).padStart(6, '0')}`, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(playerElement) });
     modal.appendChild(atkCanvas.element);
     const atk = await atkCanvas.start();
     modal.remove();
@@ -197,7 +201,7 @@ export function startArenaLab(root: HTMLElement): void {
     title2.className = 'text-lg font-bold text-emerald-200';
     title2.textContent = '2. Savunma: rakibin saldırısını durdur';
     modal2.appendChild(title2);
-    const defCanvas = new DrawingCanvas({ color: '#7df0c4', ghost: atk.strokes, showHeadZone: true });
+    const defCanvas = new DrawingCanvas({ color: '#7df0c4', ghost: atk.strokes, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(opponentElement) });
     modal2.appendChild(defCanvas.element);
     const def = await defCanvas.start();
     modal2.remove();

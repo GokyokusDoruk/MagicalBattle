@@ -3,7 +3,9 @@ import { calculateDamage, type DamageBreakdown } from '../battle/damage/calculat
 import { ELEMENT_NAMES, ELEMENTS as ELEMENT_IDS, type Element } from '../battle/damage/elements';
 import type { DensityMap, DrawingResult } from '../battle/gesture/types';
 import { matchDefense, type MatchResult } from '../battle/match/defense';
+import { getSoundEngine } from '../audio/sfx/engine';
 import { DrawingCanvas } from './drawingCanvas';
+import { createSoundToggle } from './soundToggle';
 import { lockTouchScroll } from './touchLock';
 
 const ELEMENTS = [
@@ -93,6 +95,7 @@ export function startDrawLab(root: HTMLElement): void {
   page.style.touchAction = 'pan-y';
   page.className = 'fixed inset-0 overflow-y-auto bg-slate-950 text-amber-50';
   root.appendChild(page);
+  root.appendChild(createSoundToggle(getSoundEngine()));
 
   let mode: Mode = 'solo';
   let color: string = ELEMENTS[0].color;
@@ -155,14 +158,14 @@ export function startDrawLab(root: HTMLElement): void {
   };
 
   const runSolo = async (stage: HTMLElement): Promise<void> => {
-    const drawing = new DrawingCanvas({ color });
+    const drawing = new DrawingCanvas({ color, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
     stage.appendChild(drawing.element);
     stage.appendChild(soloPanel(await drawing.start(), render));
   };
 
   const runDuel = async (stage: HTMLElement): Promise<void> => {
     stage.insertAdjacentHTML('beforeend', '<h2 class="font-bold text-amber-200">1. Saldırı: büyünü çiz</h2>');
-    const attackCanvas = new DrawingCanvas({ color, showHeadZone: true });
+    const attackCanvas = new DrawingCanvas({ color, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
     stage.appendChild(attackCanvas.element);
     const attack = await attackCanvas.start();
 
@@ -173,7 +176,7 @@ export function startDrawLab(root: HTMLElement): void {
 
     attackCanvas.element.style.display = 'none';
     stage.insertAdjacentHTML('beforeend', '<h2 class="font-bold text-emerald-200">2. Savunma: saldırıyı durdur</h2>');
-    const defenseCanvas = new DrawingCanvas({ color: DEFENSE_COLOR, ghost: showGhost ? attack.strokes : undefined, showHeadZone: true });
+    const defenseCanvas = new DrawingCanvas({ color: DEFENSE_COLOR, ghost: showGhost ? attack.strokes : undefined, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
     stage.appendChild(defenseCanvas.element);
     const defense = await defenseCanvas.start();
 
