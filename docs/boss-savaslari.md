@@ -11,7 +11,7 @@ Bölümün sarı işaretçisine girince:
 3. **Savaş öncesi panel:** boss adı, düşmanlar ve canları, varsa özel mekanik uyarısı, önerilen seviye. **Savaşa gir** ya da **Geri çekil**.
 4. **Savaş** (sıra tabanlı, çizimli, [savas-akisi.md](savas-akisi.md)).
 5. **Zafer:** altın ve XP ödülü, yan görevlerin `battleWon` olayı tetiklenir, ardından o bölümün **ahlak seçimleri**, sonra **bölüm tamamlanır** (kapı açılır, sonraki görev belirir).
-6. **Yenilgi / geri çekilme:** bölüm tamamlanmaz. Savaş sonunda **Tekrar dene** ya da **Geri çekil** seçersin. Geri çekilince işaretçiye tekrar girerek denersin. Yenilgide şimdilik ceza yok (altın kaybı ve şifacıda doğma Task 20'de).
+6. **Yenilgi / geri çekilme:** bölüm tamamlanmaz. Savaş sonunda **Tekrar dene** ya da **Geri çekil** seçersin. Geri çekilince işaretçiye tekrar girerek denersin. "Tekrar dene" cezasızdır; "Pes et" ölüm sayılır: altın kaybı ve en yakın köyde ayılma ([olum-ve-ekonomi.md](olum-ve-ekonomi.md)).
 
 **Bölüm 8 farklı:** önce seçimler ve final sahnesi gelir (final yolu seçimlere göre belirlenir), sonra Malakor savaşı.
 

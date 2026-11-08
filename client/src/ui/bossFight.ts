@@ -58,7 +58,7 @@ export async function runBossFight(chapter: number, player: PlayerStats, path: F
         // Sis (Morga): gelen saldırı savunurken görünmez; diğer bosslarda görünür
         showAttackToDefender: !boss.gimmick?.hideGhost,
         blurFromCycle: boss.gimmick?.blurFromCycle,
-        endLabels: { again: 'Tekrar dene', menu: 'Geri çekil', hideAgainOnWin: true, winMenu: 'Devam' },
+        endLabels: { again: 'Tekrar dene', menu: 'Pes et (altın kaybı)', hideAgainOnWin: true, winMenu: 'Devam' },
         onFinish: (playAgain) => {
           again = playAgain;
         },
