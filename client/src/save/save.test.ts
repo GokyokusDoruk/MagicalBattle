@@ -5,7 +5,7 @@ import { GateRegistry } from '../world/gates';
 import { LOCATIONS, getLocation } from '../world/locations';
 import { QuestTracker } from '../world/questMarkers';
 import { CityEntryTracker, cityAt } from './cityEntry';
-import { SAVE_VERSION, buildSave, savePointForCity, validatePlayerName, type SaveData } from './saveData';
+import { SAVE_VERSION, buildSave, normalizeSave, savePointForCity, validatePlayerName, type SaveData } from './saveData';
 import { SaveManager } from './saveManager';
 
 const progressWith = (...chapters: number[]) => {
@@ -33,7 +33,18 @@ describe('kayıt verisi', () => {
   it('buildSave adı kırpar ve diziyi kopyalar', () => {
     const chapters = [1, 2];
     const s = buildSave('  Aylin ', chapters, null);
-    expect(s).toEqual({ version: SAVE_VERSION, playerName: 'Aylin', completedChapters: [1, 2], savePoint: null });
+    expect(s).toEqual({
+      version: SAVE_VERSION,
+      playerName: 'Aylin',
+      completedChapters: [1, 2],
+      savePoint: null,
+      gold: 0,
+      xp: 0,
+      items: {},
+      equipped: {},
+      quests: {},
+      collected: [],
+    });
     chapters.push(3);
     expect(s.completedChapters).toEqual([1, 2]);
   });
@@ -43,6 +54,46 @@ describe('kayıt verisi', () => {
     const p = savePointForCity(ignis);
     expect(p).toEqual({ cityId: 'ignis', tileX: ignis.x, tileY: ignis.y + 4 });
     expect(cityAt(LOCATIONS, p.tileX, p.tileY)).toBe('ignis');
+  });
+});
+
+describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
+  const extras = {
+    economy: { gold: 250, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' as const } },
+    quests: { 'ash-ot-toplama': { status: 'active' as const, progress: 2 } },
+    collected: ['p-herb-0'],
+  };
+
+  it('buildSave ekonomi alanlarını taşır ve girdiyi kopyalar', () => {
+    const s = buildSave('Aylin', [1], null, extras);
+    expect(s).toMatchObject({ gold: 250, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' }, collected: ['p-herb-0'] });
+    expect(s.quests['ash-ot-toplama']).toEqual({ status: 'active', progress: 2 });
+    extras.economy.items['sifali-ot'] = 99;
+    extras.collected.push('x');
+    expect(s.items['sifali-ot']).toBe(4);
+    expect(s.collected).toEqual(['p-herb-0']);
+    extras.economy.items['sifali-ot'] = 4;
+    extras.collected.pop();
+  });
+
+  it('SaveManager her kayıtta güncel ekonomi durumunu okur', async () => {
+    const written: SaveData[] = [];
+    let gold = 10;
+    const m = new SaveManager(
+      { putSave: async (d) => void written.push(d) },
+      progressWith(),
+      'Aylin',
+      () => ({ economy: { gold, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [] }),
+    );
+    await m.saveAt(null);
+    gold = 99;
+    await m.saveAt(null);
+    expect(written.map((w) => w.gold)).toEqual([10, 99]);
+  });
+
+  it('normalizeSave eksik alanları varsayılanla doldurur (eski sunucu v1 dönse bile)', () => {
+    const s = normalizeSave({ playerName: 'Aylin', completedChapters: [1] });
+    expect(s).toMatchObject({ version: 2, savePoint: null, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [] });
   });
 });
 
@@ -83,7 +134,9 @@ describe('SaveManager', () => {
     const written: SaveData[] = [];
     const m = new SaveManager({ putSave: async (d) => void written.push(d) }, progressWith(1), 'Aylin');
     expect(await m.saveAt(point)).toBe('saved');
-    expect(written).toEqual([{ version: 1, playerName: 'Aylin', completedChapters: [1], savePoint: point }]);
+    expect(written).toEqual([
+      { version: 2, playerName: 'Aylin', completedChapters: [1], savePoint: point, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [] },
+    ]);
   });
 
   it('api yoksa (kayıtsız mod) hiçbir şey yazmaz', async () => {

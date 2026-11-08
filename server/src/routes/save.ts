@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { SaveRepository } from '../save/repository.js';
 import { parseSave } from '../save/saveData.js';
 
-const SAVE_BODY_LIMIT = 4 * 1024;
+const SAVE_BODY_LIMIT = 16 * 1024;
 
 /** Çerezdeki oturumdan kullanıcı kimliğini çıkarır; yoksa 401 gönderip null döner. */
 async function requireUser(request: FastifyRequest, reply: FastifyReply): Promise<string | null> {

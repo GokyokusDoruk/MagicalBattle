@@ -160,10 +160,16 @@ describe('uygulama + gerçek veritabanı', () => {
 describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
   const saves = () => new PrismaSaveRepository(prisma);
   const data = {
-    version: 1 as const,
+    version: 2 as const,
     playerName: 'Aylin',
     completedChapters: [1, 2],
     savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
+    gold: 320,
+    xp: 150,
+    items: { 'sifali-ot': 3, 'cirak-cuppesi': 1 },
+    equipped: { robe: 'cirak-cuppesi' },
+    quests: { 'ash-ot-toplama': { status: 'completed' as const, progress: 5 } },
+    collected: ['p-herb-1', 'p-herb-2'],
   };
 
   it('kaydı yazar, okur ve üzerine yazar', async () => {
@@ -181,6 +187,25 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
     await saves().put(user.id, data);
     await prisma.user.delete({ where: { id: user.id } });
     expect(await prisma.saveGame.count({ where: { userId: user.id } })).toBe(0);
+  });
+
+  it('veritabanındaki eski (v1) kayıt, yeni alanlar varsayılanla doldurularak okunur', async () => {
+    const user = await repo.create(base('s4'));
+    await prisma.saveGame.create({
+      data: { userId: user.id, data: { version: 1, playerName: 'Eski', completedChapters: [1], savePoint: null } },
+    });
+    expect(await saves().get(user.id)).toEqual({
+      version: 2,
+      playerName: 'Eski',
+      completedChapters: [1],
+      savePoint: null,
+      gold: 0,
+      xp: 0,
+      items: {},
+      equipped: {},
+      quests: {},
+      collected: [],
+    });
   });
 
   it('veritabanındaki bozuk kayıt yokmuş gibi davranılır', async () => {

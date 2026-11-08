@@ -3,9 +3,11 @@ import type { Axis } from '../input/axis';
 import { moveWithCollision } from './collision';
 import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
-import { CityEntryTracker, cityAt } from '../save/cityEntry';
+import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
+import type { MerchantSpot } from './merchantSpots';
+import type { PickupSpot } from './pickups';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { PLAYER_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture } from './textures';
+import { CRYSTAL_KEY, HERB_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
 const PLAYER_SPEED = 150; // piksel/saniye
@@ -14,6 +16,8 @@ const HITBOX = { hw: 9, hh: 6 };
 const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
 const GATE_NOTICE_COOLDOWN_MS = 3000;
 const MARKER_TRIGGER_RANGE = TILE_SIZE * 0.9;
+const MERCHANT_RANGE = TILE_SIZE * 1.6;
+const PICKUP_RANGE = TILE_SIZE * 0.85;
 
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
 export interface WorldContext {
@@ -31,6 +35,15 @@ export interface WorldContext {
   startTile?: { x: number; y: number };
   /** Oyuncu bir şehrin surlarının içine yeni girdi (kayıt noktası) */
   onCityEnter?: (cityId: string) => void;
+  /** Köylerdeki tüccarlar; oyuncu yanlarına gelince `onMerchantEnter` çağrılır */
+  merchants?: readonly MerchantSpot[];
+  onMerchantEnter?: (merchantId: string) => void;
+  /** Dünyada toplanabilir eşyalar (toplananlar `isCollected` ile elenir) */
+  pickups?: readonly PickupSpot[];
+  isCollected?: (id: string) => boolean;
+  onPickup?: (spot: PickupSpot) => void;
+  /** Oyuncu bir konumun (şehir, köy, arena) alanına yeni girdi */
+  onLocationEnter?: (locationId: string) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
   takeTeleport?: () => { x: number; y: number } | null;
 }
@@ -43,6 +56,9 @@ export class WorldScene extends Phaser.Scene {
   private insideMarkers = new Set<string>();
   private lastGateNotice = new Map<string, number>();
   private cityTracker = new CityEntryTracker();
+  private locationTracker = new CityEntryTracker();
+  private pickupSprites = new Map<string, Phaser.GameObjects.Image>();
+  private insideMerchants = new Set<string>();
 
   constructor(private readonly ctx: WorldContext) {
     super('world');
@@ -53,6 +69,7 @@ export class WorldScene extends Phaser.Scene {
 
     createTilesetTexture(this);
     createPlayerTexture(this);
+    createWorldItemTextures(this);
 
     const tilemap = this.make.tilemap({ data: map.tiles, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
     const tileset = tilemap.addTilesetImage('zemin', TILESET_KEY, TILE_SIZE, TILE_SIZE);
@@ -60,11 +77,14 @@ export class WorldScene extends Phaser.Scene {
 
     this.createLocationLabels();
     this.createMarkerSprites();
+    this.createMerchants();
+    this.createPickups();
 
     const start = this.ctx.startTile ?? map.spawn;
     this.pos = { x: start.x * TILE_SIZE + TILE_SIZE / 2, y: start.y * TILE_SIZE + TILE_SIZE / 2 };
     // Kayıttan şehrin içinde başlanıyorsa bu yeni bir "giriş" sayılmaz (tekrar kayıt tetiklenmesin)
     this.cityTracker = new CityEntryTracker(cityAt(map.locations, start.x, start.y));
+    this.locationTracker = new CityEntryTracker(locationAt(map.locations, start.x, start.y));
     this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.8).setDepth(10);
 
     const cam = this.cameras.main;
@@ -125,6 +145,9 @@ export class WorldScene extends Phaser.Scene {
     this.checkGates(time);
     this.checkMarkers();
     this.checkCityEntry();
+    this.checkLocationEntry();
+    this.checkMerchants();
+    this.checkPickups();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
@@ -158,6 +181,71 @@ export class WorldScene extends Phaser.Scene {
       this.lastGateNotice.set(gate.cityId, now);
       const city = map.locations.find((l) => l.id === gate.cityId)!;
       this.ctx.notify(`${city.name} kapısı kilitli. Bu bölgenin ana görevini tamamla.`);
+    }
+  }
+
+  /** Tüccar tezgâhları ve isimleri. */
+  private createMerchants(): void {
+    for (const spot of this.ctx.merchants ?? []) {
+      const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
+      this.add.image(x, y, STALL_KEY).setOrigin(0.5, 0.75).setDepth(4);
+      this.add
+        .text(x, y - 38, spot.merchant.name, {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '11px',
+          color: '#ffe9a8',
+          stroke: '#000000',
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5)
+        .setDepth(5);
+    }
+  }
+
+  /** Toplanabilir otlar ve kristaller; henüz toplanmamış olanlar hafifçe sallanır. */
+  private createPickups(): void {
+    for (const spot of this.ctx.pickups ?? []) {
+      if (this.ctx.isCollected?.(spot.id)) continue;
+      const key = spot.itemId === 'kristal-parcasi' ? CRYSTAL_KEY : HERB_KEY;
+      const sprite = this.add
+        .image(spot.tileX * TILE_SIZE + TILE_SIZE / 2, spot.tileY * TILE_SIZE + TILE_SIZE / 2, key)
+        .setDepth(3);
+      this.tweens.add({ targets: sprite, y: sprite.y - 3, duration: 900 + (spot.tileX % 5) * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.pickupSprites.set(spot.id, sprite);
+    }
+  }
+
+  /** Bir konumun alanına yeni girildiğinde haber verir (ziyaret görevleri). */
+  private checkLocationEntry(): void {
+    const id = locationAt(this.ctx.map.locations, Math.floor(this.pos.x / TILE_SIZE), Math.floor(this.pos.y / TILE_SIZE));
+    const entered = this.locationTracker.update(id);
+    if (entered) this.ctx.onLocationEnter?.(entered);
+  }
+
+  /** Tüccarın yanına gelince (bir kez, uzaklaşıp dönene kadar) alışveriş ekranını açtırır. */
+  private checkMerchants(): void {
+    const near = new Set<string>();
+    for (const spot of this.ctx.merchants ?? []) {
+      const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
+      if (Math.hypot(x - this.pos.x, y - this.pos.y) <= MERCHANT_RANGE) near.add(spot.merchant.id);
+    }
+    for (const id of near) if (!this.insideMerchants.has(id)) this.ctx.onMerchantEnter?.(id);
+    this.insideMerchants = near;
+  }
+
+  /** Yakındaki toplanabilir eşyayı alır ve haritadan kaldırır. */
+  private checkPickups(): void {
+    for (const spot of this.ctx.pickups ?? []) {
+      const sprite = this.pickupSprites.get(spot.id);
+      if (!sprite) continue;
+      const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
+      if (Math.hypot(x - this.pos.x, y - this.pos.y) > PICKUP_RANGE) continue;
+      this.pickupSprites.delete(spot.id);
+      this.tweens.add({ targets: sprite, y: sprite.y - 24, alpha: 0, duration: 350, onComplete: () => sprite.destroy() });
+      this.ctx.onPickup?.(spot);
     }
   }
 

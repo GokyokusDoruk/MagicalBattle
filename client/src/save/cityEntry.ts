@@ -1,10 +1,23 @@
-import { CITY_HALF, type LocationDef } from '../world/locations';
+import { CITY_HALF, OPEN_HALF, type LocationDef } from '../world/locations';
 
 /** Karo surların İÇİNDEyse o şehrin kimliğini, değilse null döndürür. */
 export function cityAt(locations: readonly LocationDef[], tileX: number, tileY: number): string | null {
   for (const loc of locations) {
     if (loc.kind !== 'city') continue;
     if (Math.abs(tileX - loc.x) < CITY_HALF && Math.abs(tileY - loc.y) < CITY_HALF) return loc.id;
+  }
+  return null;
+}
+
+/**
+ * Karo bir konumun alanının içindeyse konumun kimliğini döndürür: şehirde surların içi, köyde ve son arenada
+ * temizlenen alan. Konum olayları (ziyaret görevleri) için kullanılır; kayıt noktası yalnızca şehirlerdir (`cityAt`).
+ */
+export function locationAt(locations: readonly LocationDef[], tileX: number, tileY: number): string | null {
+  for (const loc of locations) {
+    const half = loc.kind === 'city' ? CITY_HALF : OPEN_HALF + 1;
+    const inside = loc.kind === 'city' ? Math.abs(tileX - loc.x) < half && Math.abs(tileY - loc.y) < half : Math.abs(tileX - loc.x) <= half && Math.abs(tileY - loc.y) <= half;
+    if (inside) return loc.id;
   }
   return null;
 }

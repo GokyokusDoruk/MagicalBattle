@@ -25,11 +25,25 @@ async function guestCookie(username: string): Promise<string> {
   return `${SESSION_COOKIE}=${c.value}`;
 }
 
+/** Eski (v1) biçim: ekonomi alanları yok */
 const SAVE = {
   version: 1,
   playerName: 'Aylin',
   completedChapters: [1],
   savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
+};
+
+/** v1 kaydın v2'ye yükseltilmiş hali: yeni alanlar varsayılan */
+const UPGRADED = { ...SAVE, version: 2, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [] };
+
+const SAVE_V2 = {
+  ...UPGRADED,
+  gold: 250,
+  xp: 320,
+  items: { 'sifali-ot': 4, 'bekci-cuppesi': 1 },
+  equipped: { robe: 'bekci-cuppesi' },
+  quests: { 'ash-ot-toplama': { status: 'completed', progress: 5 }, 'vine-kristal-avi': { status: 'active', progress: 1 } },
+  collected: ['p-herb-0', 'p-herb-3'],
 };
 
 const put = (cookie: string | undefined, payload: unknown) =>
@@ -51,7 +65,42 @@ describe('/save', () => {
   it('kaydeder ve aynen geri verir (misafir hesabı da)', async () => {
     const cookie = await guestCookie('misafir1');
     expect((await put(cookie, SAVE)).statusCode).toBe(200);
-    expect((await get(cookie)).json()).toEqual({ save: SAVE });
+    expect((await get(cookie)).json()).toEqual({ save: UPGRADED });
+  });
+
+  it('v2 kaydı (ekonomi, görevler, toplananlar) aynen saklar ve geri verir', async () => {
+    const cookie = await guestCookie('misafir2');
+    expect((await put(cookie, SAVE_V2)).statusCode).toBe(200);
+    expect((await get(cookie)).json()).toEqual({ save: SAVE_V2 });
+  });
+
+  it('v2 alanları doğrulanır: hileli altın, bilinmeyen yer, bozuk görev, taşan liste reddedilir', async () => {
+    const cookie = await guestCookie('misafir3');
+    const bad = [
+      { gold: -1 },
+      { gold: 1e9 },
+      { gold: 1.5 },
+      { xp: 'çok' },
+      { items: { 'sifali-ot': 0 } },
+      { items: { 'sifali-ot': 5000 } },
+      { items: { 'BÜYÜK HARF': 1 } },
+      { items: ['sifali-ot'] },
+      { equipped: { kafa: 'yun-sapka' } },
+      { equipped: { hat: 42 } },
+      { quests: { 'ash-ot-toplama': { status: 'bitti', progress: 1 } } },
+      { quests: { 'ash-ot-toplama': { status: 'active', progress: -1 } } },
+      { collected: 'hepsi' },
+      { collected: Array.from({ length: 201 }, (_, i) => `p-${i}`) },
+      { collected: ['İÇİNDE BOŞLUK'] },
+    ];
+    for (const over of bad) expect((await put(cookie, { ...SAVE_V2, ...over })).statusCode, JSON.stringify(over).slice(0, 50)).toBe(400);
+    expect((await get(cookie)).json()).toEqual({ save: null }); // hiçbiri yazılmadı
+  });
+
+  it('tekrarlanan toplanan kimlikler tekilleştirilir', async () => {
+    const cookie = await guestCookie('misafir4');
+    await put(cookie, { ...SAVE_V2, collected: ['p-herb-0', 'p-herb-0', 'p-herb-1'] });
+    expect((await get(cookie)).json().save.collected).toEqual(['p-herb-0', 'p-herb-1']);
   });
 
   it('üzerine yazar', async () => {
@@ -70,6 +119,12 @@ describe('/save', () => {
     expect((await get(b)).json()).toEqual({ save: null });
   });
 
+  it('desteklenmeyen sürüm reddedilir', async () => {
+    const cookie = await guestCookie('misafir5');
+    expect((await put(cookie, { ...SAVE, version: 3 })).statusCode).toBe(400);
+    expect((await put(cookie, { ...SAVE, version: 0 })).statusCode).toBe(400);
+  });
+
   it('kayıt noktası olmayan yeni oyun kaydedilebilir', async () => {
     const cookie = await guestCookie('misafir1');
     expect((await put(cookie, { ...SAVE, completedChapters: [], savePoint: null })).statusCode).toBe(200);
@@ -86,7 +141,7 @@ describe('/save', () => {
 
   it('çok büyük gövdeyi reddeder', async () => {
     const cookie = await guestCookie('misafir1');
-    const res = await put(cookie, { ...SAVE, playerName: 'x'.repeat(10_000) });
+    const res = await put(cookie, { ...SAVE, playerName: 'x'.repeat(40_000) });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
     expect(res.statusCode).toBeLessThan(500);
   });
@@ -105,7 +160,7 @@ describe('parseSave', () => {
   });
 
   it.each([
-    ['sürüm yanlış', { version: 2 }],
+    ['sürüm yanlış', { version: 3 }],
     ['ad çok kısa', { playerName: 'A' }],
     ['ad çok uzun', { playerName: 'x'.repeat(21) }],
     ['addaki özel karakter', { playerName: '<script>' }],

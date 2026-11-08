@@ -1,9 +1,12 @@
+import type { EconomySnapshot } from '../economy/player';
+import type { QuestSnapshot } from '../quests/engine';
 import { CITY_HALF, type LocationDef } from '../world/locations';
 
 /**
- * Kayıt dosyası biçimi (sürüm 1). Sunucu da aynı alanları doğrular (server/src/save/saveData.ts).
+ * Kayıt dosyası biçimi (sürüm 2: ekonomi, görevler ve toplanan eşyalar eklendi). Sunucu da aynı alanları
+ * doğrular ve eski (v1) kayıtları yükseltir (server/src/save/saveData.ts).
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface SavePoint {
   cityId: string;
@@ -11,14 +14,26 @@ export interface SavePoint {
   tileY: number;
 }
 
-export interface SaveData {
+export interface SaveData extends EconomySnapshot {
   version: typeof SAVE_VERSION;
   playerName: string;
   /** 1'den başlayıp aralıksız tamamlanan bölümler */
   completedChapters: number[];
   /** Devam edilecek yer; henüz hiçbir şehre girilmediyse null */
   savePoint: SavePoint | null;
+  quests: QuestSnapshot;
+  /** Toplanmış, bir daha çıkmayacak dünya eşyalarının kimlikleri */
+  collected: string[];
 }
+
+/** Ekonomi, görevler ve toplananlar: bölüm ilerlemesi ve konumdan ayrı, oyun durumundan okunan kısım. */
+export interface SaveExtras {
+  economy: EconomySnapshot;
+  quests: QuestSnapshot;
+  collected: readonly string[];
+}
+
+const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [] };
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
 
@@ -40,6 +55,37 @@ export function buildSave(
   playerName: string,
   completedChapters: number[],
   savePoint: SavePoint | null,
+  extras: SaveExtras = EMPTY_EXTRAS,
 ): SaveData {
-  return { version: SAVE_VERSION, playerName: playerName.trim(), completedChapters: [...completedChapters], savePoint };
+  return {
+    version: SAVE_VERSION,
+    playerName: playerName.trim(),
+    completedChapters: [...completedChapters],
+    savePoint,
+    gold: extras.economy.gold,
+    xp: extras.economy.xp,
+    items: { ...extras.economy.items },
+    equipped: { ...extras.economy.equipped },
+    quests: Object.fromEntries(Object.entries(extras.quests).map(([id, r]) => [id, { ...r }])),
+    collected: [...extras.collected],
+  };
+}
+
+/**
+ * Sunucudan gelen kaydı güvenle kullanılabilir hale getirir: eksik alanları varsayılanla doldurur
+ * (eski bir sunucu v1 döndürse bile oyun çökmez).
+ */
+export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerName' | 'completedChapters'>): SaveData {
+  return {
+    version: SAVE_VERSION,
+    playerName: raw.playerName,
+    completedChapters: raw.completedChapters,
+    savePoint: raw.savePoint ?? null,
+    gold: raw.gold ?? 0,
+    xp: raw.xp ?? 0,
+    items: raw.items ?? {},
+    equipped: raw.equipped ?? {},
+    quests: raw.quests ?? {},
+    collected: raw.collected ?? [],
+  };
 }
