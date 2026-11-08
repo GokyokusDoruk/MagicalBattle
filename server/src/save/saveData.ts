@@ -1,14 +1,16 @@
 /**
- * Kayıt dosyası biçimi (sürüm 4). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
- * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 (ekonomi yok), sürüm 2 (yetenek yok) ve sürüm 3 (asa yok) kayıtlar
+ * Kayıt dosyası biçimi (sürüm 5). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
+ * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 (ekonomi yok), sürüm 2 (yetenek yok) sürüm 3 (asa yok) ve sürüm 4 (ahlak seçimi yok) kayıtlar
  * kabul edilir ve varsayılanlarla yükseltilir.
  */
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 /** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe) */
 const MAX_SKILLS = 36;
 /** Asa kataloğunda 48 asa var; kuşanma yuvaları element-rol çiftleridir */
 const MAX_WANDS = 48;
+/** Hikâyede 16 ahlak seçimi var */
+const MAX_CHOICES = 16;
 const MAX_WAND_STACK = 999;
 const WAND_SLOTS = ['fire', 'water', 'earth', 'air'].flatMap((e) => ['attack', 'defense'].map((r) => `${e}-${r}`));
 export const LAST_CHAPTER = 8;
@@ -57,6 +59,8 @@ export interface SaveData {
   wands: Record<string, number>;
   /** Kuşanılan asalar: yuva ("fire-attack") → asa kimliği */
   wandsEquipped: Record<string, string>;
+  /** Yapılan ahlak seçimleri: seçim kimliği → 'good' (iyi) ya da 'bad' (kötü). Puan bunlardan hesaplanır. */
+  choices: Record<string, 'good' | 'bad'>;
 }
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
@@ -144,13 +148,24 @@ function parseWandsEquipped(input: unknown): Parsed<Record<string, string>> {
   return { ok: true, value: out };
 }
 
-/** Geçerliyse temizlenmiş (ve v4'e yükseltilmiş) kaydı, değilse Türkçe hata mesajını döndürür. */
+function parseChoices(input: unknown): Parsed<Record<string, 'good' | 'bad'>> {
+  if (input === undefined) return { ok: true, value: {} };
+  if (!isPlainObject(input) || Object.keys(input).length > MAX_CHOICES) return { ok: false, error: 'Ahlak seçimleri geçersiz.' };
+  const out: Record<string, 'good' | 'bad'> = {};
+  for (const [id, side] of Object.entries(input)) {
+    if (!isId(id) || (side !== 'good' && side !== 'bad')) return { ok: false, error: 'Ahlak seçimleri geçersiz.' };
+    out[id] = side;
+  }
+  return { ok: true, value: out };
+}
+
+/** Geçerliyse temizlenmiş (ve v5'e yükseltilmiş) kaydı, değilse Türkçe hata mesajını döndürür. */
 export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: false; error: string } {
   const bad = (error: string) => ({ ok: false as const, error });
   if (!isPlainObject(input)) return bad('Kayıt verisi geçersiz.');
   const b = input;
 
-  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
+  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
 
   const nameError = validatePlayerName(b.playerName);
   if (nameError) return bad(nameError);
@@ -195,6 +210,8 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   if (!wands.ok) return bad(wands.error);
   const wandsEquipped = parseWandsEquipped(b.wandsEquipped);
   if (!wandsEquipped.ok) return bad(wandsEquipped.error);
+  const choices = parseChoices(b.choices);
+  if (!choices.ok) return bad(choices.error);
 
   return {
     ok: true,
@@ -212,6 +229,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
       skills: skills.value,
       wands: wands.value,
       wandsEquipped: wandsEquipped.value,
+      choices: choices.value,
     },
   };
 }

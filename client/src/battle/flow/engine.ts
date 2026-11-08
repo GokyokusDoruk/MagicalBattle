@@ -21,9 +21,12 @@ export interface FighterInit {
   spells?: SpellResolver;
   /** Asalardan gelen etkiler: saldırı asası taban gücü, savunma asası alınan hasarı değiştirir (verilmezse asasız) */
   wands?: WandResolver;
+  /** Yapay zekâ kişiliği (yalnızca botlar için): Elysia'nın ruh hali savaşını etkiler */
+  persona?: 'elysia';
 }
 
-export interface Fighter extends Required<FighterInit> {
+export interface Fighter extends Required<Omit<FighterInit, 'persona'>> {
+  persona: 'elysia' | null;
   index: number;
   hp: number;
 }
@@ -75,6 +78,7 @@ export class BattleEngine {
         takenMultiplier: init.takenMultiplier ?? 1,
         spells: init.spells ?? neutralEffects,
         wands: init.wands ?? neutralWand,
+        persona: init.persona ?? null,
         index,
         hp: maxHp,
       };

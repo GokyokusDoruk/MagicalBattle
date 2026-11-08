@@ -13,12 +13,20 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
  */
 export class Bot {
   constructor(
-    private readonly rand: () => number = Math.random,
+    protected readonly rand: () => number = Math.random,
     readonly skill = 0.6,
   ) {}
 
-  private between(lo: number, hi: number): number {
+  protected between(lo: number, hi: number): number {
     return lo + (hi - lo) * this.rand();
+  }
+
+  /** Hasar yedikten sonra çağrılır (kişilikli botlar tepki verir). Varsayılan bot tepki vermez. */
+  onDamaged(_amount: number, _maxHp: number): void {}
+
+  /** Savunmada kullanılan etkin beceri; kişilikli botlarda ruh haline göre değişir. */
+  protected defenseSkill(): number {
+    return this.skill;
   }
 
   chooseElement(): Element {
@@ -46,8 +54,9 @@ export class Bot {
       return analyzeStrokes(buildShape(name, 128 + this.between(-20, 20), 128 + this.between(-20, 20), this.between(55, 90), ms), ms);
     }
 
-    const sloppy = 1 - this.skill;
-    const keepFraction = clamp(0.12 + this.skill * 0.85 * (0.6 + 0.4 * this.rand()), 0.12, 1);
+    const skill = this.defenseSkill();
+    const sloppy = 1 - skill;
+    const keepFraction = clamp(0.12 + skill * 0.85 * (0.6 + 0.4 * this.rand()), 0.12, 1);
     const offX = sloppy * 20 * (this.rand() * 2 - 1);
     const offY = sloppy * 20 * (this.rand() * 2 - 1);
     const jitter = sloppy * 9;

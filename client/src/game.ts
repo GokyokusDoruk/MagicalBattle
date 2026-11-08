@@ -11,6 +11,10 @@ import { QuestEngine, type QuestCompletion } from './quests/engine';
 import { normalizeSave, savePointForCity, type SaveData } from './save/saveData';
 import { SaveManager } from './save/saveManager';
 import { WandInventory } from './wands/inventory';
+import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
+import { finalLines } from './morality/final';
+import { Morality } from './morality/morality';
+import { DialogueUi } from './ui/dialogueUi';
 import { WandUi } from './ui/wandUi';
 import { SkillTree } from './skills/tree';
 import { Progress } from './story/progress';
@@ -89,13 +93,20 @@ const hero = new PlayerState();
 const sideQuests = new QuestEngine(hero);
 const skillTree = new SkillTree(() => hero.level);
 const wands = new WandInventory();
+const morality = new Morality();
+// Ahlak etkisi: Düzen Bekçisi görev altınını artırır (tüccar fiyatları merchantUi'a bağlı, aşağıda)
+const applyMoralEffects = (): void => {
+  sideQuests.goldMultiplier = morality.effects.questGoldMultiplier;
+};
 const collected = new Set<string>(save?.collected ?? []);
 if (save) {
   hero.restore(save);
   sideQuests.restore(save.quests);
   skillTree.restore(save.skills); // seviye (puan) yüklendikten sonra
   wands.restore(save);
+  morality.restore(save.choices);
 }
+applyMoralEffects();
 
 const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, () => ({
   economy: hero.snapshot(),
@@ -103,6 +114,7 @@ const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, 
   collected: [...collected],
   skills: skillTree.snapshot(),
   wands: wands.snapshot(),
+  choices: morality.snapshot(),
 }));
 // Yeni oyunda ad hemen kaydedilir; kayıt noktasına varmadan çıkılsa bile ad kaybolmaz
 if (!save && savingEnabled) void saves.saveAt(null);
@@ -132,10 +144,10 @@ const wandUi = new WandUi({ wands, onChanged: () => setDirty(true) });
 document.body.appendChild(wandUi.element);
 const statusBar = new StatusBar(
   () => {
-    if (!story.isOpen && !merchantUi.isOpen && !wandUi.isOpen) skillUi.toggle();
+    if (!story.isOpen && !merchantUi.isOpen && !wandUi.isOpen && !dialogueUi.isOpen) skillUi.toggle();
   },
   () => {
-    if (!story.isOpen && !merchantUi.isOpen && !skillUi.isOpen) wandUi.toggle();
+    if (!story.isOpen && !merchantUi.isOpen && !skillUi.isOpen && !dialogueUi.isOpen) wandUi.toggle();
   },
 );
 document.body.appendChild(statusBar.element);
@@ -150,6 +162,7 @@ const refreshHud = (): void =>
     dirty: dirty && saves.enabled,
     quests: sideQuests.active().map((q) => ({ title: q.title, ...sideQuests.progress(q.id) })),
     skillPoints: skillTree.pointsFree,
+    moralityLabel: `${morality.effects.label} (${morality.score > 0 ? '+' : ''}${morality.score})`,
     wandsReady: wands.owned().some((w) => wands.checkSynthesis(w.id).ok),
   });
 const setDirty = (value: boolean): void => {
@@ -160,6 +173,10 @@ hero.onChange(refreshHud);
 sideQuests.onChange(refreshHud);
 skillTree.onChange(refreshHud);
 wands.onChange(refreshHud);
+morality.onChange(() => {
+  applyMoralEffects();
+  refreshHud();
+});
 refreshHud();
 
 /** Biten yan görevleri bildirir (ödüller zaten envantere yattı). */
@@ -183,14 +200,36 @@ const merchantUi = new MerchantUi({
   quests: sideQuests,
   wands,
   sfx,
+  priceMultipliers: () => ({ buy: morality.effects.buyMultiplier, sell: morality.effects.sellMultiplier }),
   onChanged: () => setDirty(true),
   onQuestCompletion: (c) => handleCompletions([c]),
 });
 document.body.appendChild(merchantUi.element);
-const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen;
+const dialogueUi = new DialogueUi(narrator);
+document.body.appendChild(dialogueUi.element);
+const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || dialogueUi.isOpen;
+
+/** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
+async function playChapterChoices(chapter: number): Promise<void> {
+  const ctx = {
+    score: () => morality.score,
+    flags: new Set<string>(),
+    onEffect: (e: import('./dialogue/engine').DialogueEffect): void => {
+      if (e.type !== 'moral' || !morality.choose(e.choiceId, e.side)) return;
+      setDirty(true);
+      const sign = morality.score > 0 ? '+' : '';
+      toast.show(`Ahlak puanın: ${sign}${morality.score} (${morality.effects.label})`);
+    },
+  };
+  for (const tree of chapterChoiceTrees(chapter)) {
+    if (morality.decided(tree.id)) continue; // daha önce yapılmış seçim tekrarlanmaz
+    await dialogueUi.run(tree, ctx);
+  }
+  if (chapter === 8) await dialogueUi.run(linesTree('final', finalLines(morality.score)), ctx);
+}
 // K: yetenek ağacı, W: asalar (sahne ya da tüccar açıkken açılmaz)
 window.addEventListener('keydown', (e) => {
-  if (e.repeat || story.isOpen || merchantUi.isOpen) return;
+  if (e.repeat || story.isOpen || merchantUi.isOpen || dialogueUi.isOpen) return;
   if (e.code === 'KeyK' && !wandUi.isOpen) skillUi.toggle();
   if (e.code === 'KeyW' && !skillUi.isOpen) wandUi.toggle();
 });
@@ -215,6 +254,9 @@ const debug = {
   skillUi,
   wands,
   wandUi,
+  morality,
+  dialogueUi,
+  playChapterChoices,
   collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */
@@ -240,9 +282,12 @@ void import('./world/bootWorld').then((m) =>
     onMarkerEnter: (marker) => {
       const scene = CHAPTER_SCENES[marker.chapter];
       if (modalOpen() || !scene) return;
-      // Sahne bitince (atlansa da) bölüm tamamlanır: kapı açılır, sonraki görev belirir.
+      // Sahne bitince (atlansa da) bölümün ahlak seçimleri oynanır, sonra bölüm tamamlanır: kapı açılır, sonraki görev belirir.
       // Boss savaşları gelince (Task 19) tamamlanma savaşın sonucuna bağlanacak.
-      void story.play(scene).then(() => progress.completeChapter(marker.chapter));
+      void story
+        .play(scene)
+        .then(() => playChapterChoices(marker.chapter))
+        .then(() => progress.completeChapter(marker.chapter));
     },
     // Şehre girmek kayıt noktasıdır: ilerleme sunucuya yazılır
     onCityEnter: (cityId) => {

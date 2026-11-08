@@ -1,13 +1,14 @@
 import type { EconomySnapshot } from '../economy/player';
 import type { QuestSnapshot } from '../quests/engine';
+import type { Side } from '../morality/catalog';
 import type { WandSnapshot } from '../wands/inventory';
 import { CITY_HALF, type LocationDef } from '../world/locations';
 
 /**
- * Kayıt dosyası biçimi (sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
- * aynı alanları doğrular ve eski (v1-v3) kayıtları yükseltir (server/src/save/saveData.ts).
+ * Kayıt dosyası biçimi (sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
+ * aynı alanları doğrular ve eski (v1-v4) kayıtları yükseltir (server/src/save/saveData.ts).
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface SavePoint {
   cityId: string;
@@ -25,6 +26,8 @@ export interface SaveData extends EconomySnapshot, WandSnapshot {
   quests: QuestSnapshot;
   /** Toplanmış, bir daha çıkmayacak dünya eşyalarının kimlikleri */
   collected: string[];
+  /** Yapılan ahlak seçimleri (puan bunlardan hesaplanır) */
+  choices: Record<string, Side>;
   /** Alınan yetenekler (yetenek ağacı kimlikleri) */
   skills: string[];
 }
@@ -36,9 +39,10 @@ export interface SaveExtras {
   collected: readonly string[];
   skills: readonly string[];
   wands: WandSnapshot;
+  choices: Readonly<Record<string, Side>>;
 }
 
-const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandsEquipped: {} } };
+const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandsEquipped: {} }, choices: {} };
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
 
@@ -76,6 +80,7 @@ export function buildSave(
     skills: [...extras.skills],
     wands: { ...extras.wands.wands },
     wandsEquipped: { ...extras.wands.wandsEquipped },
+    choices: { ...extras.choices },
   };
 }
 
@@ -98,5 +103,6 @@ export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerNam
     skills: raw.skills ?? [],
     wands: raw.wands ?? {},
     wandsEquipped: raw.wandsEquipped ?? {},
+    choices: raw.choices ?? {},
   };
 }

@@ -63,4 +63,4 @@ Kayıt yine **yalnızca şehirlerde** yapılır. Tüccarlar köylerde olduğu i�
 
 - Eşyalar, fiyatlar, zırh değerleri: `economy/items.ts`. Tüccarların stoku: `economy/merchants.ts`.
 - Yeni görev eklemek için `quests/catalog.ts` dosyasına bir kayıt yeterli.
-- Ahlak sistemi (Task 18) için kancalar hazır: tüccar alış/satış fiyat çarpanları (`MerchantUiDeps.priceMultipliers`) ve görev altın çarpanı (`QuestEngine.goldMultiplier`).
+- Ahlak sistemi bu kancalara bağlı (Task 18, bkz. [diyalog-ve-ahlak.md](diyalog-ve-ahlak.md)): tüccar alış/satış fiyat çarpanları (`MerchantUiDeps.priceMultipliers`) ve görev altın çarpanı (`QuestEngine.goldMultiplier`).

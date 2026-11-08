@@ -5,6 +5,7 @@ import type { SlotRef } from '../battle/arena/layout';
 import { ELEMENT_COLORS } from '../battle/arena/palette';
 import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
 import { Bot } from '../battle/flow/bot';
+import { ElysiaBot } from '../battle/flow/elysia';
 import { runBattle, type BattleIO, type Role, type TurnReport } from '../battle/flow/controller';
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
@@ -64,7 +65,9 @@ export class BattleScreen implements BattleIO {
     this.arena.setTeams([specs(0), specs(1)]);
 
     for (const f of engine.all()) {
-      if (f.control === 'bot') this.bots.set(key(f), new Bot(Math.random, options.botSkill));
+      if (f.control === 'bot') {
+        this.bots.set(key(f), f.persona === 'elysia' ? new ElysiaBot(Math.random, Math.min(0.95, options.botSkill + 0.1)) : new Bot(Math.random, options.botSkill));
+      }
     }
 
     this.buildHud();
@@ -255,6 +258,9 @@ export class BattleScreen implements BattleIO {
       head: (report.breakdown?.headShare ?? 0) > 0.5,
       element: report.attackerElement,
     });
+    // Kişilikli botlar (Elysia) hasar yiyince tepki verir
+    this.bots.get(key(action.defender))?.onDamaged(report.damage, this.engine.fighter(action.defender).maxHp);
+    if (report.reflected > 0) this.bots.get(key(action.attacker))?.onDamaged(report.reflected, this.engine.fighter(action.attacker).maxHp);
     this.updateHud();
     if (report.healed > 0) {
       void this.say(this.center, `${this.name(action.attacker)} +${report.healed} can çaldı`, 1100, 'bg-emerald-900/80 text-emerald-100');
