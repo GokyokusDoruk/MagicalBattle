@@ -1,0 +1,295 @@
+import { ArenaView, type CombatantSpec } from '../battle/arena/arenaView';
+import type { SlotRef } from '../battle/arena/layout';
+import { ELEMENT_COLORS } from '../battle/arena/palette';
+import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
+import { Bot } from '../battle/flow/bot';
+import { runBattle, type BattleIO, type Role, type TurnReport } from '../battle/flow/controller';
+import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
+import type { DrawingResult, Stroke } from '../battle/gesture/types';
+import { DrawingCanvas } from './drawingCanvas';
+
+const css = (hex: number): string => `#${hex.toString(16).padStart(6, '0')}`;
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+const key = (ref: SlotRef): string => `${ref.team}:${ref.index}`;
+
+/** Görünüm için varsayılan elementler (cüppe rengi). Büyü elementi her turda ayrıca seçilir. */
+const LOOKS: Record<0 | 1, Element[]> = { 0: ['fire', 'air'], 1: ['water', 'earth'] };
+
+export interface BattleScreenOptions {
+  /** Bot becerisi (0-1): savunmada gelen saldırıyı ne kadar iyi kapattığı */
+  botSkill: number;
+  showAttackToDefender: boolean;
+  /** Savaş sonu ekranında: true = tekrar oyna, false = menüye dön */
+  onFinish: (playAgain: boolean) => void;
+}
+
+/**
+ * Savaş ekranı: 3D arena, can çubukları, element seçimi, çizim tuvali ve duyurular.
+ * `runBattle` akışının arayüz tarafıdır (BattleIO); bot kontrollü savaşçılar için anında karar verir,
+ * insan kontrollü savaşçılar için sıra gelince ekranda seçim/çizim ister.
+ */
+export class BattleScreen implements BattleIO {
+  private readonly arena: ArenaView;
+  private readonly root: HTMLElement;
+  private readonly hud = new Map<string, { fill: HTMLElement; text: HTMLElement; card: HTMLElement }>();
+  private readonly bots = new Map<string, Bot>();
+  private readonly banner: HTMLElement;
+  private readonly center: HTMLElement;
+  private readonly modals: HTMLElement;
+  private readonly abort = new AbortController();
+  private turnElements: { attacker: Element; defender: Element } | null = null;
+  private disposed = false;
+
+  constructor(
+    parent: HTMLElement,
+    private readonly engine: BattleEngine,
+    private readonly options: BattleScreenOptions,
+  ) {
+    this.root = document.createElement('div');
+    this.root.className = 'fixed inset-0 bg-black';
+    parent.appendChild(this.root);
+
+    const stage = document.createElement('div');
+    stage.className = 'absolute inset-0';
+    this.root.appendChild(stage);
+    this.arena = new ArenaView(stage);
+
+    const specs = (team: 0 | 1): CombatantSpec[] =>
+      engine.team(team).map((f) => ({ name: f.name, element: LOOKS[team][f.index] }));
+    this.arena.setTeams([specs(0), specs(1)]);
+
+    for (const f of engine.all()) {
+      if (f.control === 'bot') this.bots.set(key(f), new Bot(Math.random, options.botSkill));
+    }
+
+    this.buildHud();
+    this.banner = this.overlay('pointer-events-none absolute inset-x-0 top-24 z-10 flex justify-center px-2');
+    this.center = this.overlay('pointer-events-none absolute inset-x-0 top-[38%] z-10 flex justify-center px-2');
+    this.modals = this.overlay('absolute inset-0 z-20');
+    this.modals.style.pointerEvents = 'none';
+  }
+
+  private overlay(cls: string): HTMLElement {
+    const el = document.createElement('div');
+    el.className = cls;
+    this.root.appendChild(el);
+    return el;
+  }
+
+  /** Can çubukları: takım 0 solda, takım 1 sağda. */
+  private buildHud(): void {
+    const bar = this.overlay('pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between gap-2 p-2');
+    for (const team of [0, 1] as const) {
+      const col = document.createElement('div');
+      col.className = `flex w-[46%] max-w-[260px] flex-col gap-1 ${team === 1 ? 'items-end' : ''}`;
+      for (const f of this.engine.team(team)) {
+        const card = document.createElement('div');
+        card.className = 'w-full rounded bg-black/60 px-2 py-1 text-xs text-amber-50 transition-opacity';
+        card.innerHTML = `<div class="flex justify-between gap-2"><b data-name></b><span data-hp></span></div>
+          <div class="mt-1 h-2 overflow-hidden rounded bg-white/15"><div data-fill class="h-full transition-all duration-500"></div></div>`;
+        card.querySelector('[data-name]')!.textContent = f.name + (f.control === 'human' ? ' (sen)' : '');
+        col.appendChild(card);
+        this.hud.set(key({ team, index: f.index }), { fill: card.querySelector('[data-fill]')!, text: card.querySelector('[data-hp]')!, card });
+      }
+      bar.appendChild(col);
+    }
+    this.updateHud();
+  }
+
+  private updateHud(): void {
+    for (const f of this.engine.all()) {
+      const h = this.hud.get(key({ team: f.team, index: f.index }));
+      if (!h) continue;
+      const ratio = f.hp / f.maxHp;
+      h.fill.style.width = `${ratio * 100}%`;
+      h.fill.style.background = ratio > 0.5 ? '#4ade80' : ratio > 0.25 ? '#fbbf24' : '#f87171';
+      h.text.textContent = `${f.hp}/${f.maxHp}`;
+      h.card.style.opacity = f.hp > 0 ? '1' : '0.45';
+    }
+  }
+
+  // --- Duyurular ---------------------------------------------------------------------------
+
+  private async say(el: HTMLElement, html: string, ms: number, cls = 'bg-black/70 text-amber-50'): Promise<void> {
+    el.innerHTML = `<div class="rounded-lg px-4 py-2 text-center text-sm font-bold shadow-lg sm:text-base ${cls}">${html}</div>`;
+    await sleep(ms);
+    if (!this.disposed) el.innerHTML = '';
+  }
+
+  private name(ref: SlotRef): string {
+    return this.engine.fighter(ref).name;
+  }
+
+  private isHuman(ref: SlotRef): boolean {
+    return this.engine.fighter(ref).control === 'human';
+  }
+
+  // --- BattleIO ----------------------------------------------------------------------------
+
+  async announceTurn(action: Action): Promise<void> {
+    const a = this.name(action.attacker);
+    const d = this.name(action.defender);
+    const text = this.isHuman(action.attacker)
+      ? `Senin saldırın → ${d}`
+      : this.isHuman(action.defender)
+        ? `${a} saldırıyor! Savunmaya hazırlan`
+        : `${a} → ${d}`;
+    await this.say(this.banner, text, 800);
+  }
+
+  async chooseElement(ref: SlotRef, role: Role): Promise<Element> {
+    const bot = this.bots.get(key(ref));
+    if (bot) {
+      await sleep(300);
+      return bot.chooseElement();
+    }
+    return this.pickElement(role === 'attack' ? 'Saldırı elementini seç' : 'Savunma elementini seç', role === 'attack' ? 'Rakip de savunma elementini gizlice seçiyor.' : 'Rakip de saldırı elementini gizlice seçiyor.');
+  }
+
+  /** Kör seçim: oyuncu seçer, rakibinin ne seçtiğini görmez; ikisi de seçilince birlikte açılır. */
+  private pickElement(title: string, hint: string): Promise<Element> {
+    return new Promise((resolve) => {
+      this.modals.style.pointerEvents = 'auto';
+      this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-4 bg-slate-950/80 p-4">
+        <h2 class="text-lg font-bold text-amber-200">${title}</h2>
+        <p class="text-center text-sm text-slate-300">${hint}</p>
+        <div class="grid w-full max-w-sm grid-cols-2 gap-3" data-grid></div></div>`;
+      const grid = this.modals.querySelector('[data-grid]')!;
+      for (const e of ELEMENTS) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = ELEMENT_NAMES[e];
+        b.className = 'rounded-lg px-4 py-5 text-lg font-bold text-slate-900 active:scale-95';
+        b.style.background = css(ELEMENT_COLORS[e].main);
+        b.addEventListener('click', () => {
+          this.closeModal();
+          resolve(e);
+        });
+        grid.appendChild(b);
+      }
+    });
+  }
+
+  private closeModal(): void {
+    this.modals.innerHTML = '';
+    this.modals.style.pointerEvents = 'none';
+  }
+
+  async revealElements(_action: Action, attackerElement: Element, defenderElement: Element): Promise<void> {
+    this.turnElements = { attacker: attackerElement, defender: defenderElement };
+    const rel = elementRelation(attackerElement, defenderElement);
+    const mult = elementMultiplier(attackerElement, defenderElement);
+    const [tone, label] =
+      rel === 'advantage'
+        ? ['bg-emerald-700/80 text-emerald-100', `saldırı üstün ×${mult}`]
+        : rel === 'disadvantage'
+          ? ['bg-red-800/80 text-red-100', `savunma üstün ×${mult}`]
+          : ['bg-slate-700/80 text-slate-100', 'etkisiz ×1'];
+    await this.say(
+      this.center,
+      `<span style="color:${css(ELEMENT_COLORS[attackerElement].glow)}">${ELEMENT_NAMES[attackerElement]}</span> ⚔ <span style="color:${css(ELEMENT_COLORS[defenderElement].glow)}">${ELEMENT_NAMES[defenderElement]}</span><br><span class="text-xs font-normal">${label}</span>`,
+      1500,
+      tone,
+    );
+  }
+
+  async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[]): Promise<DrawingResult> {
+    const bot = this.bots.get(key(ref));
+    if (bot) {
+      await sleep(this.arenaPause(role));
+      return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
+    }
+    const el = role === 'attack' ? this.turnElements?.attacker : this.turnElements?.defender;
+    return this.drawByHand(role, el ?? 'fire', ghost);
+  }
+
+  /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
+  private arenaPause(role: Role): number {
+    return role === 'attack' ? 900 : 700;
+  }
+
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[]): Promise<DrawingResult> {
+    this.modals.style.pointerEvents = 'auto';
+    this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
+      <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
+      <div data-canvas class="flex w-full justify-center"></div></div>`;
+    const canvas = new DrawingCanvas({
+      color: role === 'attack' ? css(ELEMENT_COLORS[element].main) : '#7df0c4',
+      ghost,
+      showHeadZone: true,
+    });
+    this.modals.querySelector('[data-canvas]')!.appendChild(canvas.element);
+    return canvas.start().then((result) => {
+      this.closeModal();
+      return result;
+    });
+  }
+
+  async play(report: TurnReport): Promise<void> {
+    const { action } = report;
+    if (report.attackFailed) {
+      void this.say(this.center, `Büyü yapamadı! <span class="font-normal">(${this.name(action.attacker)})</span>`, 1400, 'bg-red-900/80 text-red-100');
+      await this.arena.fizzle(action.attacker);
+      return;
+    }
+
+    const defense = report.defense;
+    if (!report.defenseFailed && defense) {
+      await this.arena.showShield(action.defender, action.attacker, defense.strokes as Stroke[]);
+    } else {
+      void this.say(this.center, `Savunma yapılamadı! <span class="font-normal">(${this.name(action.defender)})</span>`, 1200, 'bg-red-900/80 text-red-100');
+    }
+    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement);
+    await this.arena.impact(action.defender, action.attacker, {
+      damage: report.damage,
+      blockedRatio: report.breakdown?.defendedRatio ?? 0,
+      head: (report.breakdown?.headShare ?? 0) > 0.5,
+      element: report.attackerElement,
+    });
+    this.updateHud();
+    if (report.defeated) {
+      this.arena.defeat(action.defender);
+      await this.say(this.center, `${this.name(action.defender)} yenildi!`, 1400, 'bg-amber-700/80 text-amber-50');
+    }
+  }
+
+  async announceEnd(winner: Winner, engine: BattleEngine): Promise<void> {
+    const human = engine.all().find((f: Fighter) => f.control === 'human');
+    const mine = human?.team ?? 0;
+    const [title, tone] =
+      winner === 'draw' || winner === null
+        ? ['BERABERE', 'text-slate-200']
+        : winner === mine
+          ? ['ZAFER!', 'text-amber-300']
+          : ['YENİLGİ', 'text-red-300'];
+    this.modals.style.pointerEvents = 'auto';
+    this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-4 bg-slate-950/70 p-4">
+      <h1 class="text-4xl font-bold ${tone}">${title}</h1>
+      <div class="flex gap-3">
+        <button data-again type="button" class="rounded bg-amber-300 px-5 py-3 font-bold text-slate-900">Tekrar oyna</button>
+        <button data-menu type="button" class="rounded bg-slate-700 px-5 py-3 font-bold text-amber-50">Menü</button>
+      </div></div>`;
+    await new Promise<void>((resolve) => {
+      const done = (again: boolean): void => {
+        this.options.onFinish(again);
+        resolve();
+      };
+      this.modals.querySelector('[data-again]')!.addEventListener('click', () => done(true));
+      this.modals.querySelector('[data-menu]')!.addEventListener('click', () => done(false));
+    });
+  }
+
+  // --- Yaşam döngüsü -----------------------------------------------------------------------
+
+  /** Savaşı başlatır; bitince kazananı verir. */
+  run(): Promise<Winner> {
+    return runBattle(this.engine, this, { showAttackToDefender: this.options.showAttackToDefender, signal: this.abort.signal });
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    this.abort.abort();
+    this.arena.dispose();
+    this.root.remove();
+  }
+}
