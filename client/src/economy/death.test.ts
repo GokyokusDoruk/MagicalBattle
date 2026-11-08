@@ -39,14 +39,14 @@ describe('altın kaybı', () => {
     const p = new PlayerState();
     p.addGold(1000);
     p.addXp(500);
-    p.addItem('cirak-cuppesi');
-    p.equip('cirak-cuppesi');
+    p.addItem('eq-robe-earth-1');
+    p.equip('eq-robe-earth-1');
     const level = p.level;
     p.spendGold(goldLoss(level, p.gold));
     expect(p.gold).toBe(1000 - goldLoss(level, 1000));
     expect(p.xp).toBe(500);
     expect(p.level).toBe(level);
-    expect(p.isEquipped('cirak-cuppesi')).toBe(true);
+    expect(p.isEquipped('eq-robe-earth-1')).toBe(true);
   });
 });
 

@@ -19,7 +19,7 @@ Not: **Asa birleştirme (5 → 1) kaldırıldı** (Task 22).
 |---|---|---|
 | 21 | Envanter, ağırlık, çantalar (5 çanta), Taşıyıcı yetenekleri, iksir eşyaları (**bitti**) | 8 |
 | **22** | **Asa v2:** seviye, tek asa, rol dengesi, element bonusu, büyü süresi, seviye şartı, 5 dakikada yenilenen tüccar stoğu; birleştirme kaldırıldı | asa |
-| 23 | **Ekipman sistemi:** 6 yuva (Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı) × 4 element × 6 nadirlik = 144 eşya, renkli ikonlar, tur başına element bonusu, ayakkabı hızı, yüzük büyü süresi. Eski 12 ekipman ve 5 çantanın yerine geçer | ekipman |
+| **23** | **Ekipman sistemi (bu PR):** 6 yuva (Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı) × 4 element × 6 nadirlik = 144 eşya, renkli ikonlar, tur başına element bonusu, ayakkabı hızı, yüzük büyü süresi. Eski 12 ekipman ve 5 çantanın yerine geçer | ekipman |
 | 24 | **Şehir bonusu** (ayakkabı hızı, çanta kapasitesi, kendi elementinin şehrinde +%50), şehirden çıkarken eşya bırakma, yerde kalan eşya (10 dk) | ekipman |
 | 25 | **Şehir tüccarları** (köydekiler kalkar), 4 ticari eşya, şehre özel fiyat çarpanları, 5 dakikalık dönen ekipman stoğu (tek Nadir). **Asacı** (asa alım satım) | 4, 5 |
 | 26 | **Han** (bedava can), şehir görevleri, kalıcı can, iksir kullanma, boss mevcut canla | 6 |

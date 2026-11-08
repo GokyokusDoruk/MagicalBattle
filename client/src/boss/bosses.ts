@@ -2,6 +2,7 @@ import type { Element } from '../battle/damage/elements';
 import type { BotProfile } from '../battle/flow/bot';
 import { MAX_HP } from '../battle/flow/config';
 import type { FighterInit } from '../battle/flow/engine';
+import type { GearResolver } from '../economy/gearEffects';
 import type { WandResolver } from '../wands/inventory';
 import type { SpellResolver } from '../skills/resolver';
 import type { ChoiceLine } from '../morality/catalog';
@@ -160,6 +161,8 @@ export interface PlayerStats {
   takenMultiplier?: number;
   spells?: SpellResolver;
   wands?: WandResolver;
+  /** Ekipman (zırh ve yüzük) çözücüsü; verilirse `armor` yerine kullanılır (büyünün elementine göre) */
+  gear?: GearResolver;
 }
 
 /** Yoldaşın (Elysia) ayarları */
@@ -184,6 +187,7 @@ export function bossFighters(chapter: number, player: PlayerStats, path: FinalPa
       control: 'human',
       maxHp: playerMaxHp(player.level),
       armor: player.armor,
+      gear: player.gear,
       dealtMultiplier: player.dealtMultiplier,
       takenMultiplier: player.takenMultiplier,
       spells: player.spells,

@@ -1,4 +1,6 @@
-import { ARMOR_CAP } from '../battle/damage/config';
+import type { Element } from '../battle/damage/elements';
+import { LEGACY_SLOTS, migrateItemId } from './equipment';
+import { bootsSpeed, gearEffects, type GearEffects, type GearResolver } from './gearEffects';
 import { GEAR_SLOTS, getItem, type GearSlot } from './items';
 import { levelForXp } from './leveling';
 
@@ -64,11 +66,24 @@ export class PlayerState {
     return this.equippedSlots;
   }
 
-  /** Kuşanılan ekipmanların toplam zırhı (tek bir hasar azaltma yüzdesi, üst sınırlı). */
+  /** Kuşanılan zırh parçalarının toplam zırhı (taban değer: element bonusu yok). Üst sınırlıdır. */
   get armor(): number {
-    let total = 0;
-    for (const id of Object.values(this.equippedSlots)) total += getItem(id)?.armor ?? 0;
-    return Math.min(ARMOR_CAP, total);
+    return gearEffects(this.equippedSlots).armor;
+  }
+
+  /** Seçilen büyünün elementine göre ekipman etkisi (aynı elementteki zırh ve yüzük %50 daha güçlü). */
+  gearFor(element?: Element): GearEffects {
+    return gearEffects(this.equippedSlots, element);
+  }
+
+  /** Savaşçıya verilecek çözücü; ekipman sonradan değişse bile güncel durumu okur. */
+  get gearResolver(): GearResolver {
+    return (element) => this.gearFor(element);
+  }
+
+  /** Ayakkabıdan gelen yürüme hızı bonusu (0.1 = +%10). Şehir bonusu ayrıca eklenir (Task 24). */
+  get speedBonus(): number {
+    return bootsSpeed(this.equippedSlots);
   }
 
   onChange(listener: () => void): void {
@@ -195,15 +210,19 @@ export class PlayerState {
     this.goldValue = toInt(snapshot?.gold, MAX_GOLD);
     this.xpValue = toInt(snapshot?.xp, MAX_XP);
     this.items.clear();
-    for (const [id, count] of Object.entries(snapshot?.items ?? {})) {
+    // Eski ekipman kimlikleri yeni eşyalara dönüşür (aynı eşyaya düşenler toplanır)
+    for (const [rawId, count] of Object.entries(snapshot?.items ?? {})) {
+      const id = migrateItemId(rawId);
       const n = toInt(count, MAX_STACK);
-      if (getItem(id) && n > 0) this.items.set(id, n);
+      if (getItem(id) && n > 0) this.items.set(id, Math.min(MAX_STACK, this.count(id) + n));
     }
     this.equippedSlots = {};
-    for (const slot of GEAR_SLOTS) {
-      const id = snapshot?.equipped?.[slot];
+    const saved = (snapshot?.equipped ?? {}) as Record<string, string | undefined>;
+    for (const [rawSlot, rawId] of Object.entries(saved)) {
+      const slot = (GEAR_SLOTS as readonly string[]).includes(rawSlot) ? (rawSlot as GearSlot) : LEGACY_SLOTS[rawSlot];
+      const id = rawId ? migrateItemId(rawId) : undefined;
       const item = id ? getItem(id) : undefined;
-      if (id && item?.slot === slot && this.count(id) > 0) this.equippedSlots[slot] = id;
+      if (slot && id && item?.slot === slot && this.count(id) > 0 && !this.equippedSlots[slot]) this.equippedSlots[slot] = id;
     }
     this.changed();
   }

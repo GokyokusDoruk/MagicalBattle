@@ -13,6 +13,7 @@ import { SaveManager } from './save/saveManager';
 import { Carry } from './inventory/carry';
 import { WandInventory } from './wands/inventory';
 import { WandStock } from './wands/stock';
+import { GearStock } from './economy/gearStock';
 import { BagUi } from './ui/bagUi';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
@@ -227,11 +228,22 @@ const wandStock = (merchantId: string): WandStock => {
   return stock;
 };
 
+const gearStocks = new Map<string, GearStock>();
+const gearStock = (merchantId: string): GearStock => {
+  let stock = gearStocks.get(merchantId);
+  if (!stock) {
+    stock = new GearStock(merchantId, () => performance.now());
+    gearStocks.set(merchantId, stock);
+  }
+  return stock;
+};
+
 const merchantUi = new MerchantUi({
   player: hero,
   quests: sideQuests,
   wands,
   wandStock,
+  gearStock,
   sfx,
   priceMultipliers: () => ({ buy: morality.effects.buyMultiplier, sell: morality.effects.sellMultiplier }),
   onChanged: () => setDirty(true),
@@ -304,7 +316,7 @@ async function playChapter(chapter: number): Promise<void> {
       await dialogueUi.run(linesTree(`boss-${chapter}`, boss.intro), ctx);
       const outcome = await runBossFight(
         chapter,
-        { name: playerName, level: hero.level, armor: hero.armor, spells: skillTree.resolver, wands: wands.resolver },
+        { name: playerName, level: hero.level, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
         morality.finalPath,
       );
       if (outcome !== 'won') {
@@ -384,6 +396,8 @@ void import('./world/bootWorld').then((m) =>
     startTile: startPoint,
     // Sahne ya da tüccar ekranı açıkken karakter durur
     getAxis: () => (modalOpen() ? STILL : input.getAxis()),
+    // Ayakkabı yürüme hızını artırır (şehir bonusu Task 24'te eklenecek)
+    getSpeedMultiplier: () => 1 + hero.speedBonus,
     gates,
     quests,
     notify: (message) => toast.show(message),

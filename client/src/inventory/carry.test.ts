@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ITEMS, getItem, gearValue, isBag, itemCategory } from '../economy/items';
+import { BAG_BY_RARITY } from '../economy/equipment';
+import { ITEMS, isBag, itemCategory } from '../economy/items';
 import { PlayerState } from '../economy/player';
-import { MERCHANTS } from '../economy/merchants';
-import { buy } from '../economy/shop';
+import { buyItem } from '../economy/shop';
 import { QuestEngine } from '../quests/engine';
 import { CARRY_SKILLS, getCarrySkill } from '../skills/catalog';
 import { SkillTree } from '../skills/tree';
@@ -21,28 +21,26 @@ function setup(level = 30) {
   return { player, wands, tree, carry };
 }
 
-const merchantOf = (itemId: string) => MERCHANTS.find((m) => m.stock.includes(itemId))!;
-
 describe('katalog: çantalar ve iksirler', () => {
   const bags = ITEMS.filter(isBag);
 
-  it('5 çanta var; nadirlik arttıkça kapasite ve fiyat artar, hepsi tam sayı', () => {
-    expect(bags).toHaveLength(5);
-    const sorted = [...bags].sort((a, b) => a.tier! - b.tier!);
-    expect(sorted.map((b) => b.tier)).toEqual([1, 2, 3, 4, 5]);
-    for (let i = 1; i < sorted.length; i++) {
-      for (const k of ['wands', 'goods', 'gear'] as const) {
-        expect(sorted[i].carry![k]).toBeGreaterThan(sorted[i - 1].carry![k]);
+  it('24 çanta var (4 element x 6 nadirlik); nadirlik arttıkça kapasite ve fiyat artar, hepsi tam sayı', () => {
+    expect(bags).toHaveLength(24);
+    for (const el of ['fire', 'water', 'earth', 'air']) {
+      const sorted = bags.filter((b) => b.element === el).sort((a, b) => a.rarity! - b.rarity!);
+      expect(sorted.map((b) => b.rarity)).toEqual([1, 2, 3, 4, 5, 6]);
+      for (let i = 1; i < sorted.length; i++) {
+        for (const k of ['wands', 'goods', 'gear'] as const) expect(sorted[i].carry![k]).toBeGreaterThan(sorted[i - 1].carry![k]);
+        expect(sorted[i].price).toBeGreaterThan(sorted[i - 1].price);
       }
-      expect(sorted[i].price).toBeGreaterThan(sorted[i - 1].price);
-      expect(gearValue(sorted[i])).toBeGreaterThan(gearValue(sorted[i - 1]));
     }
     for (const b of bags) for (const v of Object.values(b.carry!)) expect(Number.isInteger(v)).toBe(true);
+    expect(bags.find((b) => b.id === 'eq-bag-fire-6')!.carry).toEqual(BAG_BY_RARITY[5]);
   });
 
   it('başlangıç kapasitesi 3 asa, 20 eşya, 2 kuşanılabilir; çantalar artırır', () => {
     expect(BASE_CAPACITY).toEqual({ wands: 3, goods: 20, gear: 2 });
-    expect(getItem('kucuk-canta')!.carry!.wands).toBeGreaterThan(0);
+    expect(BAG_BY_RARITY[0]).toEqual(BASE_CAPACITY); // Sıradan çanta başlangıç kapasitesini ikiye katlar (eklenir)
   });
 
   it('3 iksir var, can verir, eşya sayılır (giyilmez)', () => {
@@ -53,13 +51,6 @@ describe('katalog: çantalar ve iksirler', () => {
       expect(itemCategory(p)).toBe('goods');
       expect(p.slot).toBeUndefined();
     }
-  });
-
-  it('tüccarlar ilk üç çantayı satar, Usta ve Efsunlu yalnızca ganimet', () => {
-    expect(merchantOf('kucuk-canta')).toBeDefined();
-    expect(merchantOf('deri-canta')).toBeDefined();
-    expect(merchantOf('gezgin-cantasi')).toBeDefined();
-    expect(MERCHANTS.some((m) => m.stock.includes('usta-cantasi') || m.stock.includes('efsunlu-canta'))).toBe(false);
   });
 });
 
@@ -99,36 +90,36 @@ describe('kapasite ve kullanım', () => {
 
   it('giyilmeyen ekipman "kuşanılabilir" yeri kaplar, giyilen kaplamaz', () => {
     const { player, carry } = setup(1);
-    player.addItem('cirak-cuppesi');
+    player.addItem('eq-robe-earth-1');
     expect(carry.usage().gear).toBe(1);
-    player.equip('cirak-cuppesi');
+    player.equip('eq-robe-earth-1');
     expect(carry.usage().gear).toBe(0);
-    player.addItem('yun-sapka');
-    player.addItem('tas-tilsim');
+    player.addItem('eq-hat-earth-1');
+    player.addItem('eq-ring-earth-1');
     expect(carry.usage().gear).toBe(2);
-    expect(player.addItem('gezgin-cuppesi')).toBe(false); // 2 kuşanılabilir dolu
+    expect(player.addItem('eq-robe-earth-3')).toBe(false); // 2 kuşanılabilir dolu
   });
 
   it('ekipman değiştirince net yer artmaz: yeni giyilen çıkar, eskisi girer', () => {
     const { player, carry } = setup(1);
-    player.addItem('cirak-cuppesi');
-    player.addItem('gezgin-cuppesi');
-    player.equip('cirak-cuppesi');
+    player.addItem('eq-robe-earth-1');
+    player.addItem('eq-robe-earth-3');
+    player.equip('eq-robe-earth-1');
     expect(carry.usage().gear).toBe(1);
-    expect(player.equip('gezgin-cuppesi')).toBe(true);
+    expect(player.equip('eq-robe-earth-3')).toBe(true);
     expect(carry.usage().gear).toBe(1); // eski cüppe çantada
-    expect(player.isEquipped('gezgin-cuppesi')).toBe(true);
+    expect(player.isEquipped('eq-robe-earth-3')).toBe(true);
   });
 
   it('kuşanılı ekipmanı çıkarmak yer ister: yoksa reddedilir ve neden söylenir', () => {
     const { player } = setup(1);
-    player.addItem('cirak-cuppesi');
-    player.equip('cirak-cuppesi');
-    player.addItem('yun-sapka');
-    player.addItem('tas-tilsim'); // 2/2 dolu
+    player.addItem('eq-robe-earth-1');
+    player.equip('eq-robe-earth-1');
+    player.addItem('eq-hat-earth-1');
+    player.addItem('eq-ring-earth-1'); // 2/2 dolu
     expect(player.unequip('robe')).toBe(false);
     expect(player.lastBlockReason).toContain('yer yok');
-    expect(player.isEquipped('cirak-cuppesi')).toBe(true);
+    expect(player.isEquipped('eq-robe-earth-1')).toBe(true);
   });
 });
 
@@ -178,8 +169,8 @@ describe('asalar ve kapasite', () => {
 describe('çantalar', () => {
   it('kuşanılan çanta kapasiteyi artırır; çıkarınca kapasite düşer', () => {
     const { player, carry } = setup(1);
-    player.addItem('deri-canta');
-    player.equip('deri-canta');
+    player.addItem('eq-bag-earth-2');
+    player.equip('eq-bag-earth-2');
     expect(carry.capacity()).toEqual({ wands: 8, goods: 60, gear: 5 });
     expect(carry.usage().gear).toBe(0); // giyilen çanta yer kaplamaz
   });
@@ -187,20 +178,21 @@ describe('çantalar', () => {
   it('yeni çanta alınca daha iyisi otomatik kuşanılır, eskisi çantada kalır', () => {
     const { player } = setup(1);
     player.addGold(2000);
-    expect(buy(player, merchantOf('kucuk-canta'), 'kucuk-canta').ok).toBe(true);
-    expect(player.equipped.bag).toBe('kucuk-canta');
-    expect(buy(player, merchantOf('deri-canta'), 'deri-canta').ok).toBe(true);
-    expect(player.equipped.bag).toBe('deri-canta');
+    expect(buyItem(player, 'eq-bag-earth-1', 100).ok).toBe(true);
+    expect(player.equipped.bag).toBe('eq-bag-earth-1');
+    expect(buyItem(player, 'eq-bag-earth-2', 220).ok).toBe(true);
+    expect(player.equipped.bag).toBe('eq-bag-earth-2');
+    expect(player.count('eq-bag-earth-1')).toBe(1); // eski çanta çantada
   });
 
   it('çantayı çıkarırken içindekiler yeni kapasiteyi aşıyorsa çıkarılamaz', () => {
     const { player } = setup(1);
-    player.addItem('kucuk-canta');
-    player.equip('kucuk-canta');
+    player.addItem('eq-bag-earth-1');
+    player.equip('eq-bag-earth-1');
     player.addItem('ates-tozu', 30); // 40 kapasitede
     expect(player.unequip('bag')).toBe(false);
     expect(player.lastBlockReason).toContain('sığmıyor');
-    expect(player.equipped.bag).toBe('kucuk-canta');
+    expect(player.equipped.bag).toBe('eq-bag-earth-1');
     player.removeItem('ates-tozu', 15);
     expect(player.unequip('bag')).toBe(true);
     expect(player.equipped.bag).toBeUndefined();
@@ -208,18 +200,18 @@ describe('çantalar', () => {
 
   it('küçük çantaya geçmek, içindekiler sığmıyorsa reddedilir', () => {
     const { player } = setup(1);
-    player.addItem('gezgin-cantasi');
-    player.equip('gezgin-cantasi');
-    player.addItem('kucuk-canta'); // çantada ekipman
+    player.addItem('eq-bag-earth-3');
+    player.equip('eq-bag-earth-3');
+    player.addItem('eq-bag-earth-1'); // çantada ekipman
     player.addItem('ates-tozu', 60);
-    expect(player.equip('kucuk-canta')).toBe(false);
-    expect(player.equipped.bag).toBe('gezgin-cantasi');
+    expect(player.equip('eq-bag-earth-1')).toBe(false);
+    expect(player.equipped.bag).toBe('eq-bag-earth-3');
   });
 
   it('çanta çıkarılınca kendisi "kuşanılabilir" yer kaplar', () => {
     const { player, carry } = setup(1);
-    player.addItem('kucuk-canta');
-    player.equip('kucuk-canta');
+    player.addItem('eq-bag-earth-1');
+    player.equip('eq-bag-earth-1');
     player.unequip('bag');
     expect(carry.usage().gear).toBe(1);
   });
@@ -227,9 +219,9 @@ describe('çantalar', () => {
   it('dolu çantayla alışveriş reddedilir ve altın harcanmaz', () => {
     const { player } = setup(1);
     player.addGold(1000);
-    player.addItem('cirak-cuppesi');
-    player.addItem('yun-sapka'); // 2/2
-    const r = buy(player, merchantOf('tas-tilsim'), 'tas-tilsim');
+    player.addItem('eq-robe-earth-1');
+    player.addItem('eq-hat-earth-1'); // 2/2
+    const r = buyItem(player, 'eq-ring-earth-1', 90);
     expect(r.ok).toBe(false);
     expect(player.gold).toBe(1000);
   });
@@ -308,7 +300,7 @@ describe('görev ödülü ve kapasite', () => {
 describe('kayıttan yükleme', () => {
   it('yüklerken kapasite denetlenmez (kayıt dolu olabilir)', () => {
     const { player, carry } = setup(1);
-    player.restore({ gold: 0, xp: 0, items: { 'ates-tozu': 50, 'cirak-cuppesi': 1, 'yun-sapka': 1, 'tas-tilsim': 1 }, equipped: {} });
+    player.restore({ gold: 0, xp: 0, items: { 'ates-tozu': 50, 'eq-robe-earth-1': 1, 'eq-hat-earth-1': 1, 'eq-ring-earth-1': 1 }, equipped: {} });
     expect(player.count('ates-tozu')).toBe(50);
     expect(carry.isOverloaded()).toBe(true);
     expect(player.addItem('kurt-postu')).toBe(false); // yeni eşya alınamaz
@@ -316,8 +308,8 @@ describe('kayıttan yükleme', () => {
 
   it('çanta kuşanılı kaydı geri gelir', () => {
     const { player, carry } = setup(1);
-    player.restore({ gold: 0, xp: 0, items: { 'deri-canta': 1 }, equipped: { bag: 'deri-canta' } });
-    expect(player.equipped.bag).toBe('deri-canta');
+    player.restore({ gold: 0, xp: 0, items: { 'eq-bag-earth-2': 1 }, equipped: { bag: 'eq-bag-earth-2' } });
+    expect(player.equipped.bag).toBe('eq-bag-earth-2');
     expect(carry.capacity().wands).toBe(8);
   });
 });

@@ -177,6 +177,16 @@ describe('/save', () => {
     expect(save.wands).toEqual({ 'wand-fire-attack-3-12': 2, 'wand-air-defense-1-4': 7 });
   });
 
+  it('ekipman yuvaları: cüppe, şapka, pantalon, çanta, yüzük, ayakkabı kabul edilir; eski tılsım yuvası da okunur', async () => {
+    const cookie = await guestCookie('misafir12');
+    const equipped = { robe: 'eq-robe-fire-3', hat: 'eq-hat-water-1', pants: 'eq-pants-earth-2', bag: 'eq-bag-air-4', ring: 'eq-ring-fire-6', boots: 'eq-boots-air-2' };
+    expect((await put(cookie, { ...SAVE_V2, equipped })).statusCode).toBe(200);
+    expect((await get(cookie)).json().save.equipped).toEqual(equipped);
+    // Eski kayıt: tılsım yuvası (istemci yüklerken yüzüğe çevirir)
+    expect((await put(cookie, { ...SAVE_V2, equipped: { robe: 'cirak-cuppesi', amulet: 'tas-tilsim' } })).statusCode).toBe(200);
+    expect((await put(cookie, { ...SAVE_V2, equipped: { kafa: 'x' } })).statusCode).toBe(400);
+  });
+
   it('tekrarlanan yetenek kimlikleri tekilleştirilir', async () => {
     const cookie = await guestCookie('misafir7');
     await put(cookie, { ...SAVE_V2, skills: ['fire-power-1', 'fire-power-1'] });

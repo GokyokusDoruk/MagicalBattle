@@ -1,5 +1,4 @@
 import { gearValue, getItem, isGear } from './items';
-import type { MerchantDef } from './merchants';
 import type { PlayerState } from './player';
 
 export type TradeResult = { ok: true; price: number } | { ok: false; reason: string };
@@ -18,16 +17,14 @@ export function sellPrice(price: number, multiplier = 1): number {
 }
 
 /**
- * Tüccardan ekipman satın alır. Ekipman tektir (aynısından ikinci kez alınmaz). Yeni ekipman, aynı yerdeki
- * ekipmandan daha çok zırh veriyorsa ya da o yer boşsa otomatik kuşanılır.
+ * Verilen fiyata bir eşya satın alır: çantada yer olmalı, altın yetmeli (yoksa hiçbir şey değişmez). Aynı eşyadan birden
+ * fazla alınabilir. Ekipman, o yuvada hiçbir şey giyilmiyorsa ya da yenisi daha nadirse otomatik kuşanılır.
  */
-export function buy(player: PlayerState, merchant: MerchantDef, itemId: string, priceMultiplier = 1): TradeResult {
+export function buyItem(player: PlayerState, itemId: string, price: number): TradeResult {
   const item = getItem(itemId);
-  if (!item || !merchant.stock.includes(itemId)) return { ok: false, reason: 'Bu tüccarda böyle bir şey yok.' };
-  if (player.count(itemId) > 0) return { ok: false, reason: 'Bu ekipmana zaten sahipsin.' };
+  if (!item) return { ok: false, reason: 'Böyle bir eşya yok.' };
   if (player.roomFor(itemId) < 1) return { ok: false, reason: 'Çantanda bunun için yer yok. Önce bir şey sat ya da at.' };
-  const price = buyPrice(item.price, priceMultiplier);
-  if (!player.spendGold(price)) return { ok: false, reason: 'Yeterli altının yok.' };
+  if (!player.spendGold(price)) return { ok: false, reason: 'Yeterli altın yok.' };
 
   player.addItem(itemId);
   if (item.slot) {
@@ -38,13 +35,17 @@ export function buy(player: PlayerState, merchant: MerchantDef, itemId: string, 
   return { ok: true, price };
 }
 
-/** Çantadan eşya satar. Kuşanılan ekipman önce çıkarılmalıdır. */
+/**
+ * Çantadan eşya satar. Giyilen kopya satılamaz (önce çıkarılmalı); aynı eşyadan fazla kopya varsa fazlası satılır.
+ */
 export function sell(player: PlayerState, itemId: string, count = 1, sellMultiplier = 1): TradeResult {
   const item = getItem(itemId);
   const n = Math.floor(count);
   if (!item || !(n > 0)) return { ok: false, reason: 'Geçersiz eşya.' };
   if (player.count(itemId) < n) return { ok: false, reason: 'Bundan yeterince yok.' };
-  if (isGear(item) && player.isEquipped(itemId)) return { ok: false, reason: 'Önce ekipmanı çıkarmalısın.' };
+  if (isGear(item) && player.isEquipped(itemId) && player.count(itemId) - n < 1) {
+    return { ok: false, reason: 'Önce ekipmanı çıkarmalısın.' };
+  }
 
   const total = sellPrice(item.price, sellMultiplier) * n;
   player.removeItem(itemId, n);

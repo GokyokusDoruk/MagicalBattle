@@ -20,7 +20,7 @@ Sahne, savaş ve seçimler sürerken dünya durur.
 ## Oyuncunun savaşçısı
 
 - **Can:** 300 + seviye başına 10 (30. seviyede 590).
-- **Zırh:** kuşanılan ekipmanların toplamı ([ekonomi-ve-gorevler.md](ekonomi-ve-gorevler.md)).
+- **Zırh ve büyü süresi:** giyilen zırh parçaları ve yüzükten gelir; seçtiğin büyünün elementine göre hesaplanır, aynı elementteki parçalar %50 daha güçlüdür ([ekipman.md](ekipman.md)).
 - **Yetenekler** ve **asa** savaşçıya bağlanır (asa çizim süresini de uzatır) ([yetenek-agaci.md](yetenek-agaci.md), [asalar.md](asalar.md)); artık dünyadaki gerçek savaşlarda da etkililer.
 - **Elysia** yalnız 3. bölümde ve Düzen Bekçisi yolunda 8. bölümde yanındadır (2v2), kendi yapay zekâsıyla ([diyalog-ve-ahlak.md](diyalog-ve-ahlak.md)).
 

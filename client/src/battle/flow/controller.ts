@@ -89,8 +89,11 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const attackWand = attacker.wands(attackerElement, 'attack');
     const defenseWand = defender.wands(defenderElement, 'defense');
     const baseSec = DRAW_TIME_MS / 1000;
-    const attackSec = baseSec + attackWand.timeBonusSec;
-    const defenseSec = baseSec + defenseWand.timeBonusSec;
+    // Ekipman: aynı elementteki zırh ve yüzük %50 daha güçlü (yüzük çizim süresini uzatır, zırh hasarı azaltır)
+    const attackGear = attacker.gear(attackerElement);
+    const defenseGear = defender.gear(defenderElement);
+    const attackSec = baseSec + attackWand.timeBonusSec + attackGear.timeBonusSec;
+    const defenseSec = baseSec + defenseWand.timeBonusSec + defenseGear.timeBonusSec;
 
     const attack = await io.draw(action.attacker, 'attack', undefined, attackSec);
 
@@ -134,7 +137,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       defenderElement,
       attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier,
       defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier * defenseWand.takenMultiplier,
-      defenderArmor: defender.armor,
+      defenderArmor: defenseGear.armor,
       attackerArmorPierce: attackFx.armorPierce,
       attackerHeadBonus: attackFx.headBonus,
       attackerEffortBonus: attackFx.effortBonus,

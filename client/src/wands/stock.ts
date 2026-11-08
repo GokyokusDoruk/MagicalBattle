@@ -30,7 +30,7 @@ export interface StockEntry {
   rare: boolean;
 }
 
-function hash(text: string): number {
+export function hash(text: string): number {
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);
@@ -80,6 +80,12 @@ export class WandStock {
   entries(): (StockEntry & { sold: boolean })[] {
     this.refresh();
     return this.entriesNow.map((e) => ({ ...e, sold: this.sold.has(e.slot) }));
+  }
+
+  /** Yenileme dönemi (stok değişince arayüzün yeniden çizmesi için) */
+  get rotationIndex(): number {
+    this.refresh();
+    return this.rotation;
   }
 
   /** Bir sonraki yenilemeye kalan süre (ms) */

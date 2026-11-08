@@ -23,6 +23,8 @@ const PICKUP_RANGE = TILE_SIZE * 0.85;
 export interface WorldContext {
   map: WorldMap;
   getAxis: () => Axis;
+  /** Yürüme hızı çarpanı (1 = normal); ayakkabıdan gelir. Verilmezse 1. */
+  getSpeedMultiplier?: () => number;
   gates: GateRegistry;
   quests: QuestTracker;
   /** Ekranda kısa bildirim göster */
@@ -156,10 +158,11 @@ export class WorldScene extends Phaser.Scene {
     const dt = Math.min(delta / 1000, MAX_DT);
     const axis = this.ctx.getAxis();
     if (axis.x === 0 && axis.y === 0) return;
+    const speed = PLAYER_SPEED * Math.max(0.1, this.ctx.getSpeedMultiplier?.() ?? 1);
 
     this.pos = moveWithCollision(
       this.pos,
-      { x: axis.x * PLAYER_SPEED * dt, y: axis.y * PLAYER_SPEED * dt },
+      { x: axis.x * speed * dt, y: axis.y * speed * dt },
       HITBOX,
       TILE_SIZE,
       (tx, ty) => isBlockedTile(tileAt(map, tx, ty)) || isLockedGateAt(map.gates, gates, tx, ty),
