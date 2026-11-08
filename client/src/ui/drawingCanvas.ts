@@ -2,6 +2,7 @@ import { BRUSH_RADIUS, DRAW_TIME_MS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../ba
 import { HEAD_ZONE_FRACTION } from '../battle/damage/config';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
+import type { DrawLoop } from '../audio/sfx/engine';
 
 export interface DrawingCanvasOptions extends SessionOptions {
   /** Fırça rengi (elementin rengi) */
@@ -10,6 +11,8 @@ export interface DrawingCanvasOptions extends SessionOptions {
   ghost?: readonly Stroke[];
   /** Rakibin baş bölgesini (üstte, ×1.5 hasar) kesikli çizgiyle göster */
   showHeadZone?: boolean;
+  /** Her çizgi başlarken çağrılır; kalem hızına göre sürekli ses verir (ör. `engine.beginDraw`) */
+  drawSound?: () => DrawLoop;
 }
 
 /**
@@ -27,6 +30,8 @@ export class DrawingCanvas {
   private timer: number | undefined;
   private resolve: ((r: DrawingResult) => void) | null = null;
   private pointerId: number | null = null;
+  private loop: DrawLoop | null = null;
+  private lastMove: { x: number; y: number; at: number } | null = null;
 
   constructor(private readonly options: DrawingCanvasOptions) {
     this.session = new DrawingSession(options);
@@ -98,31 +103,51 @@ export class DrawingCanvas {
       // Bazı tarayıcılar/cihazlar yakalamayı reddedebilir; çizim yine de çalışır
     }
     const p = this.toLogical(e);
-    this.session.pointerDown(p.x, p.y, performance.now());
+    const now = performance.now();
+    this.session.pointerDown(p.x, p.y, now);
+    this.loop = this.options.drawSound?.() ?? null;
+    this.lastMove = { x: p.x, y: p.y, at: now };
   }
 
   private onMove(e: PointerEvent): void {
     if (e.pointerId !== this.pointerId) return;
     const p = this.toLogical(e);
-    this.session.pointerMove(p.x, p.y, performance.now());
+    const now = performance.now();
+    this.session.pointerMove(p.x, p.y, now);
+    const last = this.lastMove;
+    if (this.loop && last) {
+      // mantıksal birim/ms; ~0.8 çok hızlı sayılır
+      this.loop.update(Math.hypot(p.x - last.x, p.y - last.y) / Math.max(1, now - last.at) / 0.8);
+    }
+    this.lastMove = { x: p.x, y: p.y, at: now };
   }
 
   private onUp(e: PointerEvent): void {
     if (e.pointerId !== this.pointerId) return;
     this.pointerId = null;
+    this.stopSound();
     this.session.pointerUp(performance.now());
+  }
+
+  private stopSound(): void {
+    this.loop?.end();
+    this.loop = null;
+    this.lastMove = null;
   }
 
   /** Her karede: süreyi ilerlet (basılı tutma örneği), çiz, bittiyse sonucu ver. */
   private frame(): void {
     const now = performance.now();
     this.session.tick(now);
+    // Kalem durduysa ses kısılır
+    if (this.loop && this.lastMove && now - this.lastMove.at > 70) this.loop.update(0);
     this.render(now);
     if (this.session.currentPhase === 'finished') this.end();
   }
 
   private end(): void {
     window.clearInterval(this.timer);
+    this.stopSound();
     const result = this.session.finish(performance.now());
     this.render(performance.now());
     this.finishBtn.disabled = true;

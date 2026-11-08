@@ -1,3 +1,5 @@
+import { getSoundEngine } from '../audio/sfx/engine';
+import { createArenaSounds } from '../audio/sfx/arenaSounds';
 import { ArenaView, type CombatantSpec } from '../battle/arena/arenaView';
 import type { SlotRef } from '../battle/arena/layout';
 import { ELEMENT_COLORS } from '../battle/arena/palette';
@@ -7,6 +9,7 @@ import { runBattle, type BattleIO, type Role, type TurnReport } from '../battle/
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import { DrawingCanvas } from './drawingCanvas';
+import { createSoundToggle } from './soundToggle';
 
 const css = (hex: number): string => `#${hex.toString(16).padStart(6, '0')}`;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -29,6 +32,7 @@ export interface BattleScreenOptions {
  * insan kontrollü savaşçılar için sıra gelince ekranda seçim/çizim ister.
  */
 export class BattleScreen implements BattleIO {
+  private readonly sfx = getSoundEngine();
   private readonly arena: ArenaView;
   private readonly root: HTMLElement;
   private readonly hud = new Map<string, { fill: HTMLElement; text: HTMLElement; card: HTMLElement }>();
@@ -52,7 +56,8 @@ export class BattleScreen implements BattleIO {
     const stage = document.createElement('div');
     stage.className = 'absolute inset-0';
     this.root.appendChild(stage);
-    this.arena = new ArenaView(stage);
+    this.arena = new ArenaView(stage, createArenaSounds(this.sfx));
+    this.root.appendChild(createSoundToggle(this.sfx));
 
     const specs = (team: 0 | 1): CombatantSpec[] =>
       engine.team(team).map((f) => ({ name: f.name, element: LOOKS[team][f.index] }));
@@ -134,6 +139,7 @@ export class BattleScreen implements BattleIO {
       : this.isHuman(action.defender)
         ? `${a} saldırıyor! Savunmaya hazırlan`
         : `${a} → ${d}`;
+    if (this.isHuman(action.attacker) || this.isHuman(action.defender)) this.sfx.play('turn');
     await this.say(this.banner, text, 800);
   }
 
@@ -162,6 +168,7 @@ export class BattleScreen implements BattleIO {
         b.className = 'rounded-lg px-4 py-5 text-lg font-bold text-slate-900 active:scale-95';
         b.style.background = css(ELEMENT_COLORS[e].main);
         b.addEventListener('click', () => {
+          this.sfx.play('pick');
           this.closeModal();
           resolve(e);
         });
@@ -179,6 +186,7 @@ export class BattleScreen implements BattleIO {
     this.turnElements = { attacker: attackerElement, defender: defenderElement };
     const rel = elementRelation(attackerElement, defenderElement);
     const mult = elementMultiplier(attackerElement, defenderElement);
+    this.sfx.play(rel === 'advantage' ? 'revealAdvantage' : rel === 'disadvantage' ? 'revealDisadvantage' : 'revealNeutral');
     const [tone, label] =
       rel === 'advantage'
         ? ['bg-emerald-700/80 text-emerald-100', `saldırı üstün ×${mult}`]
@@ -217,6 +225,7 @@ export class BattleScreen implements BattleIO {
       color: role === 'attack' ? css(ELEMENT_COLORS[element].main) : '#7df0c4',
       ghost,
       showHeadZone: true,
+      drawSound: () => this.sfx.beginDraw(element),
     });
     this.modals.querySelector('[data-canvas]')!.appendChild(canvas.element);
     return canvas.start().then((result) => {
@@ -262,6 +271,7 @@ export class BattleScreen implements BattleIO {
         : winner === mine
           ? ['ZAFER!', 'text-amber-300']
           : ['YENİLGİ', 'text-red-300'];
+    this.sfx.play(winner === mine ? 'victory' : winner === 'draw' || winner === null ? 'revealNeutral' : 'lose');
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-4 bg-slate-950/70 p-4">
       <h1 class="text-4xl font-bold ${tone}">${title}</h1>
