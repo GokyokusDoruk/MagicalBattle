@@ -85,3 +85,38 @@ export function createPlayerTexture(scene: Scene): void {
   g.generateTexture(PLAYER_KEY, 26, 32);
   g.destroy();
 }
+
+export const STALL_KEY = 'stall';
+export const HERB_KEY = 'pickup-herb';
+export const CRYSTAL_KEY = 'pickup-crystal';
+
+/** Tüccar tezgâhı ve toplanabilir eşyaların (ot, kristal) görselleri. */
+export function createWorldItemTextures(scene: Scene): void {
+  const g = scene.add.graphics();
+
+  // Tezgâh: kırmızı-beyaz çizgili gölgelik, ahşap tezgâh, üstünde mallar
+  g.fillStyle(0x5b3a1e, 1).fillRect(3, 14, 3, 22).fillRect(34, 14, 3, 22); // direkler
+  for (let i = 0; i < 5; i++) g.fillStyle(i % 2 === 0 ? 0xd9534f : 0xf5e6c8, 1).fillRect(2 + i * 7.2, 6, 7.2, 10);
+  g.fillStyle(0xb8453f, 1).fillRect(2, 15, 36, 2);
+  g.fillStyle(0x8a5a2b, 1).fillRect(4, 26, 32, 10);
+  g.fillStyle(0x6b4423, 1).fillRect(4, 33, 32, 3);
+  g.fillStyle(0xe8d37a, 1).fillCircle(12, 24, 3);
+  g.fillStyle(0x7fd1ff, 1).fillCircle(20, 24, 3);
+  g.fillStyle(0xff8f5a, 1).fillCircle(28, 24, 3);
+  g.generateTexture(STALL_KEY, 40, 38);
+  g.clear();
+
+  // Şifalı ot: iki yaprak ve sap
+  g.fillStyle(0x2f7a38, 1).fillRect(9, 8, 2, 12);
+  g.fillStyle(0x58c264, 1).fillCircle(6, 8, 5).fillCircle(14, 6, 5);
+  g.fillStyle(0xa6f0a0, 1).fillCircle(5, 6, 1.5).fillCircle(13, 4, 1.5);
+  g.generateTexture(HERB_KEY, 20, 22);
+  g.clear();
+
+  // Kristal: parlayan elmas
+  g.fillStyle(0x7fe8ff, 0.25).fillCircle(10, 13, 10);
+  g.fillStyle(0x7fe8ff, 1).fillTriangle(10, 2, 3, 13, 10, 24).fillTriangle(10, 2, 17, 13, 10, 24);
+  g.fillStyle(0xd8fbff, 1).fillTriangle(10, 2, 6, 12, 10, 13);
+  g.generateTexture(CRYSTAL_KEY, 20, 26);
+  g.destroy();
+}

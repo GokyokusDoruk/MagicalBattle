@@ -1,5 +1,5 @@
 import type { Progress } from '../story/progress';
-import { buildSave, type SaveData, type SavePoint } from './saveData';
+import { buildSave, type SaveData, type SaveExtras, type SavePoint } from './saveData';
 
 export interface SaveApi {
   putSave(data: SaveData): Promise<void>;
@@ -19,6 +19,8 @@ export class SaveManager {
     private readonly api: SaveApi | null,
     private readonly progress: Progress,
     private readonly playerName: string,
+    /** Ekonomi, görevler ve toplananlar; her kayıtta güncel hali okunur */
+    private readonly getExtras?: () => SaveExtras,
   ) {}
 
   get enabled(): boolean {
@@ -30,7 +32,7 @@ export class SaveManager {
     const api = this.api;
     if (!api) return Promise.resolve('disabled');
     // Kaydı çağrı anında çek: sıra beklerken ilerleme değişse bile o anki durum yazılır
-    const data = buildSave(this.playerName, this.progress.snapshot().completedChapters, point);
+    const data = buildSave(this.playerName, this.progress.snapshot().completedChapters, point, this.getExtras?.());
     const run = async (): Promise<SaveResult> => {
       try {
         await api.putSave(data);

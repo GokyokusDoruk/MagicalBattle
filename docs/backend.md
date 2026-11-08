@@ -41,14 +41,20 @@ Hatalar `{ code, error }` biçimindedir (`error` Türkçe, kullanıcıya göster
 
 ## Kayıt dosyası
 
-Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar.
+Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 2; eski (v1) kayıtlar okunurken varsayılan ekonomi alanlarıyla otomatik yükseltilir.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "playerName": "Aylin",
   "completedChapters": [1, 2],
-  "savePoint": { "cityId": "ignis", "tileX": 64, "tileY": 64 }
+  "savePoint": { "cityId": "ignis", "tileX": 64, "tileY": 64 },
+  "gold": 250,
+  "xp": 320,
+  "items": { "sifali-ot": 4, "gezgin-cuppesi": 1 },
+  "equipped": { "robe": "gezgin-cuppesi" },
+  "quests": { "ash-ot-toplama": { "status": "active", "progress": 2 } },
+  "collected": ["p-ot-0", "p-kristal-0"]
 }
 ```
 
@@ -56,9 +62,11 @@ Sunucu istemciye güvenmez ve her yazmada doğrular:
 - `playerName`: 2-20 karakter (harf, rakam, boşluk, `_ . -`)
 - `completedChapters`: aralıksız `[1..n]`, en fazla 8 bölüm
 - `savePoint`: `null` (yeni oyun) ya da bilinen bir şehir (`ignis`, `abyss`, `stone-heart`, `still-crystal`) ve 0-500 arası tam sayı karo
-- Fazla alanlar atılır, gövde en fazla 4 KB
+- `gold` 0-9.999.999, `xp` 0-1.000.000 (tam sayı)
+- `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `amulet`; `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır)
+- Fazla alanlar atılır, gövde en fazla 16 KB
 
-Geçersiz kayıt `400` ile reddedilir ve eski kayıt bozulmaz. Veritabanındaki kayıt bozuksa oyuncu yeni oyunla başlar.
+Geçersiz kayıt `400` ile reddedilir ve eski kayıt bozulmaz. Veritabanındaki kayıt bozuksa oyuncu yeni oyunla başlar. Eşya ve görev kimliklerinin kataloğa uyup uymadığını sunucu bilmez; istemci yüklerken bilinmeyenleri atar ve sayıları sınırlar.
 
 İstemci güvenliği: kayıt **yüklenemezse** o oturumda kaydetme kapatılır, böylece yüklenemeyen gerçek ilerlemenin üzerine yeni oyun yazılmaz.
 

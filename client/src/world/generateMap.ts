@@ -163,8 +163,8 @@ const NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   [0, -1],
 ];
 
-/** `from` karosundan yürüyerek ulaşılabilen karoların anahtar kümesi (kapılar açık sayılır). */
-function reachableSet(map: WorldMap, from: Point): Set<number> {
+/** `from` karosundan yürüyerek ulaşılabilen karoların anahtar kümesi (anahtar: y * genişlik + x; kapılar açık sayılır). */
+export function reachableSet(map: WorldMap, from: Point): Set<number> {
   const seen = new Set<number>();
   const key = (x: number, y: number): number => y * map.width + x;
   const stack = [from];

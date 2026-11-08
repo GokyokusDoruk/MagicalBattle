@@ -1,16 +1,22 @@
 import { ApiClient, resolveApiUrl, type ApiUser } from './api/client';
 import { Narrator } from './audio/narrator';
+import { getSoundEngine } from './audio/sfx/engine';
 import { CHAPTER_SCENES } from './data/story/scenes';
+import { getItem } from './economy/items';
+import { PlayerState } from './economy/player';
 import { watchTouchDevice } from './input/device';
 import { InputManager } from './input/inputManager';
 import { KeyboardSource } from './input/keyboard';
-import { savePointForCity, type SaveData } from './save/saveData';
+import { QuestEngine, type QuestCompletion } from './quests/engine';
+import { normalizeSave, savePointForCity, type SaveData } from './save/saveData';
 import { SaveManager } from './save/saveManager';
 import { Progress } from './story/progress';
 import { showAuthScreen } from './ui/authScreen';
 import { DPad } from './ui/dpad';
+import { MerchantUi } from './ui/merchantUi';
 import { Minimap } from './ui/minimap';
 import { askPlayerName } from './ui/nameScreen';
+import { StatusBar } from './ui/statusBar';
 import { StoryPlayer } from './ui/storyScene';
 import { Toast } from './ui/toast';
 import { lockTouchScroll } from './ui/touchLock';
@@ -18,6 +24,8 @@ import { createUserBadge } from './ui/userBadge';
 import { GateRegistry } from './world/gates';
 import { generateMap } from './world/generateMap';
 import { LOCATIONS } from './world/locations';
+import { merchantSpots } from './world/merchantSpots';
+import { PICKUP_SPOTS } from './world/pickups';
 import { QuestTracker } from './world/questMarkers';
 import { TILE_SIZE } from './world/tiles';
 
@@ -60,7 +68,8 @@ let savingEnabled = user !== null;
 let loadFailed = false;
 if (user) {
   try {
-    save = await api.getSave();
+    const raw = await api.getSave();
+    save = raw ? normalizeSave(raw) : null;
   } catch {
     // Kayıt yüklenemediyse üzerine yazmamak için bu oturumda kaydetme kapatılır
     savingEnabled = false;
@@ -71,7 +80,20 @@ if (user) {
 const playerName = save?.playerName ?? (await askPlayerName(user?.firstName ?? ''));
 if (save) progress.restore({ completedChapters: save.completedChapters });
 
-const saves = new SaveManager(savingEnabled ? api : null, progress, playerName);
+// Ekonomi (altın, XP, çanta), yan görevler ve toplanan eşyalar. Yükleme sırası: önce oyuncu, sonra görevler.
+const hero = new PlayerState();
+const sideQuests = new QuestEngine(hero);
+const collected = new Set<string>(save?.collected ?? []);
+if (save) {
+  hero.restore(save);
+  sideQuests.restore(save.quests);
+}
+
+const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, () => ({
+  economy: hero.snapshot(),
+  quests: sideQuests.snapshot(),
+  collected: [...collected],
+}));
 // Yeni oyunda ad hemen kaydedilir; kayıt noktasına varmadan çıkılsa bile ad kaybolmaz
 if (!save && savingEnabled) void saves.saveAt(null);
 
@@ -88,6 +110,54 @@ else toast.show(`Hoş geldin, ${playerName}!`);
 const minimap = new Minimap(map, gates, quests);
 document.body.appendChild(minimap.element);
 
+const sfx = getSoundEngine();
+const statusBar = new StatusBar();
+document.body.appendChild(statusBar.element);
+
+/** Son kayıt noktasından sonra değişen bir şey var mı (kayıt yalnızca şehirlerde yapılır). */
+let dirty = false;
+const refreshHud = (): void =>
+  statusBar.update({
+    level: hero.level,
+    gold: hero.gold,
+    xp: hero.xp,
+    dirty: dirty && saves.enabled,
+    quests: sideQuests.active().map((q) => ({ title: q.title, ...sideQuests.progress(q.id) })),
+  });
+const setDirty = (value: boolean): void => {
+  dirty = value;
+  refreshHud();
+};
+hero.onChange(refreshHud);
+sideQuests.onChange(refreshHud);
+refreshHud();
+
+/** Biten yan görevleri bildirir (ödüller zaten envantere yattı). */
+const handleCompletions = (list: QuestCompletion[]): void => {
+  for (const c of list) {
+    const parts = [`+${c.gold} altın`, `+${c.xp} XP`, ...c.items.map((i) => `+${i.count} ${getItem(i.id)?.name ?? i.id}`)];
+    toast.show(`Görev tamamlandı: ${c.quest.title} (${parts.join(', ')})`);
+    sfx.play('revealAdvantage');
+    if (c.levelsGained > 0) {
+      window.setTimeout(() => {
+        toast.show(`Seviye atladın! Seviye ${hero.level}`);
+        sfx.play('victory');
+      }, 2800);
+    }
+  }
+  if (list.length > 0) setDirty(true);
+};
+
+const merchantUi = new MerchantUi({
+  player: hero,
+  quests: sideQuests,
+  sfx,
+  onChanged: () => setDirty(true),
+  onQuestCompletion: (c) => handleCompletions([c]),
+});
+document.body.appendChild(merchantUi.element);
+const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen;
+
 gates.onChange((cityId, unlocked) => {
   const city = LOCATIONS.find((l) => l.id === cityId);
   if (unlocked && city) toast.show(`${city.name} kapısı açıldı!`);
@@ -101,6 +171,10 @@ const debug = {
   story,
   api,
   saves,
+  hero,
+  sideQuests,
+  merchantUi,
+  collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */
   teleportToTile: (tx: number, ty: number) => {
@@ -117,14 +191,14 @@ void import('./world/bootWorld').then((m) =>
   m.bootWorld(document.querySelector('#world')!, {
     map,
     startTile: startPoint,
-    // Sahne açıkken karakter durur
-    getAxis: () => (story.isOpen ? STILL : input.getAxis()),
+    // Sahne ya da tüccar ekranı açıkken karakter durur
+    getAxis: () => (modalOpen() ? STILL : input.getAxis()),
     gates,
     quests,
     notify: (message) => toast.show(message),
     onMarkerEnter: (marker) => {
       const scene = CHAPTER_SCENES[marker.chapter];
-      if (story.isOpen || !scene) return;
+      if (modalOpen() || !scene) return;
       // Sahne bitince (atlansa da) bölüm tamamlanır: kapı açılır, sonraki görev belirir.
       // Boss savaşları gelince (Task 19) tamamlanma savaşın sonucuna bağlanacak.
       void story.play(scene).then(() => progress.completeChapter(marker.chapter));
@@ -134,11 +208,29 @@ void import('./world/bootWorld').then((m) =>
       const city = LOCATIONS.find((l) => l.id === cityId);
       if (!city) return;
       void saves.saveAt(savePointForCity(city)).then((result) => {
-        if (result === 'saved') toast.show(`Kayıt noktası: ${city.name}. İlerleme kaydedildi.`);
+        if (result === 'saved') {
+          setDirty(false);
+          toast.show(`Kayıt noktası: ${city.name}. İlerleme kaydedildi.`);
+        }
         else if (result === 'failed') toast.show('Kayıt başarısız oldu. Sonraki kayıt noktasında tekrar denenecek.');
         else toast.show(`Kayıt noktası: ${city.name} (bu oturumda ilerleme kaydedilmiyor)`);
       });
     },
+    merchants: merchantSpots(map),
+    onMerchantEnter: (id) => {
+      if (!modalOpen()) merchantUi.open(id);
+    },
+    pickups: PICKUP_SPOTS,
+    isCollected: (id) => collected.has(id),
+    onPickup: (spot) => {
+      if (collected.has(spot.id) || !hero.addItem(spot.itemId)) return;
+      collected.add(spot.id);
+      sfx.play('pick');
+      toast.show(`+1 ${getItem(spot.itemId)?.name ?? spot.itemId}`);
+      setDirty(true);
+      handleCompletions(sideQuests.onEvent({ type: 'collect' }));
+    },
+    onLocationEnter: (locationId) => handleCompletions(sideQuests.onEvent({ type: 'visit', locationId })),
     takeTeleport: () => {
       const t = pendingTeleport;
       pendingTeleport = null;
