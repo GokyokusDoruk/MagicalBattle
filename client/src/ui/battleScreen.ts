@@ -25,6 +25,10 @@ export interface BattleScreenOptions {
   showAttackToDefender: boolean;
   /** Savaş sonu ekranında: true = tekrar oyna, false = menüye dön */
   onFinish: (playAgain: boolean) => void;
+  /** Bu döngüden itibaren oyuncunun çizim tuvali bulanıklaşır (boss mekaniği: zihin kontrolü) */
+  blurFromCycle?: number;
+  /** Savaş sonu düğme yazıları ve görünürlüğü. Verilmezse "Tekrar oyna" ve "Menü". */
+  endLabels?: { again: string; menu: string; /** Zaferde "tekrar" düğmesi gizlenir ve kalan düğmenin yazısı bu olur (boss savaşı) */ hideAgainOnWin?: boolean; winMenu?: string };
 }
 
 /**
@@ -65,9 +69,12 @@ export class BattleScreen implements BattleIO {
     this.arena.setTeams([specs(0), specs(1)]);
 
     for (const f of engine.all()) {
-      if (f.control === 'bot') {
-        this.bots.set(key(f), f.persona === 'elysia' ? new ElysiaBot(Math.random, Math.min(0.95, options.botSkill + 0.1)) : new Bot(Math.random, options.botSkill));
-      }
+      if (f.control !== 'bot') continue;
+      const skill = f.ai?.skill ?? options.botSkill;
+      this.bots.set(
+        key(f),
+        f.persona === 'elysia' ? new ElysiaBot(Math.random, Math.min(0.95, f.ai?.skill ?? options.botSkill + 0.1)) : new Bot(Math.random, skill, f.ai ?? {}),
+      );
     }
 
     this.buildHud();
@@ -230,6 +237,10 @@ export class BattleScreen implements BattleIO {
       showHeadZone: true,
       drawSound: () => this.sfx.beginDraw(element),
     });
+    // Boss mekaniği (zihin kontrolü): belirli döngüden sonra çizim tuvali bulanıklaşır
+    if (this.options.blurFromCycle !== undefined && this.engine.cycle >= this.options.blurFromCycle) {
+      canvas.element.style.filter = 'blur(2.5px)';
+    }
     this.modals.querySelector('[data-canvas]')!.appendChild(canvas.element);
     return canvas.start().then((result) => {
       this.closeModal();
@@ -287,20 +298,22 @@ export class BattleScreen implements BattleIO {
         : winner === mine
           ? ['ZAFER!', 'text-amber-300']
           : ['YENİLGİ', 'text-red-300'];
+    const labels = this.options.endLabels ?? { again: 'Tekrar oyna', menu: 'Menü' };
+    const hideAgain = Boolean(this.options.endLabels?.hideAgainOnWin) && winner === mine;
     this.sfx.play(winner === mine ? 'victory' : winner === 'draw' || winner === null ? 'revealNeutral' : 'lose');
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-4 bg-slate-950/70 p-4">
       <h1 class="text-4xl font-bold ${tone}">${title}</h1>
       <div class="flex gap-3">
-        <button data-again type="button" class="rounded bg-amber-300 px-5 py-3 font-bold text-slate-900">Tekrar oyna</button>
-        <button data-menu type="button" class="rounded bg-slate-700 px-5 py-3 font-bold text-amber-50">Menü</button>
+        ${hideAgain ? '' : `<button data-again type="button" class="rounded bg-amber-300 px-5 py-3 font-bold text-slate-900">${labels.again}</button>`}
+        <button data-menu type="button" class="rounded ${hideAgain ? 'bg-amber-300 text-slate-900' : 'bg-slate-700 text-amber-50'} px-5 py-3 font-bold">${hideAgain ? (this.options.endLabels?.winMenu ?? labels.menu) : labels.menu}</button>
       </div></div>`;
     await new Promise<void>((resolve) => {
       const done = (again: boolean): void => {
         this.options.onFinish(again);
         resolve();
       };
-      this.modals.querySelector('[data-again]')!.addEventListener('click', () => done(true));
+      this.modals.querySelector('[data-again]')?.addEventListener('click', () => done(true));
       this.modals.querySelector('[data-menu]')!.addEventListener('click', () => done(false));
     });
   }

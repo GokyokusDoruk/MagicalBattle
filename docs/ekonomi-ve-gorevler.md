@@ -30,7 +30,7 @@ Haritada **28 şifalı ot** (çimende) ve **12 kristal parçası** (kumsalda) va
 
 Yeni aldığın ekipman, o yer boşsa ya da daha çok zırh veriyorsa **kendiliğinden kuşanılır**. Ekipman tektir (ikinci kez alınmaz); kuşanılı ekipman satılamaz (önce çıkar). Al-sat döngüsünden kâr edilemez.
 
-> Zırh şu an yalnızca hesaplanıyor. Savaşta kullanılması, dünyadaki savaşlar (boss'lar, Task 19) ve ölüm/ekonomi (Task 20) bağlanınca olacak. `PlayerState.armor` savaşçının zırhı olarak verilecek.
+> Zırh boss savaşlarında kullanılır: `PlayerState.armor` oyuncunun savaşçısına verilir ([boss-savaslari.md](boss-savaslari.md)).
 
 ## Seviye
 
@@ -51,7 +51,7 @@ Kurallar:
 - **Toplama görevlerinde** kabul anında çantandaki eşya sayılır (önceden topladıkların boşa gitmez). Sonra toplananlar eklenir; **eşyayı satmak ilerlemeyi geri almaz**. Görev eşyaları tüketmez, çantada kalır.
 - **Konum görevleri** bir konuma girince tamamlanır (şehirde surların içi, köyde köy alanı).
 - Tamamlanan görev bir daha ödül vermez ve tekrar alınamaz.
-- Savaş görevi türü (`battleWon`) motorda hazır; dünyadaki savaşlar gelince (Task 19) kullanılacak.
+- Savaş görevi türü (`battleWon`) her boss zaferinde tetiklenir ([boss-savaslari.md](boss-savaslari.md)).
 
 ## Kayıt
 

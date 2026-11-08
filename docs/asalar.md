@@ -46,4 +46,4 @@ Değişiklikler diğerleri gibi şehre girince kaydedilir.
 
 `wands/catalog.ts`: `ATTACK_POWER_PER_RARITY`, `DEFENSE_REDUCTION_PER_RARITY`, `SYNTHESIS_COUNT`, `COMMON_WAND_PRICE`, adlar ve renkler.
 
-Dünyadaki savaşlar (Task 19) gelince oyuncunun savaşçısına `wands: wands.resolver` verilecek; şu an asalar savaş denemesinde etkilidir.
+Asalar boss savaşlarında oyuncunun savaşçısına `wands: wands.resolver` ile bağlıdır ([boss-savaslari.md](boss-savaslari.md)) ve savaş denemesinde de etkilidir.
