@@ -73,4 +73,4 @@ Yüklerken (`SkillTree.restore`) bilinmeyen kimlikler, kademe atlayanlar ve puan
 - Yetenek etkilerini ve adlarını değiştirmek: `skills/catalog.ts` (şablon `TEMPLATE`, element karakteri `FLAVOR`, ek etkiler `EXTRAS`, adlar `NAMES`).
 - Sınırlar ve sinerji değerleri: `skills/resolver.ts` (`LIMITS`, `SYNERGY`).
 - Puan kuralı: `SP_PER_LEVEL`, `TIER_COST` (catalog.ts); sıfırlama bedeli `RESET_GOLD_PER_LEVEL` (tree.ts).
-- Dünyadaki savaşlar (Task 19) gelince oyuncunun savaşçısına `spells: skillTree.resolver` verilecek; bu şu an yalnızca savaş denemesinde bağlı.
+- Yetenekler boss savaşlarında oyuncunun savaşçısına `spells: skillTree.resolver` ile bağlıdır ([boss-savaslari.md](boss-savaslari.md)) ve savaş denemesinde de çalışır.

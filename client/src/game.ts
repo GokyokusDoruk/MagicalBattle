@@ -14,7 +14,9 @@ import { WandInventory } from './wands/inventory';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
 import { Morality } from './morality/morality';
+import { getBoss } from './boss/bosses';
 import { DialogueUi } from './ui/dialogueUi';
+import { runBossFight } from './ui/bossFight';
 import { WandUi } from './ui/wandUi';
 import { SkillTree } from './skills/tree';
 import { Progress } from './story/progress';
@@ -207,7 +209,10 @@ const merchantUi = new MerchantUi({
 document.body.appendChild(merchantUi.element);
 const dialogueUi = new DialogueUi(narrator);
 document.body.appendChild(dialogueUi.element);
-const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || dialogueUi.isOpen;
+/** Bir bölümün sahnesi, boss savaşı ve seçimleri sürerken true (aralardaki boşlukta da dünya durur) */
+let chapterBusy = false;
+const modalOpen = (): boolean =>
+  chapterBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || dialogueUi.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -226,6 +231,52 @@ async function playChapterChoices(chapter: number): Promise<void> {
     await dialogueUi.run(tree, ctx);
   }
   if (chapter === 8) await dialogueUi.run(linesTree('final', finalLines(morality.score)), ctx);
+}
+
+/** Sahne bu oturumda izlendi mi (yenilgiden sonra tekrar denerken sahne baştan oynamasın) */
+const scenesSeen = new Set<number>();
+
+/**
+ * Bir bölümün akışı: sahne → boss savaşı → ahlak seçimleri → bölüm tamamlanır.
+ * Bölüm 8'de seçimler ve final sahnesi bosstan ÖNCE gelir (final yolu seçimlere göre belirlenir).
+ * Boss yenilirse ya da geri çekilirsen bölüm tamamlanmaz; işaretçiye tekrar girip yeniden denersin.
+ */
+async function playChapter(chapter: number): Promise<void> {
+  const scene = CHAPTER_SCENES[chapter];
+  if (!scene) return;
+  chapterBusy = true;
+  try {
+    if (!scenesSeen.has(chapter)) {
+      await story.play(scene);
+      scenesSeen.add(chapter);
+    }
+    const boss = getBoss(chapter);
+    if (chapter === 8) await playChapterChoices(8);
+    if (boss) {
+      const ctx = { score: () => morality.score, flags: new Set<string>(), onEffect: (): void => {} };
+      await dialogueUi.run(linesTree(`boss-${chapter}`, boss.intro), ctx);
+      const outcome = await runBossFight(
+        chapter,
+        { name: playerName, level: hero.level, armor: hero.armor, spells: skillTree.resolver, wands: wands.resolver },
+        morality.finalPath,
+      );
+      if (outcome !== 'won') {
+        toast.show(outcome === 'lost' ? `${boss.title} seni yendi. Hazırlanıp tekrar dene.` : 'Geri çekildin. Hazır olunca tekrar gel.');
+        return;
+      }
+      hero.addGold(boss.reward.gold);
+      const levels = hero.addXp(boss.reward.xp);
+      toast.show(`${boss.title} yenildi! +${boss.reward.gold} altın, +${boss.reward.xp} XP`);
+      sfx.play('victory');
+      if (levels > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 2800);
+      setDirty(true);
+      handleCompletions(sideQuests.onEvent({ type: 'battleWon' }));
+    }
+    if (chapter !== 8) await playChapterChoices(chapter);
+    progress.completeChapter(chapter);
+  } finally {
+    chapterBusy = false;
+  }
 }
 // K: yetenek ağacı, W: asalar (sahne ya da tüccar açıkken açılmaz)
 window.addEventListener('keydown', (e) => {
@@ -257,6 +308,7 @@ const debug = {
   morality,
   dialogueUi,
   playChapterChoices,
+  playChapter,
   collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */
@@ -282,12 +334,8 @@ void import('./world/bootWorld').then((m) =>
     onMarkerEnter: (marker) => {
       const scene = CHAPTER_SCENES[marker.chapter];
       if (modalOpen() || !scene) return;
-      // Sahne bitince (atlansa da) bölümün ahlak seçimleri oynanır, sonra bölüm tamamlanır: kapı açılır, sonraki görev belirir.
-      // Boss savaşları gelince (Task 19) tamamlanma savaşın sonucuna bağlanacak.
-      void story
-        .play(scene)
-        .then(() => playChapterChoices(marker.chapter))
-        .then(() => progress.completeChapter(marker.chapter));
+      // Sahne, boss savaşı ve seçimler bitince bölüm tamamlanır: kapı açılır, sonraki görev belirir.
+      void playChapter(marker.chapter);
     },
     // Şehre girmek kayıt noktasıdır: ilerleme sunucuya yazılır
     onCityEnter: (cityId) => {

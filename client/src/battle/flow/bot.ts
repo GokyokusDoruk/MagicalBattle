@@ -6,6 +6,16 @@ import { SHAPE_NAMES, buildShape, scribbleShape } from './shapes';
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
+/** Düşmanın yapay zekâ ayarları (boss ve özel rakipler). Verilmeyen alan varsayılandır. */
+export interface BotProfile {
+  /** Savunma becerisi (0-1); verilmezse savaş ekranının genel bot becerisi */
+  skill?: number;
+  /** Element tercihleri (ağırlık). Verilmezse dört element eşit olasılıkla seçilir. */
+  elements?: Partial<Record<Element, number>>;
+  /** Saldırı büyüklüğü çarpanı (1 = normal); büyük çizim daha güçlü vurur */
+  attackScale?: number;
+}
+
 /**
  * Bilgisayar rakibi (ve 2v2'de takım arkadaşı). Elementi rastgele seçer, hazır şekilleri biraz bozarak çizer.
  * `skill` 0-1: savunmada gelen saldırıyı ne kadar iyi kapattığı (yüksek = isabetli ve geniş).
@@ -15,6 +25,7 @@ export class Bot {
   constructor(
     protected readonly rand: () => number = Math.random,
     readonly skill = 0.6,
+    protected readonly profile: BotProfile = {},
   ) {}
 
   protected between(lo: number, hi: number): number {
@@ -30,6 +41,19 @@ export class Bot {
   }
 
   chooseElement(): Element {
+    const weights = this.profile.elements;
+    if (weights) {
+      const entries = ELEMENTS.map((e) => [e, Math.max(0, weights[e] ?? 0)] as const).filter(([, w]) => w > 0);
+      const total = entries.reduce((n, [, w]) => n + w, 0);
+      if (total > 0) {
+        let r = this.rand() * total;
+        for (const [e, w] of entries) {
+          r -= w;
+          if (r < 0) return e;
+        }
+        return entries[entries.length - 1][0];
+      }
+    }
     return ELEMENTS[Math.floor(this.rand() * ELEMENTS.length)];
   }
 
@@ -40,7 +64,7 @@ export class Bot {
     const ms = this.between(1800, 2900);
     if (this.rand() < 0.06) return analyzeStrokes(scribbleShape(cx, cy, ms), ms);
     const name = SHAPE_NAMES[Math.floor(this.rand() * SHAPE_NAMES.length)];
-    return analyzeStrokes(buildShape(name, cx, cy, this.between(58, 92), ms), ms);
+    return analyzeStrokes(buildShape(name, cx, cy, this.between(58, 92) * (this.profile.attackScale ?? 1), ms), ms);
   }
 
   /**

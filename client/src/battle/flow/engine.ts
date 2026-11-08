@@ -1,5 +1,6 @@
 import type { SlotRef } from '../arena/layout';
 import { neutralEffects, type SpellResolver } from '../../skills/resolver';
+import type { BotProfile } from './bot';
 import { neutralWand, type WandResolver } from '../../wands/inventory';
 import { BASE_POWER, MAX_CYCLES, MAX_HP } from './config';
 
@@ -23,10 +24,13 @@ export interface FighterInit {
   wands?: WandResolver;
   /** Yapay zekâ kişiliği (yalnızca botlar için): Elysia'nın ruh hali savaşını etkiler */
   persona?: 'elysia';
+  /** Düşman yapay zekâ ayarları (element tercihi, beceri, saldırı büyüklüğü) */
+  ai?: BotProfile;
 }
 
-export interface Fighter extends Required<Omit<FighterInit, 'persona'>> {
+export interface Fighter extends Required<Omit<FighterInit, 'persona' | 'ai'>> {
   persona: 'elysia' | null;
+  ai: BotProfile | null;
   index: number;
   hp: number;
 }
@@ -79,6 +83,7 @@ export class BattleEngine {
         spells: init.spells ?? neutralEffects,
         wands: init.wands ?? neutralWand,
         persona: init.persona ?? null,
+        ai: init.ai ?? null,
         index,
         hp: maxHp,
       };
