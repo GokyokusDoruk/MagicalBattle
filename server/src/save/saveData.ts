@@ -1,10 +1,12 @@
 /**
- * Kayıt dosyası biçimi (sürüm 2). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
- * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 kayıtlar (ekonomi alanları yok) kabul edilir ve
- * varsayılanlarla yükseltilir.
+ * Kayıt dosyası biçimi (sürüm 3). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
+ * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 (ekonomi yok) ve sürüm 2 (yetenek yok) kayıtlar
+ * kabul edilir ve varsayılanlarla yükseltilir.
  */
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
+/** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe) */
+const MAX_SKILLS = 36;
 export const LAST_CHAPTER = 8;
 /** Kayıt noktası olabilecek şehirler (client/src/world/locations.ts ile aynı kimlikler) */
 export const SAVE_CITY_IDS = ['ignis', 'abyss', 'stone-heart', 'still-crystal'] as const;
@@ -45,6 +47,8 @@ export interface SaveData {
   quests: Record<string, QuestRecord>;
   /** Toplanmış, bir daha çıkmayacak dünya eşyalarının kimlikleri */
   collected: string[];
+  /** Alınan yetenekler (yetenek ağacı kimlikleri) */
+  skills: string[];
 }
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
@@ -104,13 +108,19 @@ function parseCollected(input: unknown): Parsed<string[]> {
   return { ok: true, value: [...new Set(input as string[])] };
 }
 
-/** Geçerliyse temizlenmiş (ve v2'ye yükseltilmiş) kaydı, değilse Türkçe hata mesajını döndürür. */
+function parseSkills(input: unknown): Parsed<string[]> {
+  if (input === undefined) return { ok: true, value: [] };
+  if (!Array.isArray(input) || input.length > MAX_SKILLS || !input.every(isId)) return { ok: false, error: 'Yetenekler geçersiz.' };
+  return { ok: true, value: [...new Set(input as string[])] };
+}
+
+/** Geçerliyse temizlenmiş (ve v3'e yükseltilmiş) kaydı, değilse Türkçe hata mesajını döndürür. */
 export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: false; error: string } {
   const bad = (error: string) => ({ ok: false as const, error });
   if (!isPlainObject(input)) return bad('Kayıt verisi geçersiz.');
   const b = input;
 
-  if (b.version !== 1 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
+  if (b.version !== 1 && b.version !== 2 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
 
   const nameError = validatePlayerName(b.playerName);
   if (nameError) return bad(nameError);
@@ -149,6 +159,8 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   if (!quests.ok) return bad(quests.error);
   const collected = parseCollected(b.collected);
   if (!collected.ok) return bad(collected.error);
+  const skills = parseSkills(b.skills);
+  if (!skills.ok) return bad(skills.error);
 
   return {
     ok: true,
@@ -163,6 +175,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
       equipped: equipped.value,
       quests: quests.value,
       collected: collected.value,
+      skills: skills.value,
     },
   };
 }

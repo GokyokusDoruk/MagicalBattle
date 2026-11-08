@@ -10,12 +10,14 @@ import { KeyboardSource } from './input/keyboard';
 import { QuestEngine, type QuestCompletion } from './quests/engine';
 import { normalizeSave, savePointForCity, type SaveData } from './save/saveData';
 import { SaveManager } from './save/saveManager';
+import { SkillTree } from './skills/tree';
 import { Progress } from './story/progress';
 import { showAuthScreen } from './ui/authScreen';
 import { DPad } from './ui/dpad';
 import { MerchantUi } from './ui/merchantUi';
 import { Minimap } from './ui/minimap';
 import { askPlayerName } from './ui/nameScreen';
+import { SkillTreeUi } from './ui/skillTreeUi';
 import { StatusBar } from './ui/statusBar';
 import { StoryPlayer } from './ui/storyScene';
 import { Toast } from './ui/toast';
@@ -83,16 +85,19 @@ if (save) progress.restore({ completedChapters: save.completedChapters });
 // Ekonomi (altın, XP, çanta), yan görevler ve toplanan eşyalar. Yükleme sırası: önce oyuncu, sonra görevler.
 const hero = new PlayerState();
 const sideQuests = new QuestEngine(hero);
+const skillTree = new SkillTree(() => hero.level);
 const collected = new Set<string>(save?.collected ?? []);
 if (save) {
   hero.restore(save);
   sideQuests.restore(save.quests);
+  skillTree.restore(save.skills); // seviye (puan) yüklendikten sonra
 }
 
 const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, () => ({
   economy: hero.snapshot(),
   quests: sideQuests.snapshot(),
   collected: [...collected],
+  skills: skillTree.snapshot(),
 }));
 // Yeni oyunda ad hemen kaydedilir; kayıt noktasına varmadan çıkılsa bile ad kaybolmaz
 if (!save && savingEnabled) void saves.saveAt(null);
@@ -111,7 +116,16 @@ const minimap = new Minimap(map, gates, quests);
 document.body.appendChild(minimap.element);
 
 const sfx = getSoundEngine();
-const statusBar = new StatusBar();
+const skillUi = new SkillTreeUi({
+  tree: skillTree,
+  level: () => hero.level,
+  gold: { balance: () => hero.gold, spend: (n) => hero.spendGold(n) },
+  onChanged: () => setDirty(true),
+});
+document.body.appendChild(skillUi.element);
+const statusBar = new StatusBar(() => {
+  if (!story.isOpen && !merchantUi.isOpen) skillUi.toggle();
+});
 document.body.appendChild(statusBar.element);
 
 /** Son kayıt noktasından sonra değişen bir şey var mı (kayıt yalnızca şehirlerde yapılır). */
@@ -123,6 +137,7 @@ const refreshHud = (): void =>
     xp: hero.xp,
     dirty: dirty && saves.enabled,
     quests: sideQuests.active().map((q) => ({ title: q.title, ...sideQuests.progress(q.id) })),
+    skillPoints: skillTree.pointsFree,
   });
 const setDirty = (value: boolean): void => {
   dirty = value;
@@ -130,6 +145,7 @@ const setDirty = (value: boolean): void => {
 };
 hero.onChange(refreshHud);
 sideQuests.onChange(refreshHud);
+skillTree.onChange(refreshHud);
 refreshHud();
 
 /** Biten yan görevleri bildirir (ödüller zaten envantere yattı). */
@@ -140,7 +156,7 @@ const handleCompletions = (list: QuestCompletion[]): void => {
     sfx.play('revealAdvantage');
     if (c.levelsGained > 0) {
       window.setTimeout(() => {
-        toast.show(`Seviye atladın! Seviye ${hero.level}`);
+        toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`);
         sfx.play('victory');
       }, 2800);
     }
@@ -156,7 +172,12 @@ const merchantUi = new MerchantUi({
   onQuestCompletion: (c) => handleCompletions([c]),
 });
 document.body.appendChild(merchantUi.element);
-const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen;
+const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen || skillUi.isOpen;
+// K: yetenek ağacı (sahne ya da tüccar açıkken açılmaz)
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyK' || e.repeat || story.isOpen || merchantUi.isOpen) return;
+  skillUi.toggle();
+});
 
 gates.onChange((cityId, unlocked) => {
   const city = LOCATIONS.find((l) => l.id === cityId);
@@ -174,6 +195,8 @@ const debug = {
   hero,
   sideQuests,
   merchantUi,
+  skillTree,
+  skillUi,
   collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */

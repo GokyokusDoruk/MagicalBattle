@@ -24,6 +24,12 @@ export interface TurnReport {
   hpBefore: number;
   hpAfter: number;
   defeated: boolean;
+  /** Savunanın yeteneğiyle saldırana yansıyan hasar (0 = yok) */
+  reflected: number;
+  /** Yansıyan hasar saldıranı yendi mi */
+  attackerDefeated: boolean;
+  /** Saldıranın yeteneğiyle (can çalma) iyileşen can */
+  healed: number;
 }
 
 /**
@@ -95,6 +101,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
           hpBefore: defender.hp,
           hpAfter: defender.hp,
           defeated: false,
+          reflected: 0,
+          attackerDefeated: false,
+          healed: 0,
         },
         engine,
       );
@@ -104,17 +113,30 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined);
     const defenseFailed = !defense.validity.valid;
 
+    // Yetenek ağaçlarından büyüye özel etkiler: saldıran büyüsünün elementiyle, savunan savunduğu elementle
+    const attackFx = attacker.spells(attackerElement, 'attack');
+    const defenseFx = defender.spells(defenderElement, 'defense');
+
     const breakdown = calculateDamage({
       basePower: attacker.basePower,
       attack,
       defense: defenseFailed ? null : defense.density,
       attackerElement,
       defenderElement,
-      attackerDealtMultiplier: attacker.dealtMultiplier,
-      defenderTakenMultiplier: defender.takenMultiplier,
+      attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier,
+      defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier,
       defenderArmor: defender.armor,
+      attackerArmorPierce: attackFx.armorPierce,
+      attackerHeadBonus: attackFx.headBonus,
+      attackerEffortBonus: attackFx.effortBonus,
     });
     const result = engine.applyDamage(action.defender, breakdown.finalDamage);
+    const dealt = result.hpBefore - result.hpAfter;
+
+    // Can çalma, sonra yansıtma (yansıma saldıranı yenebilir)
+    const healed = dealt > 0 ? engine.heal(action.attacker, dealt * attackFx.lifesteal) : 0;
+    const reflected = dealt > 0 ? Math.round(dealt * defenseFx.reflect) : 0;
+    const reflectResult = reflected > 0 ? engine.applyDamage(action.attacker, reflected) : null;
 
     await io.play(
       {
@@ -126,10 +148,13 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         attackFailed: false,
         defenseFailed,
         breakdown,
-        damage: result.hpBefore - result.hpAfter,
+        damage: dealt,
         hpBefore: result.hpBefore,
         hpAfter: result.hpAfter,
         defeated: result.defeated,
+        reflected: reflectResult ? reflectResult.hpBefore - reflectResult.hpAfter : 0,
+        attackerDefeated: reflectResult?.defeated ?? false,
+        healed,
       },
       engine,
     );

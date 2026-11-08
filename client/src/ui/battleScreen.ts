@@ -256,9 +256,19 @@ export class BattleScreen implements BattleIO {
       element: report.attackerElement,
     });
     this.updateHud();
+    if (report.healed > 0) {
+      void this.say(this.center, `${this.name(action.attacker)} +${report.healed} can çaldı`, 1100, 'bg-emerald-900/80 text-emerald-100');
+    }
+    if (report.reflected > 0) {
+      await this.say(this.center, `Yansıma! ${this.name(action.attacker)} -${report.reflected}`, 1200, 'bg-sky-900/80 text-sky-100');
+    }
     if (report.defeated) {
       this.arena.defeat(action.defender);
       await this.say(this.center, `${this.name(action.defender)} yenildi!`, 1400, 'bg-amber-700/80 text-amber-50');
+    }
+    if (report.attackerDefeated) {
+      this.arena.defeat(action.attacker);
+      await this.say(this.center, `${this.name(action.attacker)} yansımayla yenildi!`, 1400, 'bg-amber-700/80 text-amber-50');
     }
   }
 

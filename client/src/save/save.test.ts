@@ -44,6 +44,7 @@ describe('kayıt verisi', () => {
       equipped: {},
       quests: {},
       collected: [],
+      skills: [],
     });
     chapters.push(3);
     expect(s.completedChapters).toEqual([1, 2]);
@@ -62,11 +63,12 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
     economy: { gold: 250, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' as const } },
     quests: { 'ash-ot-toplama': { status: 'active' as const, progress: 2 } },
     collected: ['p-herb-0'],
+    skills: ['fire-power-1'],
   };
 
   it('buildSave ekonomi alanlarını taşır ve girdiyi kopyalar', () => {
     const s = buildSave('Aylin', [1], null, extras);
-    expect(s).toMatchObject({ gold: 250, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' }, collected: ['p-herb-0'] });
+    expect(s).toMatchObject({ gold: 250, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' }, collected: ['p-herb-0'], skills: ['fire-power-1'] });
     expect(s.quests['ash-ot-toplama']).toEqual({ status: 'active', progress: 2 });
     extras.economy.items['sifali-ot'] = 99;
     extras.collected.push('x');
@@ -83,7 +85,7 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
       { putSave: async (d) => void written.push(d) },
       progressWith(),
       'Aylin',
-      () => ({ economy: { gold, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [] }),
+      () => ({ economy: { gold, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [] }),
     );
     await m.saveAt(null);
     gold = 99;
@@ -93,7 +95,7 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
 
   it('normalizeSave eksik alanları varsayılanla doldurur (eski sunucu v1 dönse bile)', () => {
     const s = normalizeSave({ playerName: 'Aylin', completedChapters: [1] });
-    expect(s).toMatchObject({ version: 2, savePoint: null, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [] });
+    expect(s).toMatchObject({ version: 3, savePoint: null, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [] });
   });
 });
 
@@ -135,7 +137,7 @@ describe('SaveManager', () => {
     const m = new SaveManager({ putSave: async (d) => void written.push(d) }, progressWith(1), 'Aylin');
     expect(await m.saveAt(point)).toBe('saved');
     expect(written).toEqual([
-      { version: 2, playerName: 'Aylin', completedChapters: [1], savePoint: point, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [] },
+      { version: 3, playerName: 'Aylin', completedChapters: [1], savePoint: point, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [] },
     ]);
   });
 

@@ -62,5 +62,5 @@ Daire (yarıçap 70) saldırı, savunma yok, taban güç 100:
 Hepsi `client/src/battle/damage/config.ts`: baş bölgesi büyüklüğü, baş çarpanı, element çarpanları, zırh üst sınırı, tam güç için alan oranı ve en düşük efor çarpanı.
 
 ## Sonra gelecekler
-- **Taban güç** asadan gelecek (Task 17), skill ve ekipman çarpanları skill ağacından (Task 16).
+- **Taban güç** asadan gelecek (Task 17). Skill çarpanları yetenek ağacından gelir (Task 16, bkz. [yetenek-agaci.md](yetenek-agaci.md)): verilen/alınan hasar çarpanı genel çarpana katılır; ayrıca zırh delme (`attackerArmorPierce`), baş bonusu (`attackerHeadBonus`) ve çaba tabanı (`attackerEffortBonus`) hesaba girer. Yansıma ve can çalma hasar hesabından sonra, savaş akışında uygulanır.
 - **Savaş akışı** (Task 13) bu hesabı sırayla çağıracak, can düşecek ve ölüm işlenecek.

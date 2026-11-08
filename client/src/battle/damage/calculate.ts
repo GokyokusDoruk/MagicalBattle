@@ -25,6 +25,12 @@ export interface DamageInput {
   defenderTakenMultiplier?: number;
   /** Savunanın toplam zırhından gelen hasar azaltma (0-1); üst sınırı ARMOR_CAP */
   defenderArmor?: number;
+  /** Saldıranın yeteneklerinden: rakip zırhının yok sayılan oranı (0-1) */
+  attackerArmorPierce?: number;
+  /** Saldıranın yeteneklerinden: baş çarpanına eklenen değer (0.1: x1.5 yerine x1.6) */
+  attackerHeadBonus?: number;
+  /** Saldıranın yeteneklerinden: aceleyle çizimde güç tabanına eklenen değer */
+  attackerEffortBonus?: number;
 }
 
 export interface DamageBreakdown {
@@ -58,10 +64,11 @@ const positive = (v: number | undefined, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
 
 /** Çizimin gücü: büyüklük ve çizime harcanan süre. Küçük ya da aceleyle çizilen büyü zayıf kalır. */
-export function powerFactor(metrics: SpellMetrics): { size: number; effort: number; total: number } {
+export function powerFactor(metrics: SpellMetrics, effortBonus = 0): { size: number; effort: number; total: number } {
   const size = clamp01(metrics.coverage / FULL_POWER_COVERAGE);
   const timeUsed = clamp01(metrics.drawTimeSec / (DRAW_TIME_MS / 1000));
-  const effort = MIN_EFFORT_FACTOR + (1 - MIN_EFFORT_FACTOR) * timeUsed;
+  const floor = Math.min(1, MIN_EFFORT_FACTOR + positive(effortBonus, 0));
+  const effort = floor + (1 - floor) * timeUsed;
   return { size, effort, total: size * effort };
 }
 
@@ -80,7 +87,7 @@ function isHeadRow(row: number): boolean {
  * 6. Zırh: oyuncunun toplam zırhı tek bir azaltma yüzdesi (baş/gövde ayrımı yok)
  */
 export function calculateDamage(input: DamageInput): DamageBreakdown {
-  const factor = powerFactor(input.attack.metrics);
+  const factor = powerFactor(input.attack.metrics, input.attackerEffortBonus);
   const power = Math.max(0, input.basePower) * factor.total;
 
   const match = matchDefense(input.attack.density, input.defense);
@@ -95,7 +102,7 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
   const unblockedTotal = unblockedHead + unblockedBody;
   const unblockedRatio = total > 0 ? unblockedTotal / total : 0;
   const headShare = unblockedTotal > 0 ? unblockedHead / unblockedTotal : 0;
-  const weightedUnblockedRatio = total > 0 ? (unblockedHead * HEADSHOT_MULTIPLIER + unblockedBody) / total : 0;
+  const weightedUnblockedRatio = total > 0 ? (unblockedHead * (HEADSHOT_MULTIPLIER + positive(input.attackerHeadBonus, 0)) + unblockedBody) / total : 0;
   const afterRegion = power * weightedUnblockedRatio;
 
   const relation = elementRelation(input.attackerElement, input.defenderElement);
@@ -105,7 +112,8 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
   const skillMultiplier = positive(input.attackerDealtMultiplier, 1) * positive(input.defenderTakenMultiplier, 1);
   const afterSkills = afterElement * skillMultiplier;
 
-  const armorReduction = Math.min(ARMOR_CAP, clamp01(positive(input.defenderArmor, 0)));
+  const armorBeforePierce = Math.min(ARMOR_CAP, clamp01(positive(input.defenderArmor, 0)));
+  const armorReduction = armorBeforePierce * (1 - clamp01(positive(input.attackerArmorPierce, 0)));
   const afterArmor = afterSkills * (1 - armorReduction);
 
   return {
