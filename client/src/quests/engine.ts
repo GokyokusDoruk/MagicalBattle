@@ -1,4 +1,6 @@
+import { getItem } from '../economy/items';
 import type { PlayerState } from '../economy/player';
+import { sellPrice } from '../economy/shop';
 import { SIDE_QUESTS, type QuestDef } from './catalog';
 
 export type QuestStatus = 'active' | 'completed';
@@ -22,6 +24,8 @@ export interface QuestCompletion {
   xp: number;
   items: { id: string; count: number }[];
   levelsGained: number;
+  /** Çanta dolu olduğu için altına çevrilen ödül eşyalarının altını (0 = hepsi çantaya girdi) */
+  overflowGold: number;
 }
 
 export type AcceptResult = { ok: true; completion?: QuestCompletion } | { ok: false; reason: string };
@@ -149,9 +153,17 @@ export class QuestEngine {
     const gold = Math.round(q.reward.gold * this.goldMultiplier);
     const items = q.reward.items ?? [];
     this.player.addGold(gold);
-    for (const it of items) this.player.addItem(it.id, it.count);
+    // Çanta doluysa sığmayan ödül eşyası kaybolmaz: değerinin yarısı altın olarak verilir
+    let overflowGold = 0;
+    for (const it of items) {
+      const added = this.player.addItemPartial(it.id, it.count);
+      const left = it.count - added;
+      const def = getItem(it.id);
+      if (left > 0 && def) overflowGold += sellPrice(def.price) * left;
+    }
+    if (overflowGold > 0) this.player.addGold(overflowGold);
     const levelsGained = this.player.addXp(q.reward.xp);
-    return { quest: q, gold, xp: q.reward.xp, items, levelsGained };
+    return { quest: q, gold, xp: q.reward.xp, items, levelsGained, overflowGold };
   }
 
   snapshot(): QuestSnapshot {

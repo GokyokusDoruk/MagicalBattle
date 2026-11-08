@@ -113,7 +113,10 @@ export class MerchantUi {
   }
 
   private statLine(item: ItemDef): string {
-    return item.slot ? `${SLOT_NAMES[item.slot]} · +${pct(item.armor ?? 0)} zırh` : 'Ganimet';
+    if (item.carry) return `${SLOT_NAMES.bag} · +${item.carry.wands} asa, +${item.carry.goods} eşya, +${item.carry.gear} kuşanılabilir`;
+    if (item.slot) return `${SLOT_NAMES[item.slot]} · +${pct(item.armor ?? 0)} zırh`;
+    if (item.heal) return `Can iksiri · +${item.heal} can`;
+    return 'Ganimet';
   }
 
   private shopHtml(m: MerchantDef): string {
@@ -249,13 +252,14 @@ export class MerchantUi {
         if (player.equip(id)) {
           this.message = `Kuşandın: ${getItem(id)!.name}`;
           this.changed('shieldUp');
-        }
+        } else if (player.lastBlockReason) this.message = player.lastBlockReason;
         break;
       case 'unequip': {
         const slot = getItem(id)?.slot;
-        if (slot) player.unequip(slot);
-        this.message = `Çıkardın: ${getItem(id)?.name ?? id}`;
-        this.changed('pick');
+        if (slot && player.unequip(slot)) {
+          this.message = `Çıkardın: ${getItem(id)?.name ?? id}`;
+          this.changed('pick');
+        } else if (player.lastBlockReason) this.message = player.lastBlockReason;
         break;
       }
       case 'accept': {

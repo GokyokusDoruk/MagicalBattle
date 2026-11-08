@@ -19,8 +19,14 @@ describe('katalog', () => {
     for (const i of ITEMS) {
       if (isGear(i)) {
         expect(GEAR_SLOTS).toContain(i.slot);
-        expect(i.armor).toBeGreaterThan(0);
-        expect(i.armor).toBeLessThan(0.4);
+        if (i.slot === 'bag') {
+          // Çantalar zırh vermez, kapasite verir
+          expect(i.armor).toBeUndefined();
+          expect(i.carry).toBeDefined();
+        } else {
+          expect(i.armor).toBeGreaterThan(0);
+          expect(i.armor).toBeLessThan(0.4);
+        }
       } else {
         expect(i.armor).toBeUndefined();
       }
@@ -28,12 +34,12 @@ describe('katalog', () => {
   });
 
   it('her yerin en iyi ekipmanı birlikte zırh sınırını aşmaz', () => {
-    const best = GEAR_SLOTS.map((s) => Math.max(...ITEMS.filter((i) => i.slot === s).map((i) => i.armor ?? 0)));
+    const best = GEAR_SLOTS.filter((s) => s !== 'bag').map((s) => Math.max(...ITEMS.filter((i) => i.slot === s).map((i) => i.armor ?? 0)));
     expect(best.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(ARMOR_CAP);
   });
 
   it('daha pahalı ekipman aynı yerde daha çok zırh verir (fiyat mantıklı)', () => {
-    for (const slot of GEAR_SLOTS) {
+    for (const slot of GEAR_SLOTS.filter((s) => s !== 'bag')) {
       const gear = ITEMS.filter((i) => i.slot === slot).sort((a, b) => a.price - b.price);
       for (let k = 1; k < gear.length; k++) expect(gear[k].armor!).toBeGreaterThan(gear[k - 1].armor!);
     }

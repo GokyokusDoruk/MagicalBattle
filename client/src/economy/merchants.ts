@@ -15,21 +15,21 @@ export const MERCHANTS: readonly MerchantDef[] = [
     name: 'Tüccar Kazım',
     locationId: 'ash',
     greeting: 'Hoş geldin yolcu! Kervanlar gelmiyor ama elimdekiler sağlam. Bak, beğen.',
-    stock: ['cirak-cuppesi', 'yun-sapka', 'tas-tilsim'],
+    stock: ['cirak-cuppesi', 'yun-sapka', 'tas-tilsim', 'kucuk-canta'],
   },
   {
     id: 'tuccar-nesrin',
     name: 'Tüccar Nesrin',
     locationId: 'vine',
     greeting: 'Asmaların arasından geçen herkese bir indirimim vardır... yani olurdu. Ne lazım?',
-    stock: ['gezgin-cuppesi', 'tilsimli-sapka'],
+    stock: ['gezgin-cuppesi', 'tilsimli-sapka', 'deri-canta'],
   },
   {
     id: 'tuccar-boran',
     name: 'Tüccar Boran',
     locationId: 'marsh',
     greeting: 'Sis içinde iş yapmak zor, ama sisin de sevenleri var. Buyur.',
-    stock: ['bekci-cuppesi', 'ruzgar-tilsimi'],
+    stock: ['bekci-cuppesi', 'ruzgar-tilsimi', 'gezgin-cantasi'],
   },
 ];
 

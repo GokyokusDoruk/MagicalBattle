@@ -13,6 +13,14 @@ export interface EconomySnapshot {
   equipped: Partial<Record<GearSlot, string>>;
 }
 
+/** Kapasite kuralları (envanter): kimin sınır koyduğunu PlayerState bilmez, dışarıdan bağlanır. */
+export interface PlayerGuards {
+  /** Bu eşyadan en çok kaç tane daha eklenebilir (sınırsız = Infinity) */
+  room: (id: string) => number;
+  /** Ekipman değiştirmek (kuşan ya da çıkar) kapasiteye uyuyor mu? Uymuyorsa nedeni (Türkçe), uyuyorsa null. */
+  canChangeGear: (slot: GearSlot, newId: string | null) => string | null;
+}
+
 const toInt = (v: unknown, max: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.floor(v))) : 0;
 
@@ -26,6 +34,19 @@ export class PlayerState {
   private readonly items = new Map<string, number>();
   private equippedSlots: Partial<Record<GearSlot, string>> = {};
   private readonly listeners = new Set<() => void>();
+  private guards: PlayerGuards | null = null;
+  /** Son engellenen ekipman değişikliğinin nedeni (arayüz gösterir) */
+  lastBlockReason: string | null = null;
+
+  /** Kapasite kurallarını bağlar (envanter). Verilmezse sınır yoktur. */
+  setGuards(guards: PlayerGuards | null): void {
+    this.guards = guards;
+  }
+
+  /** Bu eşyadan kaç tane daha taşınabilir. */
+  roomFor(id: string): number {
+    return this.guards ? this.guards.room(id) : Infinity;
+  }
 
   get gold(): number {
     return this.goldValue;
@@ -93,13 +114,28 @@ export class PlayerState {
     return this.level - before;
   }
 
-  /** Bilinmeyen eşya eklenmez. Yığın sınırı MAX_STACK. */
+  /**
+   * Bilinmeyen eşya eklenmez. Yığın sınırı MAX_STACK. Kapasite yetmiyorsa hiçbiri eklenmez (false).
+   */
   addItem(id: string, count = 1): boolean {
     const n = Math.floor(count);
     if (!getItem(id) || !(n > 0)) return false;
+    if (n > this.roomFor(id)) return false;
     this.items.set(id, Math.min(MAX_STACK, this.count(id) + n));
     this.changed();
     return true;
+  }
+
+  /** Kapasitenin yettiği kadarını ekler; eklenen adedi döndürür (ödül ve ganimet için, fazlası çağırana kalır). */
+  addItemPartial(id: string, count = 1): number {
+    const n = Math.floor(count);
+    if (!getItem(id) || !(n > 0)) return 0;
+    const room = this.roomFor(id);
+    const add = Math.max(0, Math.min(n, room, MAX_STACK - this.count(id)));
+    if (add === 0) return 0;
+    this.items.set(id, this.count(id) + add);
+    this.changed();
+    return add;
   }
 
   removeItem(id: string, count = 1): boolean {
@@ -112,19 +148,33 @@ export class PlayerState {
     return true;
   }
 
-  /** Çantadaki bir ekipmanı kuşanır (aynı yerdekinin yerine). */
+  /** Çantadaki bir ekipmanı kuşanır (aynı yerdekinin yerine). Kapasiteye uymuyorsa false (neden `lastBlockReason`). */
   equip(id: string): boolean {
     const item = getItem(id);
+    this.lastBlockReason = null;
     if (!item?.slot || this.count(id) < 1) return false;
+    const reason = this.guards?.canChangeGear(item.slot, id) ?? null;
+    if (reason) {
+      this.lastBlockReason = reason;
+      return false;
+    }
     this.equippedSlots[item.slot] = id;
     this.changed();
     return true;
   }
 
-  unequip(slot: GearSlot): void {
-    if (!this.equippedSlots[slot]) return;
+  /** Ekipmanı çıkarır; çanta o eşyayı taşıyacak kadar yer yoksa false (neden `lastBlockReason`). */
+  unequip(slot: GearSlot): boolean {
+    this.lastBlockReason = null;
+    if (!this.equippedSlots[slot]) return false;
+    const reason = this.guards?.canChangeGear(slot, null) ?? null;
+    if (reason) {
+      this.lastBlockReason = reason;
+      return false;
+    }
     delete this.equippedSlots[slot];
     this.changed();
+    return true;
   }
 
   isEquipped(id: string): boolean {

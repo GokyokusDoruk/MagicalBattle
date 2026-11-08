@@ -1,5 +1,5 @@
 import { ELEMENTS, ELEMENT_NAMES, type Element } from '../battle/damage/elements';
-import { BRANCH_KINDS, BRANCH_ROLE_NAMES, SKILLS, TIERS, describeStats, getBranch, getSkill, skillId, type BranchKind, type Tier } from '../skills/catalog';
+import { BRANCH_KINDS, BRANCH_ROLE_NAMES, CARRY_SKILLS, SKILLS, TIERS, describeStats, getBranch, getCarrySkill, getSkill, skillId, type BranchKind, type Tier } from '../skills/catalog';
 import { SYNERGY, synergyLevel } from '../skills/resolver';
 import type { SkillTree } from '../skills/tree';
 
@@ -24,7 +24,7 @@ const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', 
 export class SkillTreeUi {
   readonly element: HTMLDivElement;
   private opened = false;
-  private selected: Element = 'fire';
+  private selected: Element | 'carry' = 'fire';
   private message = '';
 
   constructor(private readonly deps: SkillTreeUiDeps) {
@@ -49,7 +49,7 @@ export class SkillTreeUi {
     else this.open();
   }
 
-  open(element?: Element): void {
+  open(element?: Element | 'carry'): void {
     if (this.opened) return;
     this.opened = true;
     if (element) this.selected = element;
@@ -76,6 +76,8 @@ export class SkillTreeUi {
       const active = el === this.selected;
       return `<button type="button" role="tab" data-action="element" data-id="${el}" aria-selected="${active}" class="flex-1 rounded px-1 py-2 text-xs sm:text-sm ${active ? 'bg-amber-300 font-bold text-slate-900' : 'bg-slate-800 text-slate-200'}">${ELEMENT_ICON[el]} ${ELEMENT_NAMES[el]}${spent > 0 ? ` <span class="opacity-70">(${spent})</span>` : ''}</button>`;
     }).join('');
+    const carryActive = this.selected === 'carry';
+    const carryTab = `<button type="button" role="tab" data-action="element" data-id="carry" aria-selected="${carryActive}" class="flex-1 rounded px-1 py-2 text-xs sm:text-sm ${carryActive ? 'bg-amber-300 font-bold text-slate-900' : 'bg-slate-800 text-slate-200'}">🎒 Taşıyıcı</button>`;
 
     const level = this.deps.level();
     const hasSkills = tree.owned.size > 0;
@@ -95,12 +97,29 @@ export class SkillTreeUi {
           <span data-points>Boş puan <b class="${tree.pointsFree > 0 ? 'text-emerald-300' : ''}">${tree.pointsFree}</b> / ${tree.pointsTotal}</span>
           <button type="button" data-action="reset" ${!hasSkills || !canPay ? 'disabled' : ''} class="rounded bg-slate-700 px-2 py-1 text-xs disabled:opacity-40">Sıfırla${resetCost > 0 ? ` (🪙 ${resetCost})` : ''}</button>
         </div>
-        <div role="tablist" class="flex gap-2">${tabs}</div>
+        <div role="tablist" class="flex gap-2">${tabs}${carryTab}</div>
         <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
-          ${this.synergyHtml(this.selected)}
-          <div class="grid gap-3 sm:grid-cols-3">${BRANCH_KINDS.map((k) => this.branchHtml(this.selected, k)).join('')}</div>
+          ${this.selected === 'carry' ? this.carryHtml() : this.synergyHtml(this.selected) + `<div class="grid gap-3 sm:grid-cols-3">${BRANCH_KINDS.map((k) => this.branchHtml(this.selected as Element, k)).join('')}</div>`}
         </div>
       </div>`;
+  }
+
+  /** Taşıyıcı dalı: taşıma kapasitesini artırır (asa, eşya, kuşanılabilir). */
+  private carryHtml(): string {
+    const { tree } = this.deps;
+    const cards = CARRY_SKILLS.map((s) => {
+      const owned = tree.has(s.id);
+      const learnable = tree.check(s.id).ok;
+      const state = owned ? 'owned' : learnable ? 'learnable' : 'locked';
+      const style =
+        state === 'owned' ? 'border-emerald-400 bg-emerald-900/40' : state === 'learnable' ? 'border-amber-300 bg-slate-800 hover:bg-slate-700' : 'border-slate-700 bg-slate-900 opacity-60';
+      return `<button type="button" data-action="learn" data-id="${s.id}" data-state="${state}" class="rounded border p-2 text-left text-xs ${style}">
+        <div class="flex items-center justify-between gap-1"><b>${esc(s.name)}</b><span class="text-[10px] text-slate-300">${TIER_LABEL[s.tier]}</span></div>
+        <ul class="mt-1 list-disc pl-4 text-slate-200"><li>+${s.bonus.wands} asa</li><li>+${s.bonus.goods} eşya</li><li>+${s.bonus.gear} kuşanılabilir eşya</li></ul>
+        <div class="mt-1 text-[10px] ${owned ? 'text-emerald-300' : 'text-slate-400'}">${owned ? '✓ Alındı' : `${s.cost} puan`}</div></button>`;
+    }).join('');
+    return `<p class="mb-3 rounded bg-slate-900 px-3 py-2 text-xs text-slate-300">Çantanda taşıyabileceğin asa, ticari eşya ve ekipman sayısını artırır. Kademeler sırayla alınır.</p>
+      <section class="grid gap-2 sm:grid-cols-3" data-branch="carry">${cards}</section>`;
   }
 
   private synergyHtml(element: Element): string {
@@ -154,7 +173,7 @@ export class SkillTreeUi {
       case 'close':
         return this.close();
       case 'element':
-        if ((ELEMENTS as readonly string[]).includes(id)) this.selected = id as Element;
+        if (id === 'carry' || (ELEMENTS as readonly string[]).includes(id)) this.selected = id as Element | 'carry';
         this.message = '';
         return this.render();
       case 'learn': {
@@ -163,7 +182,7 @@ export class SkillTreeUi {
           this.message = check.reason;
           return this.render();
         }
-        const skill = getSkill(id)!;
+        const skill = getSkill(id) ?? getCarrySkill(id)!;
         this.deps.tree.learn(id);
         this.message = `${skill.name} öğrenildi.`;
         this.deps.onChanged?.();

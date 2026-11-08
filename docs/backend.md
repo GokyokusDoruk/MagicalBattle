@@ -67,7 +67,7 @@ Sunucu istemciye güvenmez ve her yazmada doğrular:
 - `completedChapters`: aralıksız `[1..n]`, en fazla 8 bölüm
 - `savePoint`: `null` (yeni oyun) ya da bilinen bir şehir (`ignis`, `abyss`, `stone-heart`, `still-crystal`) ve 0-500 arası tam sayı karo
 - `gold` 0-9.999.999, `xp` 0-1.000.000 (tam sayı)
-- `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `amulet`; `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır); `skills`: en çok 36 kimlik, `a-z 0-9 -` (tekrarlar atılır); `wands`: en çok 48 çeşit, adet 1-999; `wandsEquipped`: yalnızca `{fire,water,earth,air}-{attack,defense}` yuvaları; `choices`: en çok 16 kayıt, değer yalnızca `good` ya da `bad`
+- `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `amulet`, `bag`; `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır); `skills`: en çok 39 kimlik (36 element + 3 Taşıyıcı), `a-z 0-9 -` (tekrarlar atılır); `wands`: en çok 48 çeşit, adet 1-999; `wandsEquipped`: yalnızca `{fire,water,earth,air}-{attack,defense}` yuvaları; `choices`: en çok 16 kayıt, değer yalnızca `good` ya da `bad`
 - Fazla alanlar atılır, gövde en fazla 16 KB
 
 Geçersiz kayıt `400` ile reddedilir ve eski kayıt bozulmaz. Veritabanındaki kayıt bozuksa oyuncu yeni oyunla başlar. Eşya, görev, yetenek, asa ve seçim kimliklerinin kataloğa uyup uymadığını sunucu bilmez; istemci yüklerken bilinmeyenleri atar ve sayıları sınırlar.

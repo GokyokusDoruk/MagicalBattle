@@ -16,7 +16,7 @@ Haritada **28 şifalı ot** (çimende) ve **12 kristal parçası** (kumsalda) va
 
 ## Ekipman ve zırh
 
-Üç yer var: **Cüppe, Şapka, Tılsım**; her yere bir ekipman kuşanılır. Ekipmanlar **toplam zırhı** artırır (tek bir hasar azaltma yüzdesi, baş/gövde ayrımı yok, üst sınır %75). Daha pahalı ekipman aynı yerde daha çok zırh verir.
+Üç zırh yeri var: **Cüppe, Şapka, Tılsım**; her yere bir ekipman kuşanılır. Dördüncü yer **Çanta**dır: zırh vermez, taşıma kapasitesini artırır ([envanter-ve-cantalar.md](envanter-ve-cantalar.md)). Çantaya ve kapasiteye sığmayan görev ödülü eşyaları altına çevrilir. Ekipmanlar **toplam zırhı** artırır (tek bir hasar azaltma yüzdesi, baş/gövde ayrımı yok, üst sınır %75). Daha pahalı ekipman aynı yerde daha çok zırh verir.
 
 | Ekipman | Yer | Zırh | Fiyat | Satan |
 |---|---|---|---|---|
