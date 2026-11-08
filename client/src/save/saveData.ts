@@ -1,12 +1,13 @@
 import type { EconomySnapshot } from '../economy/player';
 import type { QuestSnapshot } from '../quests/engine';
+import type { WandSnapshot } from '../wands/inventory';
 import { CITY_HALF, type LocationDef } from '../world/locations';
 
 /**
- * Kayıt dosyası biçimi (sürüm 3: yetenek ağacı eklendi; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
- * aynı alanları doğrular ve eski (v1, v2) kayıtları yükseltir (server/src/save/saveData.ts).
+ * Kayıt dosyası biçimi (sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
+ * aynı alanları doğrular ve eski (v1-v3) kayıtları yükseltir (server/src/save/saveData.ts).
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface SavePoint {
   cityId: string;
@@ -14,7 +15,7 @@ export interface SavePoint {
   tileY: number;
 }
 
-export interface SaveData extends EconomySnapshot {
+export interface SaveData extends EconomySnapshot, WandSnapshot {
   version: typeof SAVE_VERSION;
   playerName: string;
   /** 1'den başlayıp aralıksız tamamlanan bölümler */
@@ -34,9 +35,10 @@ export interface SaveExtras {
   quests: QuestSnapshot;
   collected: readonly string[];
   skills: readonly string[];
+  wands: WandSnapshot;
 }
 
-const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [] };
+const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandsEquipped: {} } };
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
 
@@ -72,6 +74,8 @@ export function buildSave(
     quests: Object.fromEntries(Object.entries(extras.quests).map(([id, r]) => [id, { ...r }])),
     collected: [...extras.collected],
     skills: [...extras.skills],
+    wands: { ...extras.wands.wands },
+    wandsEquipped: { ...extras.wands.wandsEquipped },
   };
 }
 
@@ -92,5 +96,7 @@ export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerNam
     quests: raw.quests ?? {},
     collected: raw.collected ?? [],
     skills: raw.skills ?? [],
+    wands: raw.wands ?? {},
+    wandsEquipped: raw.wandsEquipped ?? {},
   };
 }

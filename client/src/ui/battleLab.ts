@@ -1,5 +1,8 @@
 import { BattleEngine, type FighterInit } from '../battle/flow/engine';
 import { SkillTree } from '../skills/tree';
+import { WandInventory } from '../wands/inventory';
+import { ELEMENTS } from '../battle/damage/elements';
+import { RARITY_NAMES, ROLES, wandId, type Rarity } from '../wands/catalog';
 import { BattleScreen } from './battleScreen';
 import { SkillTreeUi } from './skillTreeUi';
 import { lockTouchScroll } from './touchLock';
@@ -16,6 +19,8 @@ interface Settings {
   showGhost: boolean;
   /** Denemedeki karakter seviyesi (yetenek puanını belirler) */
   level: number;
+  /** Denemede her yuvaya kuşanılan asanın nadirliği (0 = asasız) */
+  wandRarity: 0 | Rarity;
 }
 
 /**
@@ -24,15 +29,24 @@ interface Settings {
  */
 export function startBattleLab(root: HTMLElement): void {
   lockTouchScroll();
-  const settings: Settings = { teamSize: 1, difficulty: 'normal', showGhost: true, level: 1 };
+  const settings: Settings = { teamSize: 1, difficulty: 'normal', showGhost: true, level: 1, wandRarity: 0 };
   // Denemede puan seviyeden gelir; yetenekler savaşta "Sen"in büyülerine uygulanır
   const tree = new SkillTree(() => settings.level);
   const skillUi = new SkillTreeUi({ tree, level: () => settings.level, onChanged: () => menu() });
   document.body.appendChild(skillUi.element);
   let screen: BattleScreen | null = null;
 
+  /** Seçilen nadirlikteki 8 asa (her element ve rol için) kuşanılmış envanter */
+  const wandSet = () => {
+    const inv = new WandInventory();
+    if (settings.wandRarity > 0) {
+      for (const e of ELEMENTS) for (const r of ROLES) inv.add(wandId(e, r, settings.wandRarity as Rarity));
+    }
+    return inv.resolver;
+  };
+
   const fighters = (): FighterInit[] => {
-    const mine: FighterInit[] = [{ name: 'Sen', team: 0, control: 'human', spells: tree.resolver }];
+    const mine: FighterInit[] = [{ name: 'Sen', team: 0, control: 'human', spells: tree.resolver, wands: wandSet() }];
     const theirs: FighterInit[] = [{ name: 'Rakip', team: 1, control: 'bot' }];
     if (settings.teamSize === 2) {
       mine.push({ name: 'Elysia', team: 0, control: 'bot' });
@@ -81,6 +95,7 @@ export function startBattleLab(root: HTMLElement): void {
           <p class="mt-2 text-xs text-slate-400" data-note></p></section>
         <section><h2 class="mb-2 text-sm font-bold text-slate-300">Seviye ve yetenekler</h2>
           <div class="flex gap-2" data-group="level"></div>
+          <div class="mt-3 flex flex-wrap gap-2" data-group="wand"></div>
           <button data-skills type="button" class="mt-2 w-full rounded bg-slate-800 px-3 py-2 text-sm text-slate-100">✦ Yetenek ağacı (boş puan: ${tree.pointsFree})</button></section>
         <label class="flex items-center gap-2 text-sm text-slate-300">
           <input type="checkbox" data-ghost ${settings.showGhost ? 'checked' : ''}> Savunurken gelen saldırıyı soluk olarak göster</label>
@@ -113,6 +128,11 @@ export function startBattleLab(root: HTMLElement): void {
         settings.level = n;
         tree.restore(tree.snapshot()); // puan azaldıysa fazlası atılır
       },
+    })));
+    group('wand', ([0, 1, 2, 3, 4, 5, 6] as const).map((n) => ({
+      label: n === 0 ? 'Asasız' : `Asa: ${RARITY_NAMES[n]}`,
+      active: settings.wandRarity === n,
+      pick: () => (settings.wandRarity = n),
     })));
     page.querySelector('[data-skills]')!.addEventListener('click', () => skillUi.open());
     page.querySelector('[data-note]')!.textContent = DIFFICULTIES.find((d) => d.id === settings.difficulty)!.note;

@@ -1,12 +1,16 @@
 /**
- * Kayıt dosyası biçimi (sürüm 3). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
- * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 (ekonomi yok) ve sürüm 2 (yetenek yok) kayıtlar
+ * Kayıt dosyası biçimi (sürüm 4). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
+ * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 (ekonomi yok), sürüm 2 (yetenek yok) ve sürüm 3 (asa yok) kayıtlar
  * kabul edilir ve varsayılanlarla yükseltilir.
  */
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 /** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe) */
 const MAX_SKILLS = 36;
+/** Asa kataloğunda 48 asa var; kuşanma yuvaları element-rol çiftleridir */
+const MAX_WANDS = 48;
+const MAX_WAND_STACK = 999;
+const WAND_SLOTS = ['fire', 'water', 'earth', 'air'].flatMap((e) => ['attack', 'defense'].map((r) => `${e}-${r}`));
 export const LAST_CHAPTER = 8;
 /** Kayıt noktası olabilecek şehirler (client/src/world/locations.ts ile aynı kimlikler) */
 export const SAVE_CITY_IDS = ['ignis', 'abyss', 'stone-heart', 'still-crystal'] as const;
@@ -49,6 +53,10 @@ export interface SaveData {
   collected: string[];
   /** Alınan yetenekler (yetenek ağacı kimlikleri) */
   skills: string[];
+  /** Asa envanteri: asa kimliği → adet */
+  wands: Record<string, number>;
+  /** Kuşanılan asalar: yuva ("fire-attack") → asa kimliği */
+  wandsEquipped: Record<string, string>;
 }
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
@@ -114,13 +122,35 @@ function parseSkills(input: unknown): Parsed<string[]> {
   return { ok: true, value: [...new Set(input as string[])] };
 }
 
-/** Geçerliyse temizlenmiş (ve v3'e yükseltilmiş) kaydı, değilse Türkçe hata mesajını döndürür. */
+function parseWands(input: unknown): Parsed<Record<string, number>> {
+  if (input === undefined) return { ok: true, value: {} };
+  if (!isPlainObject(input) || Object.keys(input).length > MAX_WANDS) return { ok: false, error: 'Asalar geçersiz.' };
+  const out: Record<string, number> = {};
+  for (const [id, count] of Object.entries(input)) {
+    if (!isId(id) || !isInt(count, 1, MAX_WAND_STACK)) return { ok: false, error: 'Asalar geçersiz.' };
+    out[id] = count;
+  }
+  return { ok: true, value: out };
+}
+
+function parseWandsEquipped(input: unknown): Parsed<Record<string, string>> {
+  if (input === undefined) return { ok: true, value: {} };
+  if (!isPlainObject(input)) return { ok: false, error: 'Kuşanılan asalar geçersiz.' };
+  const out: Record<string, string> = {};
+  for (const [slot, id] of Object.entries(input)) {
+    if (!WAND_SLOTS.includes(slot) || !isId(id)) return { ok: false, error: 'Kuşanılan asalar geçersiz.' };
+    out[slot] = id;
+  }
+  return { ok: true, value: out };
+}
+
+/** Geçerliyse temizlenmiş (ve v4'e yükseltilmiş) kaydı, değilse Türkçe hata mesajını döndürür. */
 export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: false; error: string } {
   const bad = (error: string) => ({ ok: false as const, error });
   if (!isPlainObject(input)) return bad('Kayıt verisi geçersiz.');
   const b = input;
 
-  if (b.version !== 1 && b.version !== 2 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
+  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
 
   const nameError = validatePlayerName(b.playerName);
   if (nameError) return bad(nameError);
@@ -161,6 +191,10 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   if (!collected.ok) return bad(collected.error);
   const skills = parseSkills(b.skills);
   if (!skills.ok) return bad(skills.error);
+  const wands = parseWands(b.wands);
+  if (!wands.ok) return bad(wands.error);
+  const wandsEquipped = parseWandsEquipped(b.wandsEquipped);
+  if (!wandsEquipped.ok) return bad(wandsEquipped.error);
 
   return {
     ok: true,
@@ -176,6 +210,8 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
       quests: quests.value,
       collected: collected.value,
       skills: skills.value,
+      wands: wands.value,
+      wandsEquipped: wandsEquipped.value,
     },
   };
 }

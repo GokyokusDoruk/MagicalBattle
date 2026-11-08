@@ -6,10 +6,15 @@ import { buy, buyPrice, sell, sellPrice } from '../economy/shop';
 import type { QuestDef } from '../quests/catalog';
 import type { QuestCompletion, QuestEngine } from '../quests/engine';
 import { LOCATIONS } from '../world/locations';
+import { COMMON_WAND_PRICE, ELEMENT_ORDER_FOR_SHOP, ROLE_NAMES, SYNTHESIS_COUNT, describeWand, getWand, wandId } from '../wands/catalog';
+import { buyCommonWand, type WandInventory } from '../wands/inventory';
+import { ELEMENT_NAMES } from '../battle/damage/elements';
 
 export interface MerchantUiDeps {
   player: PlayerState;
   quests: QuestEngine;
+  /** Asa envanteri: tüccarlar Sıradan asa satar */
+  wands: WandInventory;
   sfx: SoundEngine;
   /** Görev kabulüyle hedef hemen tamamlandıysa */
   onQuestCompletion: (completion: QuestCompletion) => void;
@@ -19,7 +24,7 @@ export interface MerchantUiDeps {
   priceMultipliers?: () => { buy: number; sell: number };
 }
 
-type Tab = 'shop' | 'quests';
+type Tab = 'shop' | 'wands' | 'quests';
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const pct = (v: number): string => `%${Math.round(v * 100)}`;
@@ -102,8 +107,8 @@ export class MerchantUi {
         <div class="flex items-center justify-between rounded bg-black/40 px-3 py-1 text-sm">
           <span>🪙 <b>${player.gold}</b></span><span>Seviye <b>${player.level}</b></span><span>Zırh <b>${pct(player.armor)}</b></span>
         </div>
-        <div role="tablist" class="flex gap-2">${tabBtn('shop', 'Alışveriş')}${tabBtn('quests', 'Görevler')}</div>
-        <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">${this.tab === 'shop' ? this.shopHtml(m) : this.questsHtml(m)}</div>
+        <div role="tablist" class="flex gap-2">${tabBtn('shop', 'Alışveriş')}${tabBtn('wands', 'Asalar')}${tabBtn('quests', 'Görevler')}</div>
+        <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">${this.tab === 'shop' ? this.shopHtml(m) : this.tab === 'wands' ? this.wandsHtml() : this.questsHtml(m)}</div>
       </div>`;
   }
 
@@ -152,6 +157,26 @@ export class MerchantUi {
     return `<h3 class="mb-1 text-sm font-bold text-amber-200">Satılık</h3><ul class="flex flex-col gap-2">${forSale}</ul>
       <h3 class="mb-1 mt-4 text-sm font-bold text-amber-200">Çantan</h3>
       ${mine ? `<ul class="flex flex-col gap-2">${mine}</ul>` : '<p class="text-sm text-slate-400">Çantan boş. Yollarda ot ve kumsalda kristal bulabilirsin; tüccar fiyatın yarısını öder.</p>'}`;
+  }
+
+  private wandsHtml(): string {
+    const { player, wands } = this.deps;
+    const mult = this.deps.priceMultipliers?.() ?? { buy: 1, sell: 1 };
+    const price = Math.max(1, Math.round(COMMON_WAND_PRICE * mult.buy));
+    const rows = ELEMENT_ORDER_FOR_SHOP.flatMap((element) =>
+      (['attack', 'defense'] as const).map((role) => {
+        const id = wandId(element, role, 1);
+        const w = getWand(id)!;
+        const cant = player.gold < price;
+        return `<li class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2">
+          <div class="min-w-0"><div class="font-bold">${esc(w.name)} <span class="text-slate-400">×${wands.count(id)}</span></div>
+            <div class="text-[11px] text-slate-400">${esc(ELEMENT_NAMES[element])} · ${esc(ROLE_NAMES[role])} · ${esc(describeWand(w))}</div></div>
+          <button type="button" data-action="buy-wand" data-id="${id}" ${cant ? 'disabled' : ''}
+            class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">🪙 ${price}</button></li>`;
+      }),
+    ).join('');
+    return `<p class="mb-2 text-xs text-slate-400">Tüccarlar yalnızca <b>Sıradan</b> asa satar. Aynı asadan <b>${SYNTHESIS_COUNT}</b> tanesini asa ekranında (W) bir üst nadirlikte 1 asaya birleştirebilirsin.</p>
+      <ul class="flex flex-col gap-2">${rows}</ul>`;
   }
 
   private questsHtml(m: MerchantDef): string {
@@ -203,6 +228,12 @@ export class MerchantUi {
       case 'buy': {
         const r = buy(player, this.merchant, id, mult.buy);
         this.message = r.ok ? `Satın alındı: ${getItem(id)!.name} (-${r.price} altın)` : r.reason;
+        if (r.ok) this.changed('pick');
+        break;
+      }
+      case 'buy-wand': {
+        const r = buyCommonWand(this.deps.wands, { balance: () => player.gold, spend: (n) => player.spendGold(n) }, id, mult.buy);
+        this.message = r.ok ? `Satın alındı: ${getWand(id)!.name} (-${r.price} altın)` : r.reason;
         if (r.ok) this.changed('pick');
         break;
       }
