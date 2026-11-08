@@ -6,7 +6,7 @@ Kod: `client/src/skills/` (katalog, ağaç, çözücü), `client/src/ui/skillTre
 
 - **K tuşu** (ya da sol üstteki durum çubuğundaki **✦ Yetenekler** düğmesi) yetenek ağacını açar; Esc ya da dışarı tıklayınca kapanır. Açıkken karakter durur. Harcanmamış puan varsa düğmede yazar.
 - Puan **karakter seviyesinden** gelir: 2. seviyeden itibaren **her seviye 2 puan** (30. seviyede toplam 58).
-- Ağaçta **4 element × 3 dal × 3 kademe = 36 yetenek** var. Kademe bedeli: **Seviye 1 = 1 puan, Seviye 2 = 2 puan, Ustalık = 3 puan** (bir dal toplam 6, ağacın tamamı 72). 58 puan hepsine yetmediği için seçim yapmak gerekir.
+- Ağaçta **4 element × 3 dal × 3 kademe = 36 yetenek** var, ayrıca 5. sekmede **Taşıyıcı** (3 kademe, taşıma kapasitesini artırır, bkz. [envanter-ve-cantalar.md](envanter-ve-cantalar.md)). Kademe bedeli: **Seviye 1 = 1 puan, Seviye 2 = 2 puan, Ustalık = 3 puan** (bir dal toplam 6, ağacın tamamı 72). 58 puan hepsine yetmediği için seçim yapmak gerekir.
 - Bir dalda kademeler **sırayla** alınır (Seviye 1 → Seviye 2 → Ustalık).
 - **Sıfırlama**: tüm puanlar geri gelir, bedeli **seviye başına 25 altın** (hiç yetenek yoksa bedava).
 

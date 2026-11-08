@@ -49,6 +49,31 @@ export class WandInventory {
   private readonly counts = new Map<string, number>();
   private equippedSlots: Partial<Record<SlotKey, string>> = {};
   private readonly listeners = new Set<() => void>();
+  private limit: ((carried: number) => boolean) | null = null;
+
+  /** Kapasite kuralı: taşınan (kuşanılmamış) asa sayısı `carried` olursa izin var mı? Verilmezse sınır yoktur. */
+  setLimit(limit: ((carried: number) => boolean) | null): void {
+    this.limit = limit;
+  }
+
+  /** Taşınan asa sayısı: toplam asa eksi kuşanılı olanlar (kuşanılı asalar çantada yer kaplamaz). */
+  get carried(): number {
+    let total = 0;
+    for (const n of this.counts.values()) total += n;
+    return total - Object.keys(this.equippedSlots).length;
+  }
+
+  /** Bu asadan `count` tane eklenebilir mi (kapasite)? Kuşanılacaksa çantada yer kaplamaz. */
+  canAdd(id: string, count = 1): boolean {
+    const wand = getWand(id);
+    const n = Math.floor(count);
+    if (!wand || !(n > 0)) return false;
+    if (!this.limit) return true;
+    const key = slotKey(wand.element, wand.role);
+    const current = this.equippedSlots[key] ? getWand(this.equippedSlots[key]!) : undefined;
+    const willEquip = !current || wand.rarity > current.rarity;
+    return this.limit(this.carried + n - (willEquip ? 1 : 0));
+  }
 
   onChange(listener: () => void): void {
     this.listeners.add(listener);
@@ -84,6 +109,7 @@ export class WandInventory {
     const n = Math.floor(count);
     const wand = getWand(id);
     if (!wand || !(n > 0)) return false;
+    if (!this.canAdd(id, n)) return false; // çanta dolu
     this.counts.set(id, Math.min(MAX_WAND_STACK, this.count(id) + n));
     this.autoEquip(id);
     this.changed();
@@ -105,11 +131,14 @@ export class WandInventory {
     return true;
   }
 
-  unequip(element: Element, role: WandRole): void {
+  /** Asayı çıkarır; çantada yer yoksa false. */
+  unequip(element: Element, role: WandRole): boolean {
     const key = slotKey(element, role);
-    if (!this.equippedSlots[key]) return;
+    if (!this.equippedSlots[key]) return false;
+    if (this.limit && !this.limit(this.carried + 1)) return false;
     delete this.equippedSlots[key];
     this.changed();
+    return true;
   }
 
   /** Aynı asadan yeterince var mı ve üst nadirlik var mı? Değilse nedeni. */
@@ -186,6 +215,7 @@ export function buyCommonWand(
   if (!wand || wand.rarity !== 1) return { ok: false, reason: 'Tüccar yalnızca Sıradan asa satar.' };
   const price = Math.max(1, Math.round(COMMON_WAND_PRICE * priceMultiplier));
   if (inventory.count(id) >= MAX_WAND_STACK) return { ok: false, reason: 'Bu asadan daha fazla taşıyamazsın.' };
+  if (!inventory.canAdd(id, 1)) return { ok: false, reason: 'Çantanda asa için yer yok.' };
   if (gold.balance() < price) return { ok: false, reason: 'Yeterli altının yok.' };
   if (!gold.spend(price)) return { ok: false, reason: 'Yeterli altının yok.' };
   inventory.add(id, 1);

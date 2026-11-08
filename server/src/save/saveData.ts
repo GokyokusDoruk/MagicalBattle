@@ -5,8 +5,8 @@
  */
 
 export const SAVE_VERSION = 5;
-/** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe) */
-const MAX_SKILLS = 36;
+/** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe + 3 Taşıyıcı) */
+const MAX_SKILLS = 39;
 /** Asa kataloğunda 48 asa var; kuşanma yuvaları element-rol çiftleridir */
 const MAX_WANDS = 48;
 /** Hikâyede 16 ahlak seçimi var */
@@ -23,7 +23,7 @@ export const MAX_STACK = 999;
 const MAX_ENTRIES = 64;
 const MAX_COLLECTED = 200;
 const ID_PATTERN = /^[a-z0-9-]{1,40}$/;
-const GEAR_SLOTS = ['robe', 'hat', 'amulet'] as const;
+const GEAR_SLOTS = ['robe', 'hat', 'amulet', 'bag'] as const;
 
 export interface SavePoint {
   cityId: string;

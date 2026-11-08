@@ -1,5 +1,5 @@
 import type { Element } from '../battle/damage/elements';
-import { SKILLS, SP_PER_LEVEL, TIERS, getSkill, skillId, type BranchKind, type SkillDef, type SpellRole } from './catalog';
+import { CARRY_SKILLS, SKILLS, SP_PER_LEVEL, TIERS, getCarrySkill, getSkill, skillId, type BranchKind, type SkillDef, type SpellRole } from './catalog';
 import { resolveSpell, type SpellEffects, type SpellResolver } from './resolver';
 
 /** Yetenekleri sıfırlamanın bedeli: seviye başına bu kadar altın (hiç yetenek yoksa bedava) */
@@ -35,7 +35,7 @@ export class SkillTree {
 
   get pointsSpent(): number {
     let spent = 0;
-    for (const id of this.ownedIds) spent += getSkill(id)?.cost ?? 0;
+    for (const id of this.ownedIds) spent += getSkill(id)?.cost ?? getCarrySkill(id)?.cost ?? 0;
     return spent;
   }
 
@@ -59,6 +59,13 @@ export class SkillTree {
 
   /** Yetenek alınabilir mi? Değilse nedeni (Türkçe). */
   check(id: string): LearnCheck {
+    const carry = getCarrySkill(id);
+    if (carry) {
+      if (this.ownedIds.has(id)) return { ok: false, reason: 'Bu yeteneği zaten aldın.' };
+      if (carry.tier > 1 && !this.ownedIds.has(`carry-${carry.tier - 1}`)) return { ok: false, reason: 'Önce bir önceki kademeyi almalısın.' };
+      if (carry.cost > this.pointsFree) return { ok: false, reason: `${carry.cost} yetenek puanı gerekiyor.` };
+      return { ok: true };
+    }
     const skill = getSkill(id);
     if (!skill) return { ok: false, reason: 'Böyle bir yetenek yok.' };
     if (this.ownedIds.has(id)) return { ok: false, reason: 'Bu yeteneği zaten aldın.' };
@@ -88,6 +95,18 @@ export class SkillTree {
     this.changed();
   }
 
+  /** Taşıyıcı yeteneklerinin kapasiteye kattığı toplam (asa, eşya, kuşanılabilir). */
+  get carryBonus(): { wands: number; goods: number; gear: number } {
+    const total = { wands: 0, goods: 0, gear: 0 };
+    for (const s of CARRY_SKILLS) {
+      if (!this.ownedIds.has(s.id)) continue;
+      total.wands += s.bonus.wands;
+      total.goods += s.bonus.goods;
+      total.gear += s.bonus.gear;
+    }
+    return total;
+  }
+
   /** Bir büyü için birleşik etki (hasar hesabına bağlanır). */
   resolve(element: Element, role: SpellRole): SpellEffects {
     return resolveSpell(this.ownedIds, element, role);
@@ -100,7 +119,7 @@ export class SkillTree {
 
   /** Kayıt için: alınan yetenek kimlikleri, katalog sırasında. */
   snapshot(): string[] {
-    return SKILLS.filter((s) => this.ownedIds.has(s.id)).map((s) => s.id);
+    return [...SKILLS.filter((s) => this.ownedIds.has(s.id)).map((s) => s.id), ...CARRY_SKILLS.filter((s) => this.ownedIds.has(s.id)).map((s) => s.id)];
   }
 
   /**
@@ -110,7 +129,10 @@ export class SkillTree {
   restore(ids: readonly string[] | undefined): void {
     this.ownedIds.clear();
     const wanted = new Set(ids ?? []);
-    const ordered: SkillDef[] = SKILLS.filter((s) => wanted.has(s.id)).sort((a, b) => a.tier - b.tier);
+    const ordered: { id: string; tier: number }[] = [
+      ...SKILLS.filter((s: SkillDef) => wanted.has(s.id)),
+      ...CARRY_SKILLS.filter((s) => wanted.has(s.id)),
+    ].sort((a, b) => a.tier - b.tier);
     for (const skill of ordered) {
       if (this.check(skill.id).ok) this.ownedIds.add(skill.id);
     }

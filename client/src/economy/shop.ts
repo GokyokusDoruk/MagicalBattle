@@ -1,4 +1,4 @@
-import { getItem, isGear } from './items';
+import { gearValue, getItem, isGear } from './items';
 import type { MerchantDef } from './merchants';
 import type { PlayerState } from './player';
 
@@ -25,14 +25,15 @@ export function buy(player: PlayerState, merchant: MerchantDef, itemId: string, 
   const item = getItem(itemId);
   if (!item || !merchant.stock.includes(itemId)) return { ok: false, reason: 'Bu tüccarda böyle bir şey yok.' };
   if (player.count(itemId) > 0) return { ok: false, reason: 'Bu ekipmana zaten sahipsin.' };
+  if (player.roomFor(itemId) < 1) return { ok: false, reason: 'Çantanda bunun için yer yok. Önce bir şey sat ya da at.' };
   const price = buyPrice(item.price, priceMultiplier);
   if (!player.spendGold(price)) return { ok: false, reason: 'Yeterli altının yok.' };
 
   player.addItem(itemId);
   if (item.slot) {
     const current = player.equipped[item.slot];
-    const currentArmor = current ? (getItem(current)?.armor ?? 0) : -1;
-    if ((item.armor ?? 0) > currentArmor) player.equip(itemId);
+    const currentValue = current ? gearValue(getItem(current)!) : -1;
+    if (gearValue(item) > currentValue) player.equip(itemId);
   }
   return { ok: true, price };
 }

@@ -10,7 +10,9 @@ import { KeyboardSource } from './input/keyboard';
 import { QuestEngine, type QuestCompletion } from './quests/engine';
 import { normalizeSave, savePointForCity, type SaveData } from './save/saveData';
 import { SaveManager } from './save/saveManager';
+import { Carry } from './inventory/carry';
 import { WandInventory } from './wands/inventory';
+import { BagUi } from './ui/bagUi';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
 import { Morality } from './morality/morality';
@@ -96,6 +98,9 @@ const hero = new PlayerState();
 const sideQuests = new QuestEngine(hero);
 const skillTree = new SkillTree(() => hero.level);
 const wands = new WandInventory();
+// Envanter ağırlığı: çanta, Taşıyıcı yeteneği ve başlangıç kapasitesi (3 asa, 20 eşya, 2 kuşanılabilir)
+const carry = new Carry(hero, wands, () => skillTree.carryBonus);
+carry.install();
 const morality = new Morality();
 // Ahlak etkisi: Düzen Bekçisi görev altınını artırır (tüccar fiyatları merchantUi'a bağlı, aşağıda)
 const applyMoralEffects = (): void => {
@@ -145,12 +150,20 @@ const skillUi = new SkillTreeUi({
 document.body.appendChild(skillUi.element);
 const wandUi = new WandUi({ wands, onChanged: () => setDirty(true) });
 document.body.appendChild(wandUi.element);
+const bagUi = new BagUi({ player: hero, wands, carry, onChanged: () => setDirty(true) });
+document.body.appendChild(bagUi.element);
+/** Başka bir panel (sahne, tüccar, diyalog ya da diğer çekmeceler) açıkken yeni panel açılmaz */
+const otherOpen = (except: { isOpen: boolean }): boolean =>
+  [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi].some((p) => p !== except && p.isOpen);
 const statusBar = new StatusBar(
   () => {
-    if (!story.isOpen && !merchantUi.isOpen && !wandUi.isOpen && !dialogueUi.isOpen) skillUi.toggle();
+    if (!otherOpen(skillUi)) skillUi.toggle();
   },
   () => {
-    if (!story.isOpen && !merchantUi.isOpen && !skillUi.isOpen && !dialogueUi.isOpen) wandUi.toggle();
+    if (!otherOpen(wandUi)) wandUi.toggle();
+  },
+  () => {
+    if (!otherOpen(bagUi)) bagUi.toggle();
   },
 );
 document.body.appendChild(statusBar.element);
@@ -165,6 +178,8 @@ const refreshHud = (): void =>
     dirty: dirty && saves.enabled,
     quests: sideQuests.active().map((q) => ({ title: q.title, ...sideQuests.progress(q.id) })),
     skillPoints: skillTree.pointsFree,
+    bagSummary: `Asa ${carry.usage().wands}/${carry.capacity().wands} · Eşya ${carry.usage().goods}/${carry.capacity().goods}`,
+    bagFull: carry.isOverloaded() || carry.room('wands') === 0 || carry.room('goods') === 0,
     moralityLabel: `${morality.effects.label} (${morality.score > 0 ? '+' : ''}${morality.score})`,
     wandsReady: wands.owned().some((w) => wands.checkSynthesis(w.id).ok),
   });
@@ -186,6 +201,7 @@ refreshHud();
 const handleCompletions = (list: QuestCompletion[]): void => {
   for (const c of list) {
     const parts = [`+${c.gold} altın`, `+${c.xp} XP`, ...c.items.map((i) => `+${i.count} ${getItem(i.id)?.name ?? i.id}`)];
+    if (c.overflowGold > 0) parts.push(`çanta dolu: sığmayan eşyalar +${c.overflowGold} altına çevrildi`);
     toast.show(`Görev tamamlandı: ${c.quest.title} (${parts.join(', ')})`);
     sfx.play('revealAdvantage');
     if (c.levelsGained > 0) {
@@ -213,7 +229,7 @@ document.body.appendChild(dialogueUi.element);
 /** Bir bölümün sahnesi, boss savaşı ve seçimleri sürerken true (aralardaki boşlukta da dünya durur) */
 let chapterBusy = false;
 const modalOpen = (): boolean =>
-  chapterBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || dialogueUi.isOpen;
+  chapterBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -303,8 +319,9 @@ async function playChapter(chapter: number): Promise<void> {
 // K: yetenek ağacı, W: asalar (sahne ya da tüccar açıkken açılmaz)
 window.addEventListener('keydown', (e) => {
   if (e.repeat || story.isOpen || merchantUi.isOpen || dialogueUi.isOpen) return;
-  if (e.code === 'KeyK' && !wandUi.isOpen) skillUi.toggle();
-  if (e.code === 'KeyW' && !skillUi.isOpen) wandUi.toggle();
+  if (e.code === 'KeyK' && !otherOpen(skillUi)) skillUi.toggle();
+  if (e.code === 'KeyW' && !otherOpen(wandUi)) wandUi.toggle();
+  if (e.code === 'KeyB' && !otherOpen(bagUi)) bagUi.toggle();
 });
 
 gates.onChange((cityId, unlocked) => {
@@ -327,6 +344,8 @@ const debug = {
   skillUi,
   wands,
   wandUi,
+  carry,
+  bagUi,
   morality,
   dialogueUi,
   playChapterChoices,
@@ -380,7 +399,11 @@ void import('./world/bootWorld').then((m) =>
     pickups: PICKUP_SPOTS,
     isCollected: (id) => collected.has(id),
     onPickup: (spot) => {
-      if (collected.has(spot.id) || !hero.addItem(spot.itemId)) return;
+      if (collected.has(spot.id)) return;
+      if (!hero.addItem(spot.itemId)) {
+        toast.show('Çantan dolu: bu eşyayı alamazsın. Şehirde satıp boşalt (B).');
+        return;
+      }
       collected.add(spot.id);
       sfx.play('pick');
       toast.show(`+1 ${getItem(spot.itemId)?.name ?? spot.itemId}`);

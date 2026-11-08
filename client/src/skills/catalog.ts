@@ -177,3 +177,21 @@ export function describeStats(stats: StatBlock): string[] {
   if (stats.effort) out.push(`aceleyle çizilen büyü +${pct(stats.effort)} daha güçlü kalır`);
   return out;
 }
+
+/** Taşıyıcı dalı: element dallarından ayrı, taşıma kapasitesini artıran 3 kademe (1, 2, 3 puan). */
+export interface CarrySkillDef {
+  id: string;
+  tier: Tier;
+  name: string;
+  cost: number;
+  /** Bu kademenin kapasiteye kattığı (kademeler toplanır) */
+  bonus: { wands: number; goods: number; gear: number };
+}
+
+export const CARRY_SKILLS: readonly CarrySkillDef[] = [
+  { id: 'carry-1', tier: 1, name: 'Sağlam Omuzlar', cost: TIER_COST[1], bonus: { wands: 1, goods: 10, gear: 1 } },
+  { id: 'carry-2', tier: 2, name: 'Düzenli Çanta', cost: TIER_COST[2], bonus: { wands: 1, goods: 15, gear: 1 } },
+  { id: 'carry-3', tier: 3, name: 'Yük Ustası', cost: TIER_COST[3], bonus: { wands: 2, goods: 25, gear: 2 } },
+];
+
+export const getCarrySkill = (id: string): CarrySkillDef | undefined => CARRY_SKILLS.find((s) => s.id === id);
