@@ -10,6 +10,8 @@ import { KeyboardSource } from './input/keyboard';
 import { QuestEngine, type QuestCompletion } from './quests/engine';
 import { normalizeSave, savePointForCity, type SaveData } from './save/saveData';
 import { SaveManager } from './save/saveManager';
+import { WandInventory } from './wands/inventory';
+import { WandUi } from './ui/wandUi';
 import { SkillTree } from './skills/tree';
 import { Progress } from './story/progress';
 import { showAuthScreen } from './ui/authScreen';
@@ -86,11 +88,13 @@ if (save) progress.restore({ completedChapters: save.completedChapters });
 const hero = new PlayerState();
 const sideQuests = new QuestEngine(hero);
 const skillTree = new SkillTree(() => hero.level);
+const wands = new WandInventory();
 const collected = new Set<string>(save?.collected ?? []);
 if (save) {
   hero.restore(save);
   sideQuests.restore(save.quests);
   skillTree.restore(save.skills); // seviye (puan) yüklendikten sonra
+  wands.restore(save);
 }
 
 const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, () => ({
@@ -98,6 +102,7 @@ const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, 
   quests: sideQuests.snapshot(),
   collected: [...collected],
   skills: skillTree.snapshot(),
+  wands: wands.snapshot(),
 }));
 // Yeni oyunda ad hemen kaydedilir; kayıt noktasına varmadan çıkılsa bile ad kaybolmaz
 if (!save && savingEnabled) void saves.saveAt(null);
@@ -123,9 +128,16 @@ const skillUi = new SkillTreeUi({
   onChanged: () => setDirty(true),
 });
 document.body.appendChild(skillUi.element);
-const statusBar = new StatusBar(() => {
-  if (!story.isOpen && !merchantUi.isOpen) skillUi.toggle();
-});
+const wandUi = new WandUi({ wands, onChanged: () => setDirty(true) });
+document.body.appendChild(wandUi.element);
+const statusBar = new StatusBar(
+  () => {
+    if (!story.isOpen && !merchantUi.isOpen && !wandUi.isOpen) skillUi.toggle();
+  },
+  () => {
+    if (!story.isOpen && !merchantUi.isOpen && !skillUi.isOpen) wandUi.toggle();
+  },
+);
 document.body.appendChild(statusBar.element);
 
 /** Son kayıt noktasından sonra değişen bir şey var mı (kayıt yalnızca şehirlerde yapılır). */
@@ -138,6 +150,7 @@ const refreshHud = (): void =>
     dirty: dirty && saves.enabled,
     quests: sideQuests.active().map((q) => ({ title: q.title, ...sideQuests.progress(q.id) })),
     skillPoints: skillTree.pointsFree,
+    wandsReady: wands.owned().some((w) => wands.checkSynthesis(w.id).ok),
   });
 const setDirty = (value: boolean): void => {
   dirty = value;
@@ -146,6 +159,7 @@ const setDirty = (value: boolean): void => {
 hero.onChange(refreshHud);
 sideQuests.onChange(refreshHud);
 skillTree.onChange(refreshHud);
+wands.onChange(refreshHud);
 refreshHud();
 
 /** Biten yan görevleri bildirir (ödüller zaten envantere yattı). */
@@ -167,16 +181,18 @@ const handleCompletions = (list: QuestCompletion[]): void => {
 const merchantUi = new MerchantUi({
   player: hero,
   quests: sideQuests,
+  wands,
   sfx,
   onChanged: () => setDirty(true),
   onQuestCompletion: (c) => handleCompletions([c]),
 });
 document.body.appendChild(merchantUi.element);
-const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen || skillUi.isOpen;
-// K: yetenek ağacı (sahne ya da tüccar açıkken açılmaz)
+const modalOpen = (): boolean => story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen;
+// K: yetenek ağacı, W: asalar (sahne ya da tüccar açıkken açılmaz)
 window.addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyK' || e.repeat || story.isOpen || merchantUi.isOpen) return;
-  skillUi.toggle();
+  if (e.repeat || story.isOpen || merchantUi.isOpen) return;
+  if (e.code === 'KeyK' && !wandUi.isOpen) skillUi.toggle();
+  if (e.code === 'KeyW' && !skillUi.isOpen) wandUi.toggle();
 });
 
 gates.onChange((cityId, unlocked) => {
@@ -197,6 +213,8 @@ const debug = {
   merchantUi,
   skillTree,
   skillUi,
+  wands,
+  wandUi,
   collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */

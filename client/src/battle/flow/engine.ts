@@ -1,5 +1,6 @@
 import type { SlotRef } from '../arena/layout';
 import { neutralEffects, type SpellResolver } from '../../skills/resolver';
+import { neutralWand, type WandResolver } from '../../wands/inventory';
 import { BASE_POWER, MAX_CYCLES, MAX_HP } from './config';
 
 export type Control = 'human' | 'bot';
@@ -18,6 +19,8 @@ export interface FighterInit {
   takenMultiplier?: number;
   /** Yetenek ağacından gelen büyü etkileri (verilmezse yeteneksiz) */
   spells?: SpellResolver;
+  /** Asalardan gelen etkiler: saldırı asası taban gücü, savunma asası alınan hasarı değiştirir (verilmezse asasız) */
+  wands?: WandResolver;
 }
 
 export interface Fighter extends Required<FighterInit> {
@@ -71,6 +74,7 @@ export class BattleEngine {
         dealtMultiplier: init.dealtMultiplier ?? 1,
         takenMultiplier: init.takenMultiplier ?? 1,
         spells: init.spells ?? neutralEffects,
+        wands: init.wands ?? neutralWand,
         index,
         hp: maxHp,
       };

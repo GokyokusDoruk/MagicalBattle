@@ -116,15 +116,18 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     // Yetenek ağaçlarından büyüye özel etkiler: saldıran büyüsünün elementiyle, savunan savunduğu elementle
     const attackFx = attacker.spells(attackerElement, 'attack');
     const defenseFx = defender.spells(defenderElement, 'defense');
+    // Asalar: saldıranın o elementin saldırı asası taban gücü, savunanın savunma asası alınan hasarı etkiler
+    const attackWand = attacker.wands(attackerElement, 'attack');
+    const defenseWand = defender.wands(defenderElement, 'defense');
 
     const breakdown = calculateDamage({
-      basePower: attacker.basePower,
+      basePower: attacker.basePower * attackWand.powerMultiplier,
       attack,
       defense: defenseFailed ? null : defense.density,
       attackerElement,
       defenderElement,
       attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier,
-      defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier,
+      defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier * defenseWand.takenMultiplier,
       defenderArmor: defender.armor,
       attackerArmorPierce: attackFx.armorPierce,
       attackerHeadBonus: attackFx.headBonus,
