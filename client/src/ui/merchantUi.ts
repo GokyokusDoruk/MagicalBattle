@@ -7,7 +7,7 @@ import type { QuestDef } from '../quests/catalog';
 import type { QuestCompletion, QuestEngine } from '../quests/engine';
 import { LOCATIONS } from '../world/locations';
 import { ELEMENT_NAMES } from '../battle/damage/elements';
-import { ELEMENT_COLORS, RARITY_COLORS, RARITY_NAMES, ROLE_NAMES, SYNTHESIS_COUNT, describeWand, getWand } from '../wands/catalog';
+import { ELEMENT_COLORS, RARITY_COLORS, RARITY_NAMES, ROLE_NAMES, describeWand, getWand } from '../wands/catalog';
 import type { WandInventory } from '../wands/inventory';
 import type { WandStock } from '../wands/stock';
 
@@ -192,7 +192,7 @@ export class MerchantUi {
             class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">${e.sold ? 'Satıldı' : `🪙 ${price}`}</button></li>`;
       })
       .join('');
-    return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${clock}</b> sonra yenilenir. En çok bir <b>Nadir</b> asa bulunur, diğerleri Sıradan ya da Gelişmiş. Aynı asadan (element, rol, nadirlik ve seviye) <b>${SYNTHESIS_COUNT}</b> tanesini asa ekranında (W) bir üst nadirlikte 1 asaya birleştirebilirsin. Asa, seviyene gelene kadar kullanılamaz.</p>
+    return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${clock}</b> sonra yenilenir. En çok bir <b>Nadir</b> asa bulunur, diğerleri Sıradan ya da Gelişmiş. Asa, seviyene gelene kadar kullanılamaz.</p>
       <ul class="flex flex-col gap-2">${rows}</ul>`;
   }
 

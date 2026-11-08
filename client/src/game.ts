@@ -183,7 +183,6 @@ const refreshHud = (): void =>
     bagSummary: `Asa ${carry.usage().wands}/${carry.capacity().wands} · Eşya ${carry.usage().goods}/${carry.capacity().goods}`,
     bagFull: carry.isOverloaded() || carry.room('wands') === 0 || carry.room('goods') === 0,
     moralityLabel: `${morality.effects.label} (${morality.score > 0 ? '+' : ''}${morality.score})`,
-    wandsReady: wands.owned().some((w) => wands.checkSynthesis(w.id).ok),
   });
 const setDirty = (value: boolean): void => {
   dirty = value;

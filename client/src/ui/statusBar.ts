@@ -15,8 +15,6 @@ export interface StatusView {
   bagFull: boolean;
   /** Ahlak durumu etiketi, örn. "Düzen Bekçisi II (+55)" */
   moralityLabel: string;
-  /** Birleştirilebilir asa var mı (5 aynı asa) */
-  wandsReady: boolean;
 }
 
 /**
@@ -74,8 +72,6 @@ export class StatusBar {
     this.fillEl.style.width = `${p.ratio * 100}%`;
     this.skillsBtn.textContent = view.skillPoints > 0 ? `✦ Yetenekler (K) · ${view.skillPoints} puan!` : '✦ Yetenekler (K)';
     this.skillsBtn.classList.toggle('text-emerald-300', view.skillPoints > 0);
-    this.wandsBtn.textContent = view.wandsReady ? '🪄 Asalar (W) · birleştirilebilir!' : '🪄 Asalar (W)';
-    this.wandsBtn.classList.toggle('text-emerald-300', view.wandsReady);
     this.bagBtn.textContent = `🎒 Çanta (B) · ${view.bagSummary}`;
     this.bagBtn.classList.toggle('text-amber-300', view.bagFull);
     this.moralEl.textContent = `☯ ${view.moralityLabel}`;

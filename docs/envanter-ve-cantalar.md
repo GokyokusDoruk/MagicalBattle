@@ -33,8 +33,6 @@ Ağırlık **adet** olarak sayılır (hep tam sayı). Üç ayrı kapasite var:
 
 Tüccarlar şu an köylerde duruyor; **Task 22'de şehirlerin içine taşınacak** (köylerdekiler kalkacak).
 
-**Birleştirme ve çanta:** 5 aynı asayı birleştirmek için en az 5 asa taşımak gerekir, başlangıç kapasitesi 3. Küçük Çanta (+3 asa) ile 6 asa taşınır, birleştirme açılır. (Kuşanılı asa sayılmadığı için bir kopya fazladan cepte durur. Seviyesi oyuncuyu aşan asa kuşanılamayacağı için çantada yer kaplar.)
-
 Kurallar:
 - Yeni alınan çanta, eskisinden iyiyse **kendiliğinden kuşanılır**; eski çanta çantada kalır.
 - Çantayı çıkarırken ya da daha küçüğüne geçerken **eldekiler yeni kapasiteye sığmıyorsa reddedilir** ("Önce fazlalığı sat ya da at").

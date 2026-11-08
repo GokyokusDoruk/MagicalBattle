@@ -4,7 +4,7 @@ Kod: `client/src/wands/` (`catalog.ts` asa modeli, `inventory.ts` envanter, `sto
 
 ## Asa nedir
 
-Her asa **element** (ateş, su, toprak, hava), **rol** (saldırı / savunma), **nadirlik** (1-6) ve **seviye** (1-30) taşır. Kimliği bunları içerir: `wand-fire-attack-3-12` (ateş, saldırı, Nadir, seviye 12). Toplam 4 × 2 × 6 × 30 = **1440 çeşit**.
+Her asa **element** (ateş, su, toprak, hava), **rol** (saldırı / savunma), **nadirlik** (1-6) ve **seviye** (1-30) taşır. Kimliği bunları içerir: `wand-fire-attack-3-12` (ateş, saldırı, Nadir, seviye 12). Toplam 4 × 2 × 6 × 30 = **1440 çeşit**. Bir asa, aynı çeşitten birden fazla taşınabilir (yığın).
 
 Nadirlikler: Sıradan, Gelişmiş, Nadir, Destansı, Efsanevi, Mistik. Renk: element rengi (ateş kırmızı, su mavi, toprak kahverengi, hava beyaz), ad nadirlik renginde.
 
@@ -33,11 +33,9 @@ Asasız (kuşanılı asa yok) savaşçının büyüleri etkisizdir (x1, 3 sn).
 
 **Asa, oyuncu seviyesi asanın seviyesine gelene kadar kullanılamaz** (kuşanılamaz; kuşanılı olsa bile etkisizdir). Seviyesi yetmeyen asa çantada kalır, seviyeye gelince kuşanılır. **Yüksek seviye oyuncu düşük seviye asayı kullanabilir.** Boşken eklenen asa, kullanılabiliyorsa kendiliğinden kuşanılır.
 
-## Birleştirme (5 → 1)
+## Birleştirme yok
 
-Aynı asadan (**aynı element, rol, nadirlik ve seviye**) **5 tane**, bir üst nadirlikte **1 asa** olur; **seviye korunur**. Mistik birleşmez. Kuşanılı asa tükenirse yuva boşalır, sonuç kullanılabiliyorsa kuşanılır.
-
-Fiyat modeli birleştirmeden kâr edilmesini önler: bir üst nadirlik, bir altındakinin 5 katından hep ucuzdur (aşağıda).
+Asalar birleştirilmez (5 → 1 sistemi kaldırıldı). Yüksek nadirlik ve seviyeli asalar tüccardan (en çok Nadir) ve ileride ganimetten (Task 27) elde edilir.
 
 ## Tüccardan asa alma
 
@@ -56,7 +54,7 @@ Asa satmak (asacıda) Task 25'te gelecek; ganimetten asa düşmesi Task 27'de.
 
 ## Oyunda
 
-- **W** tuşu ya da sol üstteki **🪄 Asalar** düğmesi asa ekranını açar: kuşanılı asa ve etkileri, sahip olunan asalar (kuşan, çıkar, 5→1). Seviyesi yetmeyen asa kırmızı "Sv" ile işaretlenir, Kuşan düğmesi kapalıdır.
+- **W** tuşu ya da sol üstteki **🪄 Asalar** düğmesi asa ekranını açar: kuşanılı asa ve etkileri, sahip olunan asalar (kuşan, çıkar). Seviyesi yetmeyen asa kırmızı "Sv" ile işaretlenir, Kuşan düğmesi kapalıdır.
 - Tüccarın **Asalar** sekmesi stoğu ve yenilenmeye kalan süreyi gösterir.
 - Savaş denemesinde (`?lab=battle`) rol, element ve nadirlik seçersin; asanın seviyesi karakter seviyesine eşittir.
 

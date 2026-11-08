@@ -44,8 +44,6 @@ export const ELEMENT_COLORS: Record<Element, string> = {
 
 export const ROLE_NAMES: Record<WandRole, string> = { attack: 'Saldırı Asası', defense: 'Savunma Asası' };
 
-/** Aynı asadan (aynı element, rol, nadirlik VE seviye) bu kadarı bir üst nadirlikte 1 asa olur (seviye korunur). */
-export const SYNTHESIS_COUNT = 5;
 /** Tek bir asadan taşınabilecek en çok adet */
 export const MAX_WAND_STACK = 999;
 
@@ -161,7 +159,7 @@ export function allWands(): WandDef[] {
   );
 }
 
-/** Fiyat modeli: nadirlik başına ×2.2 (5 asa birleştirmeden ucuz kalır, kâr edilemez), seviye başına +%8 */
+/** Fiyat modeli: nadirlik başına ×2.2, seviye başına +%8 */
 export const WAND_BASE_PRICE = 40;
 export const PRICE_PER_RARITY = 2.2;
 export const PRICE_PER_LEVEL = 0.08;

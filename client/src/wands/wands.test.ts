@@ -11,7 +11,6 @@ import {
   PRICE_PER_LEVEL,
   RARITIES,
   ROLES,
-  SYNTHESIS_COUNT,
   allWands,
   describeWand,
   getWand,
@@ -114,12 +113,9 @@ describe('katalog: asa kimliği ve özellikleri', () => {
     expect(wandEffect(w, 'fire', 'defense').timeBonusSec).toBe(w.timeBonusSec);
   });
 
-  it('fiyat nadirlik ve seviyeyle artar; 5 aynı asayı birleştirmek hep satın almaktan ucuz kalır (kâr yok)', () => {
+  it('fiyat nadirlik ve seviyeyle artar', () => {
     for (let l = 1; l <= MAX_WAND_LEVEL; l += 7) {
-      for (let r = 1; r < 6; r++) {
-        expect(wandPrice((r + 1) as Rarity, l)).toBeGreaterThan(wandPrice(r as Rarity, l));
-        expect(SYNTHESIS_COUNT * wandPrice(r as Rarity, l)).toBeGreaterThan(wandPrice((r + 1) as Rarity, l));
-      }
+      for (let r = 1; r < 6; r++) expect(wandPrice((r + 1) as Rarity, l)).toBeGreaterThan(wandPrice(r as Rarity, l));
     }
     expect(wandPrice(1, 11)).toBeGreaterThan(wandPrice(1, 1));
     expect(PRICE_PER_LEVEL).toBeGreaterThan(0);
@@ -220,70 +216,6 @@ describe('WandInventory: kuşanma ve seviye şartı', () => {
     inv.add(id('fire', 'attack', 1, 1));
     inv.unequip();
     expect(n).toBe(2);
-  });
-});
-
-describe('WandInventory: 5 → 1 birleştirme', () => {
-  const a = id('fire', 'attack', 1, 7);
-
-  it('5 aynı asa (element, rol, nadirlik, SEVİYE) bir üst nadirlikte 1 asa olur; seviye korunur', () => {
-    const inv = new WandInventory();
-    inv.add(a, 7);
-    const r = inv.synthesize(a);
-    expect(r).toEqual({ ok: true, result: id('fire', 'attack', 2, 7) });
-    expect(inv.count(a)).toBe(2);
-    expect(inv.count(id('fire', 'attack', 2, 7))).toBe(1);
-  });
-
-  it('seviyesi farklı asalar aynı sayılmaz', () => {
-    const inv = new WandInventory();
-    inv.add(id('fire', 'attack', 1, 7), 3);
-    inv.add(id('fire', 'attack', 1, 8), 3);
-    expect(inv.checkSynthesis(id('fire', 'attack', 1, 7)).ok).toBe(false);
-    expect(inv.checkSynthesis(id('fire', 'attack', 1, 8)).ok).toBe(false);
-  });
-
-  it('5\'ten azıyla birleştirilmez, hiçbir şey değişmez', () => {
-    const inv = new WandInventory();
-    inv.add(a, 4);
-    expect(inv.synthesize(a).ok).toBe(false);
-    expect(inv.count(a)).toBe(4);
-  });
-
-  it('kuşanılı asa tükenirse yuva boşalır ve (kullanılabilirse) sonuç kuşanılır', () => {
-    const inv = new WandInventory();
-    inv.setLevelProvider(() => 10);
-    inv.add(a, 5);
-    expect(inv.equipped).toBe(a);
-    inv.synthesize(a);
-    expect(inv.count(a)).toBe(0);
-    expect(inv.equipped).toBe(id('fire', 'attack', 2, 7));
-  });
-
-  it('sonuç asanın seviyesi oyuncuyu aşıyorsa kuşanılmaz', () => {
-    const inv = new WandInventory();
-    inv.setLevelProvider(() => 3);
-    inv.add(id('fire', 'attack', 1, 20), 5);
-    inv.synthesize(id('fire', 'attack', 1, 20));
-    expect(inv.equipped).toBeNull();
-  });
-
-  it('Mistik birleştirilemez; sonuç yığını doluysa reddedilir', () => {
-    const inv = new WandInventory();
-    inv.add(id('fire', 'attack', 6, 1), 9);
-    expect(inv.synthesize(id('fire', 'attack', 6, 1)).ok).toBe(false);
-    const full = new WandInventory();
-    full.add(a, 5);
-    full.add(id('fire', 'attack', 2, 7), 999);
-    expect(full.synthesize(a)).toMatchObject({ ok: false });
-    expect(full.count(a)).toBe(5);
-  });
-
-  it('farklı element ya da rol birleştirmeye karışmaz', () => {
-    const inv = new WandInventory();
-    inv.add(id('fire', 'attack', 1, 7), 3);
-    inv.add(id('fire', 'defense', 1, 7), 2);
-    for (const w of inv.owned()) expect(inv.synthesize(w.id).ok).toBe(false);
   });
 });
 

@@ -5,7 +5,6 @@ import {
   RARITY_COLORS,
   RARITY_NAMES,
   ROLE_NAMES,
-  SYNTHESIS_COUNT,
   describeWand,
   getWand,
   type WandDef,
@@ -16,7 +15,7 @@ export interface WandUiDeps {
   wands: WandInventory;
   /** Oyuncu seviyesi (asa seviye şartı) */
   level: () => number;
-  /** Kuşanma, çıkarma ya da birleştirme oldu (kaydedilmemiş değişiklik) */
+  /** Kuşanma ya da çıkarma oldu (kaydedilmemiş değişiklik) */
   onChanged?: () => void;
 }
 
@@ -27,7 +26,7 @@ const title = (w: WandDef): string =>
 
 /**
  * Asa ekranı (W): aynı anda TEK asa kuşanılır. Sahip olunan asalar listelenir; seviyesi oyuncudan yüksek olan
- * asa kuşanılamaz. Aynı asadan (element, rol, nadirlik ve seviye) 5 tane bir üst nadirlikte 1 asa olur.
+ * asa kuşanılamaz.
  */
 export class WandUi {
   readonly element: HTMLDivElement;
@@ -100,7 +99,6 @@ export class WandUi {
         const w = getWand(id)!;
         const isEq = wands.isEquipped(id);
         const locked = w.level > level;
-        const synth = wands.checkSynthesis(id);
         return `<li data-wand="${id}" class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900 p-2">
           <div class="min-w-0">
             <div class="text-sm font-bold">${title(w)} <span class="${locked ? 'text-red-300' : 'text-slate-300'}">Sv ${w.level}</span> <span class="text-slate-400">×${count}</span>${isEq ? ' <span class="text-[11px] text-sky-300">(kuşanılı)</span>' : ''}</div>
@@ -108,7 +106,6 @@ export class WandUi {
             ${locked ? `<div class="text-[11px] text-red-300">${w.level}. seviyeye gelene kadar kullanılamaz</div>` : ''}</div>
           <div class="flex gap-1">
             ${isEq ? '' : `<button type="button" data-action="equip" data-id="${id}" ${locked ? 'disabled' : ''} class="rounded bg-sky-400 px-2 py-1 text-xs font-bold text-slate-900 disabled:opacity-40">Kuşan</button>`}
-            ${w.rarity >= 6 ? '' : `<button type="button" data-action="synth" data-id="${id}" ${synth.ok ? '' : 'disabled'} class="rounded bg-amber-300 px-2 py-1 text-xs font-bold text-slate-900 disabled:opacity-40">${SYNTHESIS_COUNT}→1</button>`}
           </div></li>`;
       })
       .join('');
@@ -150,12 +147,6 @@ export class WandUi {
           this.deps.onChanged?.();
         } else this.message = wands.lastBlockReason ?? 'Çıkarılamadı.';
         return this.render();
-      case 'synth': {
-        const r = wands.synthesize(id);
-        this.message = r.ok ? `Birleşti: ${getWand(r.result)!.name} (Sv ${getWand(r.result)!.level})` : r.reason;
-        if (r.ok) this.deps.onChanged?.();
-        return this.render();
-      }
     }
   }
 }

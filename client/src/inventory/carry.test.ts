@@ -40,10 +40,9 @@ describe('katalog: çantalar ve iksirler', () => {
     for (const b of bags) for (const v of Object.values(b.carry!)) expect(Number.isInteger(v)).toBe(true);
   });
 
-  it('ilk çanta tek başına birleştirmeyi açar: başlangıç kapasitesi + Küçük Çanta ≥ 5 asa', () => {
+  it('başlangıç kapasitesi 3 asa, 20 eşya, 2 kuşanılabilir; çantalar artırır', () => {
     expect(BASE_CAPACITY).toEqual({ wands: 3, goods: 20, gear: 2 });
-    expect(BASE_CAPACITY.wands).toBeLessThan(5);
-    expect(BASE_CAPACITY.wands + getItem('kucuk-canta')!.carry!.wands).toBeGreaterThanOrEqual(5);
+    expect(getItem('kucuk-canta')!.carry!.wands).toBeGreaterThan(0);
   });
 
   it('3 iksir var, can verir, eşya sayılır (giyilmez)', () => {
@@ -153,20 +152,6 @@ describe('asalar ve kapasite', () => {
     wands.add(wand(10)); // seviye 1 oyuncu kullanamaz
     expect(wands.equipped).toBeNull();
     expect(carry.usage().wands).toBe(1);
-  });
-
-  it('çantasız 5 aynı asa birleştirilemez, Küçük Çanta ile birleştirilir', () => {
-    const { player, wands, carry } = setup(1);
-    const a1 = wand(1);
-    wands.add(a1, 4); // 1 kuşanılı + 3 çantada
-    expect(wands.add(a1)).toBe(false);
-    expect(wands.checkSynthesis(a1).ok).toBe(false);
-    player.addItem('kucuk-canta');
-    player.equip('kucuk-canta');
-    expect(carry.capacity().wands).toBe(6);
-    expect(wands.add(a1)).toBe(true);
-    expect(wands.synthesize(a1).ok).toBe(true);
-    expect(wands.count(wand(1, 2))).toBe(1);
   });
 
   it('tüccardan asa alırken yer yoksa altın harcanmaz', () => {

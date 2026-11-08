@@ -1,5 +1,5 @@
 import type { Element } from '../battle/damage/elements';
-import { SYNTHESIS_COUNT, MAX_RARITY, MAX_WAND_STACK, getWand, normalizeWandId, parseWandId, wandEffect, wandIdOf, type Rarity, type WandDef, type WandRole } from './catalog';
+import { MAX_WAND_STACK, getWand, normalizeWandId, wandEffect, type WandDef, type WandRole } from './catalog';
 
 export interface WandSnapshot {
   /** Asa kimliği → adet (kimlik element, rol, nadirlik ve seviyeyi taşır) */
@@ -32,7 +32,7 @@ const toCount = (v: unknown): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(MAX_WAND_STACK, Math.max(0, Math.floor(v))) : 0;
 
 /**
- * Oyuncunun asaları: envanter, TEK kuşanılı asa, seviye şartı ve 5 → 1 birleştirme.
+ * Oyuncunun asaları: envanter, TEK kuşanılı asa, ve seviye şartı.
  *  - Asa, oyuncu seviyesi asanın seviyesine ulaşana kadar kuşanılamaz (yüksek seviye oyuncu düşük seviye asayı kullanabilir).
  *  - Kuşanılı asa çantada yer kaplamaz, taşınanlar kaplar.
  *  - Asa kuşanılmamışsa büyü etkisizdir (x1).
@@ -156,35 +156,6 @@ export class WandInventory {
     this.equippedId = null;
     this.changed();
     return true;
-  }
-
-  /** Aynı asadan yeterince var mı ve üst nadirlik var mı? Değilse nedeni. Sonuç aynı element, rol ve seviyede bir üst nadirliktir. */
-  checkSynthesis(id: string): Result<{ result: string }> {
-    const spec = parseWandId(id);
-    if (!spec) return { ok: false, reason: 'Böyle bir asa yok.' };
-    if (spec.rarity >= MAX_RARITY) return { ok: false, reason: 'Bu asa en yüksek nadirlikte.' };
-    if (this.count(id) < SYNTHESIS_COUNT) {
-      return { ok: false, reason: `Birleştirmek için ${SYNTHESIS_COUNT} aynı asa gerekiyor (${this.count(id)}/${SYNTHESIS_COUNT}).` };
-    }
-    const result = wandIdOf({ ...spec, rarity: (spec.rarity + 1) as Rarity });
-    if (this.count(result) >= MAX_WAND_STACK) return { ok: false, reason: 'Sonuç asanın yığını dolu.' };
-    return { ok: true, result };
-  }
-
-  /** 5 aynı asayı bir üst nadirlikte (seviye korunarak) 1 asaya çevirir. Kuşanılı asa tükenirse yuva boşalır. */
-  synthesize(id: string): Result<{ result: string }> {
-    const check = this.checkSynthesis(id);
-    if (!check.ok) return check;
-    const left = this.count(id) - SYNTHESIS_COUNT;
-    if (left > 0) this.counts.set(id, left);
-    else {
-      this.counts.delete(id);
-      if (this.equippedId === id) this.equippedId = null;
-    }
-    this.counts.set(check.result, this.count(check.result) + 1);
-    if (this.equippedId === null && this.usable(check.result)) this.equippedId = check.result;
-    this.changed();
-    return check;
   }
 
   /** Bir büyü için kuşanılı asanın etkisi; asa yoksa ya da seviye yetmiyorsa etkisiz. */
