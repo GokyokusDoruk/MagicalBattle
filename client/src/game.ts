@@ -12,6 +12,8 @@ import { normalizeSave, savePointForCity, type SaveData } from './save/saveData'
 import { SaveManager } from './save/saveManager';
 import { Carry } from './inventory/carry';
 import { WandInventory } from './wands/inventory';
+import { WandStock } from './wands/stock';
+import { GearStock } from './economy/gearStock';
 import { BagUi } from './ui/bagUi';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
@@ -99,6 +101,7 @@ const sideQuests = new QuestEngine(hero);
 const skillTree = new SkillTree(() => hero.level);
 const wands = new WandInventory();
 // Envanter ağırlığı: çanta, Taşıyıcı yeteneği ve başlangıç kapasitesi (3 asa, 20 eşya, 2 kuşanılabilir)
+wands.setLevelProvider(() => hero.level);
 const carry = new Carry(hero, wands, () => skillTree.carryBonus);
 carry.install();
 const morality = new Morality();
@@ -148,7 +151,7 @@ const skillUi = new SkillTreeUi({
   onChanged: () => setDirty(true),
 });
 document.body.appendChild(skillUi.element);
-const wandUi = new WandUi({ wands, onChanged: () => setDirty(true) });
+const wandUi = new WandUi({ wands, level: () => hero.level, onChanged: () => setDirty(true) });
 document.body.appendChild(wandUi.element);
 const bagUi = new BagUi({ player: hero, wands, carry, onChanged: () => setDirty(true) });
 document.body.appendChild(bagUi.element);
@@ -181,13 +184,13 @@ const refreshHud = (): void =>
     bagSummary: `Asa ${carry.usage().wands}/${carry.capacity().wands} · Eşya ${carry.usage().goods}/${carry.capacity().goods}`,
     bagFull: carry.isOverloaded() || carry.room('wands') === 0 || carry.room('goods') === 0,
     moralityLabel: `${morality.effects.label} (${morality.score > 0 ? '+' : ''}${morality.score})`,
-    wandsReady: wands.owned().some((w) => wands.checkSynthesis(w.id).ok),
   });
 const setDirty = (value: boolean): void => {
   dirty = value;
   refreshHud();
 };
 hero.onChange(refreshHud);
+hero.onChange(() => wandUi.isOpen && wandUi.refresh()); // seviye değişince asa seviye şartları güncellenir
 sideQuests.onChange(refreshHud);
 skillTree.onChange(refreshHud);
 wands.onChange(refreshHud);
@@ -214,10 +217,33 @@ const handleCompletions = (list: QuestCompletion[]): void => {
   if (list.length > 0) setDirty(true);
 };
 
+// Tüccarların asa stokları: her tüccarın kendi stoğu, 5 dakikada bir yenilenir (oyun süresiyle)
+const wandStocks = new Map<string, WandStock>();
+const wandStock = (merchantId: string): WandStock => {
+  let stock = wandStocks.get(merchantId);
+  if (!stock) {
+    stock = new WandStock(merchantId, () => performance.now(), () => hero.level);
+    wandStocks.set(merchantId, stock);
+  }
+  return stock;
+};
+
+const gearStocks = new Map<string, GearStock>();
+const gearStock = (merchantId: string): GearStock => {
+  let stock = gearStocks.get(merchantId);
+  if (!stock) {
+    stock = new GearStock(merchantId, () => performance.now());
+    gearStocks.set(merchantId, stock);
+  }
+  return stock;
+};
+
 const merchantUi = new MerchantUi({
   player: hero,
   quests: sideQuests,
   wands,
+  wandStock,
+  gearStock,
   sfx,
   priceMultipliers: () => ({ buy: morality.effects.buyMultiplier, sell: morality.effects.sellMultiplier }),
   onChanged: () => setDirty(true),
@@ -290,7 +316,7 @@ async function playChapter(chapter: number): Promise<void> {
       await dialogueUi.run(linesTree(`boss-${chapter}`, boss.intro), ctx);
       const outcome = await runBossFight(
         chapter,
-        { name: playerName, level: hero.level, armor: hero.armor, spells: skillTree.resolver, wands: wands.resolver },
+        { name: playerName, level: hero.level, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
         morality.finalPath,
       );
       if (outcome !== 'won') {
@@ -370,6 +396,8 @@ void import('./world/bootWorld').then((m) =>
     startTile: startPoint,
     // Sahne ya da tüccar ekranı açıkken karakter durur
     getAxis: () => (modalOpen() ? STILL : input.getAxis()),
+    // Ayakkabı yürüme hızını artırır (şehir bonusu Task 24'te eklenecek)
+    getSpeedMultiplier: () => 1 + hero.speedBonus,
     gates,
     quests,
     notify: (message) => toast.show(message),

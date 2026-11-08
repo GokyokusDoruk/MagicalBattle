@@ -1,8 +1,12 @@
-export type GearSlot = 'robe' | 'hat' | 'amulet' | 'bag';
+import type { Element } from '../battle/damage/elements';
+import { EQUIPMENT, GEAR_SLOT_LIST, SLOT_LABELS } from './equipment';
 
-export const GEAR_SLOTS: readonly GearSlot[] = ['robe', 'hat', 'amulet', 'bag'];
+/** Ekipman yuvaları (Task 23): Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı */
+export type GearSlot = 'robe' | 'hat' | 'pants' | 'bag' | 'ring' | 'boots';
 
-export const SLOT_NAMES: Record<GearSlot, string> = { robe: 'Cüppe', hat: 'Şapka', amulet: 'Tılsım', bag: 'Çanta' };
+export const GEAR_SLOTS: readonly GearSlot[] = GEAR_SLOT_LIST;
+
+export const SLOT_NAMES: Record<GearSlot, string> = SLOT_LABELS;
 
 /** Çantanın kapasiteye kattığı adetler (hepsi tam sayı). Giyilen ekipman ve kuşanılı asalar sayılmaz. */
 export interface CarryBonus {
@@ -24,19 +28,25 @@ export interface ItemDef {
   price: number;
   /** Ekipmansa takıldığı yer */
   slot?: GearSlot;
-  /** Ekipmansa toplam zırha katkısı (0-1, hasar azaltma). Baş/gövde ayrımı yoktur. */
+  /** Ekipmansa elementi (renk ve bonus): ateş kırmızı, su mavi, toprak kahverengi, hava beyaz */
+  element?: Element;
+  /** Ekipmansa nadirlik (1-6) */
+  rarity?: 1 | 2 | 3 | 4 | 5 | 6;
+  /** Zırh parçasıysa (cüppe, şapka, pantalon) toplam zırha katkısı (0-1, hasar azaltma) */
   armor?: number;
-  /** Çantaysa (slot 'bag') kapasiteye kattıkları */
+  /** Çantaysa kapasiteye kattıkları */
   carry?: CarryBonus;
+  /** Ayakkabıysa yürüme hızına kattığı oran (0.1 = +%10) */
+  speed?: number;
+  /** Yüzükse büyü süresine kattığı saniye */
+  timeBonus?: number;
   /** Can iksiriyse verdiği can (kullanma, kalıcı can geldiğinde açılır) */
   heal?: number;
-  /** Çanta nadirliği (1-5), yalnızca çantalarda */
-  tier?: 1 | 2 | 3 | 4 | 5;
 }
 
 /**
- * Eşya kataloğu. Ganimet (ot, kristal...) yalnızca satılır ve görevlerde kullanılır;
- * ekipman satın alınır, kuşanılır ve toplam zırhı artırır.
+ * Eşya kataloğu: ganimet, can iksirleri ve 144 ekipman (bkz. equipment.ts).
+ * Ganimet (ot, kristal...) yalnızca satılır ve görevlerde kullanılır.
  */
 export const ITEMS: readonly ItemDef[] = [
   // Ganimet
@@ -45,30 +55,13 @@ export const ITEMS: readonly ItemDef[] = [
   { id: 'ates-tozu', name: 'Ateş Tozu', description: 'Dokununca ısınan kızıl toz.', price: 15 },
   { id: 'kurt-postu', name: 'Kurt Postu', description: 'Kalın ve sıcak tutan bir post.', price: 35 },
 
-  // Çantalar: kuşanılınca taşıma kapasitesini artırır
-  { id: 'kucuk-canta', name: 'Küçük Çanta', description: 'Kumaştan, omuza asılan sade bir çanta.', price: 100, slot: 'bag', carry: { wands: 3, goods: 20, gear: 2 }, tier: 1 },
-  { id: 'deri-canta', name: 'Deri Çanta', description: 'Kalın deriden, dikişleri sağlam bir çanta.', price: 300, slot: 'bag', carry: { wands: 5, goods: 40, gear: 3 }, tier: 2 },
-  { id: 'gezgin-cantasi', name: 'Gezgin Çantası', description: 'Uzun yolculuklar için bölmelere ayrılmış çanta.', price: 800, slot: 'bag', carry: { wands: 8, goods: 70, gear: 5 }, tier: 3 },
-  { id: 'usta-cantasi', name: 'Usta Çantası', description: 'Bir usta tüccarın büyü işlemeli çantası.', price: 2000, slot: 'bag', carry: { wands: 12, goods: 110, gear: 7 }, tier: 4 },
-  { id: 'efsunlu-canta', name: 'Efsunlu Çanta', description: 'İçi dışından büyük, efsunlu bir çanta.', price: 5000, slot: 'bag', carry: { wands: 18, goods: 170, gear: 10 }, tier: 5 },
-
   // Can iksirleri: çantada eşya yeri kaplar
   { id: 'iksir-kucuk', name: 'Küçük Can İksiri', description: 'Küçük bir şişede kırmızı sıvı. 60 can yeniler.', price: 25, heal: 60 },
   { id: 'iksir-orta', name: 'Can İksiri', description: 'Yaraları hızla kapatan iksir. 150 can yeniler.', price: 60, heal: 150 },
   { id: 'iksir-buyuk', name: 'Büyük Can İksiri', description: 'Neredeyse ölüyü ayağa kaldıran iksir. 300 can yeniler.', price: 120, heal: 300 },
 
-  // Cüppeler
-  { id: 'cirak-cuppesi', name: 'Çırak Cüppesi', description: 'Sade ama sağlam, Bekçi çıraklarının giydiği cüppe.', price: 60, slot: 'robe', armor: 0.05 },
-  { id: 'gezgin-cuppesi', name: 'Gezgin Cüppesi', description: 'Uzun yolların tozunu görmüş, dayanıklı bir cüppe.', price: 180, slot: 'robe', armor: 0.1 },
-  { id: 'bekci-cuppesi', name: 'Bekçi Cüppesi', description: 'Eski Düzen Bekçilerinin mühürlü cüppesi.', price: 520, slot: 'robe', armor: 0.18 },
-
-  // Şapkalar
-  { id: 'yun-sapka', name: 'Yün Şapka', description: 'Kafayı sıcak tutan örme şapka.', price: 40, slot: 'hat', armor: 0.03 },
-  { id: 'tilsimli-sapka', name: 'Tılsımlı Şapka', description: 'İçine koruyucu bir rün işlenmiş.', price: 150, slot: 'hat', armor: 0.07 },
-
-  // Tılsımlar
-  { id: 'tas-tilsim', name: 'Taş Tılsım', description: 'Elde ağır, bedende hafif bir güven verir.', price: 90, slot: 'amulet', armor: 0.04 },
-  { id: 'ruzgar-tilsimi', name: 'Rüzgâr Tılsımı', description: 'Darbelerin yönünü saptıran hafif bir tılsım.', price: 260, slot: 'amulet', armor: 0.08 },
+  // Ekipman: 6 yuva x 4 element x 6 nadirlik
+  ...EQUIPMENT,
 ];
 
 const BY_ID = new Map(ITEMS.map((i) => [i.id, i]));
@@ -94,8 +87,7 @@ export function isPotion(item: ItemDef): boolean {
   return item.heal !== undefined;
 }
 
-/** Ekipmanın "değeri": zırh ya da çantanın kapasitesi (yeni alınan eşya daha iyiyse otomatik kuşanılır). */
+/** Ekipmanın "değeri": aynı yuvada yeni alınan eşya daha nadirse otomatik kuşanılır. */
 export function gearValue(item: ItemDef): number {
-  if (item.carry) return item.carry.wands * 10 + item.carry.goods + item.carry.gear * 10;
-  return item.armor ?? 0;
+  return item.rarity ?? 0;
 }

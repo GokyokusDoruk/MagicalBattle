@@ -41,11 +41,11 @@ Hatalar `{ code, error }` biçimindedir (`error` Türkçe, kullanıcıya göster
 
 ## Kayıt dosyası
 
-Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 5; eski (v1-v4) kayıtlar okunurken varsayılan alanlarla otomatik yükseltilir.
+Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 6; eski (v1-v5) kayıtlar okunurken varsayılan alanlarla otomatik yükseltilir.
 
 ```json
 {
-  "version": 5,
+  "version": 6,
   "playerName": "Aylin",
   "completedChapters": [1, 2],
   "savePoint": { "cityId": "ignis", "tileX": 64, "tileY": 64 },
@@ -56,18 +56,20 @@ Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) 
   "quests": { "ash-ot-toplama": { "status": "active", "progress": 2 } },
   "collected": ["p-ot-0", "p-kristal-0"],
   "skills": ["fire-power-1", "fire-power-2"],
-  "wands": { "wand-fire-attack-1": 3 },
-  "wandsEquipped": { "fire-attack": "wand-fire-attack-1" },
+  "wands": { "wand-fire-attack-3-12": 2 },
+  "wandEquipped": "wand-fire-attack-3-12",
   "choices": { "c1-isciler": "good", "c1-nobetci": "bad" }
 }
 ```
+
+Eski (v5) kayıtlarda asalar seviyesizdi (`wand-fire-attack-3`) ve 8 yuvalı `wandsEquipped` vardı; sunucu bunları okurken seviye 1 olarak yükseltir, en nadir kuşanılı asayı seçer ve yeni biçimde yazar.
 
 Sunucu istemciye güvenmez ve her yazmada doğrular:
 - `playerName`: 2-20 karakter (harf, rakam, boşluk, `_ . -`)
 - `completedChapters`: aralıksız `[1..n]`, en fazla 8 bölüm
 - `savePoint`: `null` (yeni oyun) ya da bilinen bir şehir (`ignis`, `abyss`, `stone-heart`, `still-crystal`) ve 0-500 arası tam sayı karo
 - `gold` 0-9.999.999, `xp` 0-1.000.000 (tam sayı)
-- `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `amulet`, `bag`; `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır); `skills`: en çok 39 kimlik (36 element + 3 Taşıyıcı), `a-z 0-9 -` (tekrarlar atılır); `wands`: en çok 48 çeşit, adet 1-999; `wandsEquipped`: yalnızca `{fire,water,earth,air}-{attack,defense}` yuvaları; `choices`: en çok 16 kayıt, değer yalnızca `good` ya da `bad`
+- `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `pants`, `bag`, `ring`, `boots` (eski `amulet` yuvası da okunur, istemci yüklerken yüzüğe çevirir); `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır); `skills`: en çok 39 kimlik (36 element + 3 Taşıyıcı), `a-z 0-9 -` (tekrarlar atılır); `wands`: en çok 200 çeşit, kimlik `wand-<element>-<rol>-<nadirlik 1-6>-<seviye 1-30>`, adet 1-999; `wandEquipped`: kuşanılı asa kimliği ya da `null` (sahip olunmuyorsa `null` olur); `choices`: en çok 16 kayıt, değer yalnızca `good` ya da `bad`
 - Fazla alanlar atılır, gövde en fazla 16 KB
 
 Geçersiz kayıt `400` ile reddedilir ve eski kayıt bozulmaz. Veritabanındaki kayıt bozuksa oyuncu yeni oyunla başlar. Eşya, görev, yetenek, asa ve seçim kimliklerinin kataloğa uyup uymadığını sunucu bilmez; istemci yüklerken bilinmeyenleri atar ve sayıları sınırlar.

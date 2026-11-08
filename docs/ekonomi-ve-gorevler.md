@@ -16,21 +16,11 @@ Haritada **28 şifalı ot** (çimende) ve **12 kristal parçası** (kumsalda) va
 
 ## Ekipman ve zırh
 
-Üç zırh yeri var: **Cüppe, Şapka, Tılsım**; her yere bir ekipman kuşanılır. Dördüncü yer **Çanta**dır: zırh vermez, taşıma kapasitesini artırır ([envanter-ve-cantalar.md](envanter-ve-cantalar.md)). Çantaya ve kapasiteye sığmayan görev ödülü eşyaları altına çevrilir. Ekipmanlar **toplam zırhı** artırır (tek bir hasar azaltma yüzdesi, baş/gövde ayrımı yok, üst sınır %75). Daha pahalı ekipman aynı yerde daha çok zırh verir.
+Ekipman **6 yuva × 4 element × 6 nadirlik = 144 eşya** olarak yeniden tasarlandı: Cüppe, Şapka, Pantalon (zırh), Çanta (kapasite), Ayakkabı (hız), Yüzük (büyü süresi). Tüm tablo, element bonusu ve tüccar stoğu için: [ekipman.md](ekipman.md).
 
-| Ekipman | Yer | Zırh | Fiyat | Satan |
-|---|---|---|---|---|
-| Çırak Cüppesi | Cüppe | %5 | 60 | Kazım (Ash) |
-| Yün Şapka | Şapka | %3 | 40 | Kazım |
-| Taş Tılsım | Tılsım | %4 | 90 | Kazım |
-| Gezgin Cüppesi | Cüppe | %10 | 180 | Nesrin (Vine) |
-| Tılsımlı Şapka | Şapka | %7 | 150 | Nesrin |
-| Bekçi Cüppesi | Cüppe | %18 | 520 | Boran (Bataklık) |
-| Rüzgâr Tılsımı | Tılsım | %8 | 260 | Boran |
+Tüccarlar köylerde duruyor ve ekipmanı **5 dakikada bir yenilenen 5 eşyalık stoktan** satıyor (tek Nadir). Ganimeti (ot, kristal, ateş tozu, kurt postu) değerinin yarısına alıyor. Çantaya sığmayan görev ödülü eşyaları altına çevrilir.
 
-Yeni aldığın ekipman, o yer boşsa ya da daha çok zırh veriyorsa **kendiliğinden kuşanılır**. Ekipman tektir (ikinci kez alınmaz); kuşanılı ekipman satılamaz (önce çıkar). Al-sat döngüsünden kâr edilemez.
-
-> Zırh boss savaşlarında kullanılır: `PlayerState.armor` oyuncunun savaşçısına verilir ([boss-savaslari.md](boss-savaslari.md)).
+> Zırh boss savaşlarında kullanılır; seçilen büyünün elementine göre hesaplanır ([boss-savaslari.md](boss-savaslari.md)).
 
 ## Seviye
 

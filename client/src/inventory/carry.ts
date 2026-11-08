@@ -55,7 +55,7 @@ export class Carry {
       const item = getItem(id);
       if (!item) continue;
       if (itemCategory(item) === 'goods') goods += count;
-      else if (!this.player.isEquipped(id)) gear += count;
+      else gear += count - (this.player.isEquipped(id) ? 1 : 0); // giyilen kopya yer kaplamaz
     }
     return { wands: this.wands.carried, goods, gear };
   }

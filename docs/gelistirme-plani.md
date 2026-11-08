@@ -11,21 +11,32 @@
 | Can | Savaşlar arası can **kalıcıdır**. **Han'da bedava dolum** (şehir kapısı açıksa). **Boss da mevcut canla başlar**: boss'tan önce başka savaşlar yaptıysan canın dolu olmaz. **Can iksirleri** bulunur, alınır, satılır, çantada taşınır ve istenen an kullanılır. |
 | Çanta başlangıcı | **3 asa, 20 eşya, 2 kuşanılabilir eşya.** Kapasite dolunca fazla ganimet **yerde kalır, 10 dakika (oyun süresiyle) sonra kaybolur**; oyuncu şehirde satıp boşaltıp geri alabilir. |
 
-Not: 5 aynı asayı birleştirmek için en az 5 asa taşımak gerekir, başlangıç kapasitesi 3. Bu yüzden **ilk çanta ucuz ve erken alınabilir** (Küçük Çanta +3 asa), birleştirme çanta ile açılır.
+Not: **Asa birleştirme (5 → 1) kaldırıldı** (Task 22).
 
-## Görevler
+## Görevler (güncel sıra)
 
 | Task | İçerik | Madde |
 |---|---|---|
-| **21** | **Envanter, ağırlık ve çantalar:** eşya kategorileri, kapasite, 5 çanta, "Taşıyıcı" yetenek dalı, can iksiri eşyaları, çanta ekranı | 8 |
-| 22 | **Şehir tüccarları ve ticari eşyalar:** şehrin içinde tüccar (köydekiler kalkar), 4 yeni ticari eşya, şehre özel fiyat çarpanları; ot ve kristal kalkar, görevler uyarlanır | 4 |
-| 23 | **Asacı:** asa alım ve satımı (şehirler arası fark az) | 5 |
-| 24 | **Han ve kalıcı can:** bedava can dolumu, şehir görevleri (yeni yan görevler, ödül anında), kalıcı can ve iksir kullanma, boss mevcut canla | 6 + can |
-| 25 | **Dünya düşmanları ve ganimet:** düşman tanımları, ganimet tabloları (karışık paketler), karanlık yolda artan oran, nadir düşüşler, yerde kalan ganimet | 7 |
-| 26 | **Bölge savaşları:** yeşillik (toprak), su kenarı (su), köz (ateş), rüzgârlı alan (hava); karo başına %10, savaştan sonra 5 sn koruma | 2 |
-| 27 | **Madenler:** her şehrin çevresinde 4 element madeni, 3 düşman, ödül paketi, 10 dk bekleme | 1 |
-| 28 | **Korumalı sandıklar:** haritaya sandıklar, koruyucu düşmanlar, sandıktan eşya, para, asa | 3 |
-| 29 | Çok oyunculu 1v1 arena (Colyseus) | eski 21 |
+| 21 | Envanter, ağırlık, çantalar (5 çanta), Taşıyıcı yetenekleri, iksir eşyaları (**bitti**) | 8 |
+| **22** | **Asa v2:** seviye, tek asa, rol dengesi, element bonusu, büyü süresi, seviye şartı, 5 dakikada yenilenen tüccar stoğu; birleştirme kaldırıldı | asa |
+| **23** | **Ekipman sistemi (bu PR):** 6 yuva (Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı) × 4 element × 6 nadirlik = 144 eşya, renkli ikonlar, tur başına element bonusu, ayakkabı hızı, yüzük büyü süresi. Eski 12 ekipman ve 5 çantanın yerine geçer | ekipman |
+| 24 | **Şehir bonusu** (ayakkabı hızı, çanta kapasitesi, kendi elementinin şehrinde +%50), şehirden çıkarken eşya bırakma, yerde kalan eşya (10 dk) | ekipman |
+| 25 | **Şehir tüccarları** (köydekiler kalkar), 4 ticari eşya, şehre özel fiyat çarpanları, 5 dakikalık dönen ekipman stoğu (tek Nadir). **Asacı** (asa alım satım) | 4, 5 |
+| 26 | **Han** (bedava can), şehir görevleri, kalıcı can, iksir kullanma, boss mevcut canla | 6 |
+| 27 | **Dünya düşmanları ve ganimet** (karışık paketler, nadirlik arttıkça düşen şans, karanlık yolda artan oran) | 7 |
+| 28 | **Bölge savaşları** (yeşillik, su, köz, rüzgâr; karo başına %10, savaştan sonra 5 sn koruma) | 2 |
+| 29 | **Madenler** (şehir başına 4 element madeni, 3 düşman, 10 dk bekleme) | 1 |
+| 30 | **Korumalı sandıklar** | 3 |
+| 31 | Çok oyunculu 1v1 arena (Colyseus) | eski 21 |
+
+## Kararlar (devamı)
+
+| Konu | Karar |
+|---|---|
+| Asa | Seviye, tek asa, rol dengesi (%25), element bonusu (+%50 hasar), büyü süresi, seviye şartı: [asalar.md](asalar.md) |
+| Ekipman | Seviye şartı yok, yalnız nadirlik. Nadirlik arttıkça ganimet düşme şansı azalır. Tüccar stoğu 5 dakikada bir yenilenir, 5 eşya, yalnızca 1 Nadir (pahalı) |
+| Element bonusu | O turda seçilen büyünün elementine uyan eşyalar %50 daha güçlü |
+| Şehir bonusu | Kendi elementinin şehrinde ayakkabı hızı ve çanta kapasitesi +%50; köyler çift elementli (ikisi de sayılır) |
 
 ## Task 21 tasarımı
 

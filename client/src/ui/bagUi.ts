@@ -1,7 +1,9 @@
-import { SLOT_NAMES, getItem, type ItemDef } from '../economy/items';
+import { GEAR_SLOTS, SLOT_NAMES, getItem } from '../economy/items';
 import type { PlayerState } from '../economy/player';
 import { CATEGORIES, CATEGORY_NAMES, type Carry } from '../inventory/carry';
 import type { WandInventory } from '../wands/inventory';
+import { itemIconSvg } from './itemIcon';
+import { describeItem, itemNameHtml } from './itemText';
 
 export interface BagUiDeps {
   player: PlayerState;
@@ -14,17 +16,9 @@ export interface BagUiDeps {
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const pct = (v: number): string => `%${Math.round(v * 100)}`;
 
-/** Eşyanın kısa açıklaması: çanta kapasitesi, zırh ya da iksir etkisi */
-export function describeItem(item: ItemDef): string {
-  if (item.carry) return `+${item.carry.wands} asa, +${item.carry.goods} eşya, +${item.carry.gear} kuşanılabilir`;
-  if (item.slot) return `${SLOT_NAMES[item.slot]} · +${pct(item.armor ?? 0)} zırh`;
-  if (item.heal) return `+${item.heal} can`;
-  return 'Ticari eşya';
-}
-
 /**
- * Çanta ekranı (B): kapasite çubukları (asa, eşya, kuşanılabilir), kuşanılan çanta, ticari eşyalar ve iksirler,
- * çantada taşınan ekipman. Altın ağırlık yapmaz. Eşyaları atabilir (geri alınamaz, iki tıkla onaylanır).
+ * Çanta ekranı (B): kapasite çubukları (asa, eşya, kuşanılabilir), kuşanılan 6 ekipman (ikonlarla), ticari eşyalar ve
+ * iksirler, çantada taşınan ekipman. Altın ağırlık yapmaz. Eşyaları atabilir (geri alınamaz, iki tıkla onaylanır).
  */
 export class BagUi {
   readonly element: HTMLDivElement;
@@ -86,21 +80,44 @@ export class BagUi {
     }).join('');
   }
 
+  /** Altı ekipman yuvası (ikonlu) ve toplam etkiler. */
+  private equippedHtml(): string {
+    const { player } = this.deps;
+    const slots = GEAR_SLOTS.map((slot) => {
+      const id = player.equipped[slot];
+      const item = id ? getItem(id) : undefined;
+      if (!item) {
+        return `<div data-slot="${slot}" class="flex items-center gap-2 rounded bg-slate-900/60 p-2 opacity-70"><span class="flex h-[34px] w-[34px] items-center justify-center rounded border border-dashed border-slate-600 text-[10px] text-slate-500">boş</span>
+          <div class="text-[11px] text-slate-400">${SLOT_NAMES[slot]}</div></div>`;
+      }
+      return `<div data-slot="${slot}" class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2">
+        <div class="flex min-w-0 items-center gap-2"><span class="shrink-0">${itemIconSvg(item, 34)}</span><div class="min-w-0"><div class="truncate text-xs font-bold">${itemNameHtml(item)}</div>
+          <div class="text-[10px] text-slate-400">${esc(describeItem(item))}</div></div></div>
+        <button type="button" data-action="unequip" data-slot="${slot}" class="shrink-0 rounded bg-slate-700 px-2 py-1 text-xs">Çıkar</button></div>`;
+    }).join('');
+    const g = player.gearFor();
+    const summary = `Zırh <b>${pct(g.armor)}</b> · Hız <b>+${pct(player.speedBonus)}</b> · Büyü süresi <b>+${g.timeBonusSec.toFixed(2)} sn</b>`;
+    return `<div class="mb-1 grid gap-2 sm:grid-cols-2" data-equipped>${slots}</div>
+      <p class="mb-3 text-[11px] text-slate-400" data-gear-summary>${summary}. Seçtiğin büyünün elementiyle aynı elementteki zırh ve yüzük %50 daha güçlüdür.</p>`;
+  }
+
   private render(): void {
     if (!this.opened) return;
     const { player } = this.deps;
-    const bagId = player.equipped.bag;
-    const bag = bagId ? getItem(bagId) : undefined;
     const inv = player.inventory();
 
     const goods = inv.filter(({ id }) => !getItem(id)?.slot);
-    const carriedGear = inv.filter(({ id }) => getItem(id)?.slot && !player.isEquipped(id));
+    // Giyilen kopya çantada sayılmaz: aynı eşyadan fazla kopya varsa fazlası listelenir
+    const carriedGear = inv
+      .filter(({ id }) => getItem(id)?.slot)
+      .map(({ id, count }) => ({ id, count: count - (player.isEquipped(id) ? 1 : 0) }))
+      .filter(({ count }) => count > 0);
 
     const row = (id: string, count: number, actions: string): string => {
       const item = getItem(id)!;
       return `<li data-item="${id}" class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900 p-2">
-        <div class="min-w-0"><span class="font-bold">${esc(item.name)}</span> ${count > 1 ? `<span class="text-slate-400">×${count}</span>` : ''}
-          <div class="text-[11px] text-slate-400">${esc(describeItem(item))}</div></div>
+        <div class="flex min-w-0 items-center gap-2"><span class="shrink-0">${itemIconSvg(item, 34)}</span><div class="min-w-0"><span class="font-bold">${itemNameHtml(item)}</span> ${count > 1 ? `<span class="text-slate-400">×${count}</span>` : ''}
+          <div class="text-[11px] text-slate-400">${esc(describeItem(item))}</div></div></div>
         <div class="flex gap-1">${actions}</div></li>`;
     };
     const drop = (id: string, all: boolean): string => {
@@ -127,15 +144,8 @@ export class BagUi {
         </div>
         <div class="grid gap-2 rounded bg-black/40 p-3 sm:grid-cols-3" data-bars>${this.bars()}</div>
         <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
-          <h3 class="mb-1 text-sm font-bold text-amber-200">Kuşanılan çanta</h3>
-          <div class="mb-3 flex items-center justify-between gap-2 rounded bg-slate-900 p-2" data-bag>
-            ${
-              bag
-                ? `<div><b>${esc(bag.name)}</b><div class="text-[11px] text-slate-400">${esc(describeItem(bag))}</div></div>
-                   <button type="button" data-action="unequip-bag" class="rounded bg-slate-700 px-2 py-1 text-xs">Çıkar</button>`
-                : '<span class="text-sm text-slate-400">Çanta yok (başlangıç kapasitesi). Tüccardan çanta alabilirsin.</span>'
-            }
-          </div>
+          <h3 class="mb-1 text-sm font-bold text-amber-200">Kuşanılanlar</h3>
+          ${this.equippedHtml()}
           <h3 class="mb-1 text-sm font-bold text-amber-200">Ticari eşyalar ve iksirler</h3>
           ${goodsHtml ? `<ul class="mb-3 flex flex-col gap-2">${goodsHtml}</ul>` : '<p class="mb-3 text-sm text-slate-400">Hiç eşyan yok.</p>'}
           <h3 class="mb-1 text-sm font-bold text-amber-200">Çantadaki ekipman</h3>
@@ -163,9 +173,10 @@ export class BagUi {
         this.pendingDrop = null;
         return this.render();
       }
-      case 'unequip-bag': {
-        if (player.unequip('bag')) {
-          this.message = 'Çantayı çıkardın.';
+      case 'unequip': {
+        const slot = btn.dataset.slot as (typeof GEAR_SLOTS)[number];
+        if (GEAR_SLOTS.includes(slot) && player.unequip(slot)) {
+          this.message = 'Çıkardın.';
           this.deps.onChanged?.();
         } else this.message = player.lastBlockReason ?? 'Çıkarılamadı.';
         this.pendingDrop = null;

@@ -1,20 +1,28 @@
 import type { SoundEngine } from '../audio/sfx/engine';
-import { SLOT_NAMES, getItem, isGear, type ItemDef } from '../economy/items';
+import { getItem, isGear } from '../economy/items';
+import type { GearStock } from '../economy/gearStock';
+import { itemIconSvg } from './itemIcon';
+import { describeItem, itemNameHtml, rarityLabel } from './itemText';
 import { getMerchant, type MerchantDef } from '../economy/merchants';
 import type { PlayerState } from '../economy/player';
-import { buy, buyPrice, sell, sellPrice } from '../economy/shop';
+import { buyPrice, sell, sellPrice } from '../economy/shop';
 import type { QuestDef } from '../quests/catalog';
 import type { QuestCompletion, QuestEngine } from '../quests/engine';
 import { LOCATIONS } from '../world/locations';
-import { COMMON_WAND_PRICE, ELEMENT_ORDER_FOR_SHOP, ROLE_NAMES, SYNTHESIS_COUNT, describeWand, getWand, wandId } from '../wands/catalog';
-import { buyCommonWand, type WandInventory } from '../wands/inventory';
 import { ELEMENT_NAMES } from '../battle/damage/elements';
+import { ELEMENT_COLORS, RARITY_COLORS, RARITY_NAMES, ROLE_NAMES, describeWand, getWand } from '../wands/catalog';
+import type { WandInventory } from '../wands/inventory';
+import type { WandStock } from '../wands/stock';
 
 export interface MerchantUiDeps {
   player: PlayerState;
   quests: QuestEngine;
-  /** Asa envanteri: tüccarlar Sıradan asa satar */
+  /** Asa envanteri */
   wands: WandInventory;
+  /** Tüccarın 5 dakikada bir yenilenen asa stoğu */
+  wandStock: (merchantId: string) => WandStock;
+  /** Tüccarın 5 dakikada bir yenilenen ekipman stoğu */
+  gearStock: (merchantId: string) => GearStock;
   sfx: SoundEngine;
   /** Görev kabulüyle hedef hemen tamamlandıysa */
   onQuestCompletion: (completion: QuestCompletion) => void;
@@ -64,10 +72,36 @@ export class MerchantUi {
     // Panel açıkken altın, çanta ve görevler değişirse yeniden çiz
     deps.player.onChange(() => this.isOpen && this.render());
     deps.quests.onChange(() => this.isOpen && this.render());
+    // Geri sayımı her saniye günceller; stok yenilenince (5 dakikada bir) paneli yeniden çizer
+    window.setInterval(() => this.tick(), 1000);
   }
 
   get isOpen(): boolean {
     return this.merchant !== null;
+  }
+
+  private renderedRotation = '';
+
+  /** Stok yenileme dönemi (sekme ve tüccara göre); değişince panel yeniden çizilir. */
+  private rotationKey(): string {
+    const m = this.merchant;
+    if (!m) return '';
+    if (this.tab === 'shop') return `shop:${this.deps.gearStock(m.id).rotationIndex}`;
+    if (this.tab === 'wands') return `wands:${this.deps.wandStock(m.id).rotationIndex}`;
+    return this.tab;
+  }
+
+  private tick(): void {
+    if (!this.merchant) return;
+    if (this.rotationKey() !== this.renderedRotation) return this.render();
+    const left = this.tab === 'shop' ? this.deps.gearStock(this.merchant.id).timeLeftMs() : this.tab === 'wands' ? this.deps.wandStock(this.merchant.id).timeLeftMs() : null;
+    const clock = this.element.querySelector('[data-clock]');
+    if (left !== null && clock) clock.textContent = this.clockText(left);
+  }
+
+  private clockText(ms: number): string {
+    const left = Math.ceil(ms / 1000);
+    return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   }
 
   open(merchantId: string): void {
@@ -93,6 +127,7 @@ export class MerchantUi {
   private render(): void {
     const m = this.merchant;
     if (!m) return;
+    this.renderedRotation = this.rotationKey();
     const { player } = this.deps;
     const tabBtn = (id: Tab, label: string): string =>
       `<button type="button" role="tab" data-action="tab" data-id="${id}" aria-selected="${this.tab === id}" class="flex-1 rounded px-3 py-2 text-sm ${this.tab === id ? 'bg-amber-300 font-bold text-slate-900' : 'bg-slate-800 text-slate-200'}">${label}</button>`;
@@ -112,30 +147,24 @@ export class MerchantUi {
       </div>`;
   }
 
-  private statLine(item: ItemDef): string {
-    if (item.carry) return `${SLOT_NAMES.bag} · +${item.carry.wands} asa, +${item.carry.goods} eşya, +${item.carry.gear} kuşanılabilir`;
-    if (item.slot) return `${SLOT_NAMES[item.slot]} · +${pct(item.armor ?? 0)} zırh`;
-    if (item.heal) return `Can iksiri · +${item.heal} can`;
-    return 'Ganimet';
-  }
-
   private shopHtml(m: MerchantDef): string {
     const { player } = this.deps;
     const mult = this.deps.priceMultipliers?.() ?? { buy: 1, sell: 1 };
+    const stock = this.deps.gearStock(m.id);
 
-    const forSale = m.stock
-      .map((id) => getItem(id))
-      .filter((i): i is ItemDef => i !== undefined)
-      .map((item) => {
-        const price = buyPrice(item.price, mult.buy);
-        const owned = player.count(item.id) > 0;
-        const cant = !owned && player.gold < price;
-        return `<li class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2">
-          <div class="min-w-0"><div class="font-bold">${esc(item.name)}</div>
-            <div class="text-[11px] text-slate-400">${esc(this.statLine(item))}</div>
-            <div class="text-[11px] text-slate-500">${esc(item.description)}</div></div>
-          <button type="button" data-action="buy" data-id="${item.id}" ${owned || cant ? 'disabled' : ''}
-            class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">${owned ? 'Sahipsin' : `🪙 ${price}`}</button></li>`;
+    const forSale = stock
+      .entries()
+      .map((e) => {
+        const item = getItem(e.itemId)!;
+        const price = buyPrice(e.price, mult.buy);
+        const cant = e.sold || player.gold < price || player.roomFor(item.id) < 1;
+        return `<li data-stock="${e.slot}" class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2 ${e.sold ? 'opacity-50' : ''}">
+          <div class="flex min-w-0 items-center gap-2"><span class="shrink-0">${itemIconSvg(item, 40)}</span>
+            <div class="min-w-0"><div class="font-bold">${itemNameHtml(item)}${e.rare ? ' <span class="text-[11px] text-sky-300">(nadir, pahalı)</span>' : ''}</div>
+              <div class="text-[11px] text-slate-400">${esc(rarityLabel(item))} · ${esc(describeItem(item))}</div>
+              <div class="text-[11px] text-slate-500">${esc(item.description)}</div></div></div>
+          <button type="button" data-action="buy" data-id="${e.slot}" ${cant ? 'disabled' : ''}
+            class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">${e.sold ? 'Satıldı' : `🪙 ${price}`}</button></li>`;
       })
       .join('');
 
@@ -145,40 +174,50 @@ export class MerchantUi {
         const item = getItem(id)!;
         const equipped = player.isEquipped(id);
         const each = sellPrice(item.price, mult.sell);
+        const lastEquipped = equipped && count < 2;
         const actions = isGear(item)
           ? `<button type="button" data-action="${equipped ? 'unequip' : 'equip'}" data-id="${id}" class="rounded bg-sky-400 px-2 py-1 text-xs font-bold text-slate-900">${equipped ? 'Çıkar' : 'Kuşan'}</button>
-             <button type="button" data-action="sell" data-id="${id}" ${equipped ? 'disabled' : ''} class="rounded bg-slate-700 px-2 py-1 text-xs disabled:opacity-40">Sat 🪙 ${each}</button>`
+             <button type="button" data-action="sell" data-id="${id}" ${lastEquipped ? 'disabled' : ''} class="rounded bg-slate-700 px-2 py-1 text-xs disabled:opacity-40">Sat 🪙 ${each}</button>`
           : `<button type="button" data-action="sell" data-id="${id}" class="rounded bg-slate-700 px-2 py-1 text-xs">Sat 🪙 ${each}</button>
              ${count > 1 ? `<button type="button" data-action="sell-all" data-id="${id}" class="rounded bg-slate-700 px-2 py-1 text-xs">Hepsini sat 🪙 ${each * count}</button>` : ''}`;
         return `<li class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900 p-2">
-          <div><span class="font-bold">${esc(item.name)}</span> <span class="text-slate-400">×${count}</span>${equipped ? ' <span class="text-[11px] text-sky-300">(kuşanılı)</span>' : ''}
-            <div class="text-[11px] text-slate-400">${esc(this.statLine(item))}</div></div>
+          <div class="flex items-center gap-2"><span class="shrink-0">${itemIconSvg(item, 32)}</span><div><span class="font-bold">${itemNameHtml(item)}</span> <span class="text-slate-400">×${count}</span>${equipped ? ' <span class="text-[11px] text-sky-300">(kuşanılı)</span>' : ''}
+            <div class="text-[11px] text-slate-400">${esc(describeItem(item))}</div></div></div>
           <div class="flex gap-1">${actions}</div></li>`;
       })
       .join('');
 
-    return `<h3 class="mb-1 text-sm font-bold text-amber-200">Satılık</h3><ul class="flex flex-col gap-2">${forSale}</ul>
+    return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${this.clockText(stock.timeLeftMs())}</b> sonra yenilenir. En çok bir <b>Nadir</b> eşya bulunur (pahalı), diğerleri Sıradan ya da Gelişmiş. Aynı elementteki zırh ve yüzük, o elementin büyüsünde %50 daha güçlüdür.</p>
+      <h3 class="mb-1 text-sm font-bold text-amber-200">Satılık</h3><ul class="flex flex-col gap-2">${forSale}</ul>
       <h3 class="mb-1 mt-4 text-sm font-bold text-amber-200">Çantan</h3>
       ${mine ? `<ul class="flex flex-col gap-2">${mine}</ul>` : '<p class="text-sm text-slate-400">Çantan boş. Yollarda ot ve kumsalda kristal bulabilirsin; tüccar fiyatın yarısını öder.</p>'}`;
   }
 
   private wandsHtml(): string {
     const { player, wands } = this.deps;
+    const m = this.merchant!;
+    const stock = this.deps.wandStock(m.id);
     const mult = this.deps.priceMultipliers?.() ?? { buy: 1, sell: 1 };
-    const price = Math.max(1, Math.round(COMMON_WAND_PRICE * mult.buy));
-    const rows = ELEMENT_ORDER_FOR_SHOP.flatMap((element) =>
-      (['attack', 'defense'] as const).map((role) => {
-        const id = wandId(element, role, 1);
-        const w = getWand(id)!;
-        const cant = player.gold < price;
-        return `<li class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2">
-          <div class="min-w-0"><div class="font-bold">${esc(w.name)} <span class="text-slate-400">×${wands.count(id)}</span></div>
-            <div class="text-[11px] text-slate-400">${esc(ELEMENT_NAMES[element])} · ${esc(ROLE_NAMES[role])} · ${esc(describeWand(w))}</div></div>
-          <button type="button" data-action="buy-wand" data-id="${id}" ${cant ? 'disabled' : ''}
-            class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">🪙 ${price}</button></li>`;
-      }),
-    ).join('');
-    return `<p class="mb-2 text-xs text-slate-400">Tüccarlar yalnızca <b>Sıradan</b> asa satar. Aynı asadan <b>${SYNTHESIS_COUNT}</b> tanesini asa ekranında (W) bir üst nadirlikte 1 asaya birleştirebilirsin.</p>
+    const clock = this.clockText(stock.timeLeftMs());
+
+    const rows = stock
+      .entries()
+      .map((e) => {
+        const w = getWand(e.wandId)!;
+        const price = Math.max(1, Math.round(e.price * mult.buy));
+        const tooHigh = w.level > player.level;
+        const cant = e.sold || player.gold < price || !wands.canAdd(e.wandId, 1);
+        return `<li data-stock="${e.slot}" class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2 ${e.sold ? 'opacity-50' : ''}">
+          <div class="min-w-0">
+            <div class="font-bold"><span style="color:${ELEMENT_COLORS[w.element]}">●</span> <span style="color:${RARITY_COLORS[w.rarity]}">${esc(w.name)}</span> <span class="${tooHigh ? 'text-red-300' : 'text-slate-300'}">Sv ${w.level}</span>${e.rare ? ' <span class="text-[11px] text-sky-300">(nadir, pahalı)</span>' : ''}</div>
+            <div class="text-[11px] text-slate-400">${esc(ELEMENT_NAMES[w.element])} · ${esc(ROLE_NAMES[w.role])} · ${esc(RARITY_NAMES[w.rarity])}</div>
+            <div class="text-[11px] text-slate-500">${esc(describeWand(w).join(' · '))}</div>
+            ${tooHigh ? `<div class="text-[11px] text-red-300">${w.level}. seviyeye gelene kadar kullanamazsın</div>` : ''}</div>
+          <button type="button" data-action="buy-wand" data-id="${e.slot}" ${cant ? 'disabled' : ''}
+            class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">${e.sold ? 'Satıldı' : `🪙 ${price}`}</button></li>`;
+      })
+      .join('');
+    return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${clock}</b> sonra yenilenir. En çok bir <b>Nadir</b> asa bulunur, diğerleri Sıradan ya da Gelişmiş. Asa, seviyene gelene kadar kullanılamaz.</p>
       <ul class="flex flex-col gap-2">${rows}</ul>`;
   }
 
@@ -229,14 +268,16 @@ export class MerchantUi {
         this.tab = id as Tab;
         break;
       case 'buy': {
-        const r = buy(player, this.merchant, id, mult.buy);
-        this.message = r.ok ? `Satın alındı: ${getItem(id)!.name} (-${r.price} altın)` : r.reason;
+        const gs = this.deps.gearStock(this.merchant.id);
+        const entry = gs.entries().find((e) => e.slot === Number(id));
+        const r = gs.buy(Number(id), player, mult.buy);
+        this.message = r.ok ? `Satın alındı: ${getItem(entry!.itemId)!.name} (-${r.price} altın)` : r.reason;
         if (r.ok) this.changed('pick');
         break;
       }
       case 'buy-wand': {
-        const r = buyCommonWand(this.deps.wands, { balance: () => player.gold, spend: (n) => player.spendGold(n) }, id, mult.buy);
-        this.message = r.ok ? `Satın alındı: ${getWand(id)!.name} (-${r.price} altın)` : r.reason;
+        const r = this.deps.wandStock(this.merchant.id).buy(Number(id), this.deps.wands, { balance: () => player.gold, spend: (n) => player.spendGold(n) }, mult.buy);
+        this.message = r.ok ? `Satın alındı: ${getWand(r.wandId)!.name} (-${r.price} altın)` : r.reason;
         if (r.ok) this.changed('pick');
         break;
       }

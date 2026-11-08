@@ -8,7 +8,7 @@ Ağırlık **adet** olarak sayılır (hep tam sayı). Üç ayrı kapasite var:
 
 | Kapasite | Neyi sayar | Başlangıç |
 |---|---|---|
-| **Asa** | Taşınan asalar. **Kuşanılı asalar sayılmaz.** | 3 |
+| **Asa** | Taşınan asalar. **Kuşanılı (tek) asa sayılmaz.** | 3 |
 | **Eşya** | Ticari eşyalar ve can iksirleri | 20 |
 | **Kuşanılabilir** | Çantada taşınan (giyilmeyen) ekipman. **Giyilen ekipman sayılmaz.** | 2 |
 
@@ -21,24 +21,21 @@ Ağırlık **adet** olarak sayılır (hep tam sayı). Üç ayrı kapasite var:
 
 ## Çantalar
 
-Çanta ayrı bir kuşanma yeridir ("Çanta", cüppe/şapka/tılsım gibi). Kuşanılan çanta kapasiteye eklenir. Çanta giyiliyken yer kaplamaz; çıkarılırsa "Kuşanılabilir" yerinde 1 yer tutar.
+Çanta ekipmandır (Çanta yuvası): **4 element × 6 nadirlik = 24 çanta** ([ekipman.md](ekipman.md)). Kuşanılan çanta kapasiteye eklenir; element bonusu şehirlerde (Task 24). Çanta giyiliyken yer kaplamaz; çıkarılırsa "Kuşanılabilir" yerinde 1 yer tutar.
 
-| Çanta | Nadirlik | Asa | Eşya | Kuşanılabilir | Fiyat | Nerede |
-|---|---|---|---|---|---|---|
-| Küçük Çanta | Sıradan | +3 | +20 | +2 | 100 | Tüccar Kazım (Ash) |
-| Deri Çanta | Gelişmiş | +5 | +40 | +3 | 300 | Tüccar Nesrin (Vine) |
-| Gezgin Çantası | Nadir | +8 | +70 | +5 | 800 | Tüccar Boran (Bataklık) |
-| Usta Çantası | Destansı | +12 | +110 | +7 | 2000 | ganimet (sonraki task'lar) |
-| Efsunlu Çanta | Efsanevi | +18 | +170 | +10 | 5000 | ganimet (sonraki task'lar) |
-
-Tüccarlar şu an köylerde duruyor; **Task 22'de şehirlerin içine taşınacak** (köylerdekiler kalkacak).
-
-**Birleştirme ve çanta:** 5 aynı asayı birleştirmek için en az 5 asa taşımak gerekir, başlangıç kapasitesi 3. Küçük Çanta (+3 asa) ile 6 asa taşınır, birleştirme açılır. (Kuşanılı asa sayılmadığı için bir kopya fazladan cepte durur.)
+| Nadirlik | Asa | Eşya | Kuşanılabilir |
+|---|---|---|---|
+| Sıradan | +3 | +20 | +2 |
+| Gelişmiş | +5 | +40 | +3 |
+| Nadir | +8 | +70 | +5 |
+| Destansı | +12 | +110 | +7 |
+| Efsanevi | +18 | +170 | +10 |
+| Mistik | +26 | +250 | +14 |
 
 Kurallar:
-- Yeni alınan çanta, eskisinden iyiyse **kendiliğinden kuşanılır**; eski çanta çantada kalır.
+- Yeni alınan çanta, eskisinden daha nadirse **kendiliğinden kuşanılır**; eski çanta çantada kalır.
 - Çantayı çıkarırken ya da daha küçüğüne geçerken **eldekiler yeni kapasiteye sığmıyorsa reddedilir** ("Önce fazlalığı sat ya da at").
-- Ekipman değiştirince net yer artmaz (yeni giyilen çıkar, eskisi girer). Giyili ekipmanı çıkarmak için "Kuşanılabilir" yerinde yer gerekir.
+- Ekipman değiştirince net yer artmaz (yeni giyilen çıkar, eskisi girer). Giyili ekipmanı çıkarmak için "Kuşanılabilir" yerinde yer gerekir. Aynı eşyadan fazla kopya varsa giyilen kopya sayılmaz.
 
 ## Taşıyıcı yetenekleri
 
@@ -66,7 +63,7 @@ Toplam **+4 asa, +50 eşya, +4 kuşanılabilir** (6 puan). Element yetenekleriyl
 
 **B** tuşu ya da sol üstteki **🎒 Çanta** düğmesi (özet: "Asa 2/6 · Eşya 12/20"). Gösterir:
 - Üç kapasite çubuğu (dolunca sarı, aşılınca kırmızı).
-- Kuşanılan çanta (**Çıkar**).
+- **Kuşanılanlar:** 6 ekipman yuvası ikonlarla (**Çıkar**) ve toplam etkiler (zırh, hız, büyü süresi).
 - Ticari eşyalar ve iksirler (**At**, **Hepsini at**).
 - Çantadaki ekipman (**Kuşan**, **At**).
 

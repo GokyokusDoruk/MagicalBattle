@@ -2,6 +2,7 @@ import type { Element } from '../battle/damage/elements';
 import type { BotProfile } from '../battle/flow/bot';
 import { MAX_HP } from '../battle/flow/config';
 import type { FighterInit } from '../battle/flow/engine';
+import type { GearResolver } from '../economy/gearEffects';
 import type { WandResolver } from '../wands/inventory';
 import type { SpellResolver } from '../skills/resolver';
 import type { ChoiceLine } from '../morality/catalog';
@@ -91,7 +92,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 4,
     id: 'soylu-sampiyonu',
     title: 'Soylu Şampiyonu',
-    foes: [{ name: 'Soylu Şampiyonu', hp: 420, basePower: 80, armor: 0.35, skill: 0.5, elements: { earth: 2, air: 1 } }],
+    foes: [{ name: 'Soylu Şampiyonu', hp: 540, basePower: 85, armor: 0.35, skill: 0.55, elements: { earth: 2, air: 1 } }],
     intro: [{ speaker: 'Soylu Şampiyonu', text: 'Ailemi tehdit eden sensin. Zırhımı delecek büyü henüz doğmadı.' }],
     reward: { gold: 280, xp: 250 },
     targetLevel: 7,
@@ -100,7 +101,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 5,
     id: 'kaelen',
     title: 'General Kaelen',
-    foes: [{ name: 'General Kaelen', hp: 480, basePower: 90, armor: 0.25, skill: 0.6, elements: { earth: 4, fire: 1 } }],
+    foes: [{ name: 'General Kaelen', hp: 580, basePower: 95, armor: 0.25, skill: 0.6, elements: { earth: 4, fire: 1 } }],
     intro: [{ speaker: 'General Kaelen', text: 'Taş çökmez. Sabrım, senin gücünden uzun sürer.' }],
     reward: { gold: 360, xp: 330 },
     targetLevel: 10,
@@ -131,10 +132,10 @@ export const BOSSES: readonly BossDef[] = [
     id: 'malakor',
     title: 'Malakor, Gölge Hükümdarı',
     foes: [
-      { name: 'Malakor', hp: 650, basePower: 110, armor: 0.2, skill: 0.75, attackScale: 1.1 },
-      { name: 'Gölge', hp: 300, basePower: 90, armor: 0.1, skill: 0.55 },
+      { name: 'Malakor', hp: 760, basePower: 115, armor: 0.2, skill: 0.75, attackScale: 1.1 },
+      { name: 'Gölge', hp: 340, basePower: 95, armor: 0.1, skill: 0.55 },
     ],
-    foesDark: [{ name: 'Malakor', hp: 480, basePower: 105, armor: 0.2, skill: 0.7, attackScale: 1.1 }],
+    foesDark: [{ name: 'Malakor', hp: 560, basePower: 110, armor: 0.2, skill: 0.7, attackScale: 1.1 }],
     intro: [{ speaker: 'Malakor', text: 'Dört elementin sahibi karşında. Gel, gölgeme katıl ya da sön.' }],
     reward: { gold: 900, xp: 900 },
     targetLevel: 20,
@@ -160,6 +161,8 @@ export interface PlayerStats {
   takenMultiplier?: number;
   spells?: SpellResolver;
   wands?: WandResolver;
+  /** Ekipman (zırh ve yüzük) çözücüsü; verilirse `armor` yerine kullanılır (büyünün elementine göre) */
+  gear?: GearResolver;
 }
 
 /** Yoldaşın (Elysia) ayarları */
@@ -184,6 +187,7 @@ export function bossFighters(chapter: number, player: PlayerStats, path: FinalPa
       control: 'human',
       maxHp: playerMaxHp(player.level),
       armor: player.armor,
+      gear: player.gear,
       dealtMultiplier: player.dealtMultiplier,
       takenMultiplier: player.takenMultiplier,
       spells: player.spells,

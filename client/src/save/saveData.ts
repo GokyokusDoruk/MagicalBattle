@@ -5,10 +5,10 @@ import type { WandSnapshot } from '../wands/inventory';
 import { CITY_HALF, type LocationDef } from '../world/locations';
 
 /**
- * Kayıt dosyası biçimi (sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
- * aynı alanları doğrular ve eski (v1-v4) kayıtları yükseltir (server/src/save/saveData.ts).
+ * Kayıt dosyası biçimi (sürüm 6: asalar seviyeli ve tek kuşanılı; sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
+ * aynı alanları doğrular ve eski (v1-v5) kayıtları yükseltir (server/src/save/saveData.ts).
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export interface SavePoint {
   cityId: string;
@@ -42,7 +42,7 @@ export interface SaveExtras {
   choices: Readonly<Record<string, Side>>;
 }
 
-const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandsEquipped: {} }, choices: {} };
+const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandEquipped: null }, choices: {} };
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
 
@@ -79,7 +79,7 @@ export function buildSave(
     collected: [...extras.collected],
     skills: [...extras.skills],
     wands: { ...extras.wands.wands },
-    wandsEquipped: { ...extras.wands.wandsEquipped },
+    wandEquipped: extras.wands.wandEquipped,
     choices: { ...extras.choices },
   };
 }
@@ -102,7 +102,7 @@ export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerNam
     collected: raw.collected ?? [],
     skills: raw.skills ?? [],
     wands: raw.wands ?? {},
-    wandsEquipped: raw.wandsEquipped ?? {},
+    wandEquipped: raw.wandEquipped ?? null,
     choices: raw.choices ?? {},
   };
 }

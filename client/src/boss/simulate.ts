@@ -5,6 +5,8 @@ import { runBattle, type BattleIO } from '../battle/flow/controller';
 import { MAX_CYCLES } from '../battle/flow/config';
 import { BattleEngine } from '../battle/flow/engine';
 import { ElysiaBot } from '../battle/flow/elysia';
+import { WandInventory } from '../wands/inventory';
+import { wandIdOf, type Rarity } from '../wands/catalog';
 import { bossFighters, getBoss, type PlayerStats } from './bosses';
 import type { FinalPath } from '../morality/morality';
 
@@ -24,7 +26,8 @@ export function simulateBoss(
   const bots = new Map<string, Bot>();
   for (const f of engine.all()) {
     const k = `${f.team}:${f.index}`;
-    if (f.control === 'human') bots.set(k, new Bot(rand, options.playerSkill));
+    // Oyuncu vekili, kuşandığı asanın elementini daha sık seçer (element eşleşmesi bonusu)
+    if (f.control === 'human') bots.set(k, new Bot(rand, options.playerSkill, { elements: { fire: 2, water: 1, earth: 1, air: 1 } }));
     else if (f.persona === 'elysia') bots.set(k, new ElysiaBot(rand, f.ai?.skill ?? 0.7));
     else bots.set(k, new Bot(rand, f.ai?.skill ?? 0.5, f.ai ?? {}));
   }
@@ -43,15 +46,23 @@ export function simulateBoss(
 }
 
 /**
- * Seviyeye göre makul bir donanım modeli (yetenek, asa ve ekipmanın bileşimi): verilen hasar seviye başına +%3
- * (en çok +%70), zırh seviye başına %1.2 (en çok %40). Gerçek oyuncu bunu farklı yollardan elde eder.
+ * Seviyeye göre makul bir donanım modeli: ekipman ve yetenekten verilen hasar seviye başına +%1.5 (en çok +%40), zırh seviye
+ * başına %1.2 (en çok %40) ve bir **saldırı asası** (ateş; nadirlik seviyeyle artar: her 6 seviyede bir, seviyesi oyuncu seviyesi).
+ * Gerçek oyuncu bunu farklı yollardan elde eder; amaç bossların birbirine göre zorluğunu ölçmektir.
  */
-export function typicalKit(level: number): PlayerStats {
+export function typicalKit(level: number, options: { wand?: boolean } = {}): PlayerStats {
+  const inv = new WandInventory();
+  inv.setLevelProvider(() => level);
+  if (options.wand !== false) {
+    const rarity = Math.min(6, 1 + Math.floor(level / 6)) as Rarity;
+    inv.add(wandIdOf({ element: 'fire', role: 'attack', rarity, level: Math.max(1, level) }));
+  }
   return {
     name: 'Oyuncu',
     level,
     armor: Math.min(0.4, 0.012 * level),
-    dealtMultiplier: Math.min(1.7, 1 + 0.03 * (level - 1)),
+    dealtMultiplier: Math.min(1.4, 1 + 0.015 * (level - 1)),
+    wands: inv.resolver,
   };
 }
 

@@ -1,5 +1,6 @@
 import type { SlotRef } from '../arena/layout';
 import { neutralEffects, type SpellResolver } from '../../skills/resolver';
+import type { GearResolver } from '../../economy/gearEffects';
 import type { BotProfile } from './bot';
 import { neutralWand, type WandResolver } from '../../wands/inventory';
 import { BASE_POWER, MAX_CYCLES, MAX_HP } from './config';
@@ -12,8 +13,10 @@ export interface FighterInit {
   control: Control;
   maxHp?: number;
   basePower?: number;
-  /** Toplam zırhtan gelen hasar azaltma (0-1) */
+  /** Toplam zırhtan gelen hasar azaltma (0-1). `gear` verilirse onun zırhı kullanılır. */
   armor?: number;
+  /** Ekipmandan (zırh ve yüzük) gelen etkiler; büyünün elementine göre hesaplanır (element eşleşmesi %50) */
+  gear?: GearResolver;
   /** Skill/ekipmandan gelen verilen hasar çarpanı (1 = etkisiz) */
   dealtMultiplier?: number;
   /** Skill/ekipmandan gelen alınan hasar çarpanı (1 = etkisiz) */
@@ -28,7 +31,8 @@ export interface FighterInit {
   ai?: BotProfile;
 }
 
-export interface Fighter extends Required<Omit<FighterInit, 'persona' | 'ai'>> {
+export interface Fighter extends Required<Omit<FighterInit, 'persona' | 'ai' | 'gear'>> {
+  gear: GearResolver;
   persona: 'elysia' | null;
   ai: BotProfile | null;
   index: number;
@@ -78,6 +82,7 @@ export class BattleEngine {
         maxHp,
         basePower: init.basePower ?? BASE_POWER,
         armor: init.armor ?? 0,
+        gear: init.gear ?? (() => ({ armor: init.armor ?? 0, timeBonusSec: 0 })),
         dealtMultiplier: init.dealtMultiplier ?? 1,
         takenMultiplier: init.takenMultiplier ?? 1,
         spells: init.spells ?? neutralEffects,

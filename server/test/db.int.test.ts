@@ -160,7 +160,7 @@ describe('uygulama + gerçek veritabanı', () => {
 describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
   const saves = () => new PrismaSaveRepository(prisma);
   const data = {
-    version: 5 as const,
+    version: 6 as const,
     playerName: 'Aylin',
     completedChapters: [1, 2],
     savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
@@ -171,8 +171,8 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
     quests: { 'ash-ot-toplama': { status: 'completed' as const, progress: 5 } },
     collected: ['p-herb-1', 'p-herb-2'],
     skills: ['fire-power-1', 'earth-ward-1'],
-    wands: { 'wand-fire-attack-2': 1 },
-    wandsEquipped: { 'fire-attack': 'wand-fire-attack-2' },
+    wands: { 'wand-fire-attack-2-6': 1 },
+    wandEquipped: 'wand-fire-attack-2-6',
     choices: { 'c1-isciler': 'good' as const },
   };
 
@@ -199,7 +199,7 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
       data: { userId: user.id, data: { version: 1, playerName: 'Eski', completedChapters: [1], savePoint: null } },
     });
     expect(await saves().get(user.id)).toEqual({
-      version: 5,
+      version: 6,
       playerName: 'Eski',
       completedChapters: [1],
       savePoint: null,
@@ -211,7 +211,7 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
       collected: [],
       skills: [],
       wands: {},
-      wandsEquipped: {},
+      wandEquipped: null,
       choices: {},
     });
   });

@@ -1,18 +1,29 @@
 /**
- * Kayıt dosyası biçimi (sürüm 5). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
- * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 (ekonomi yok), sürüm 2 (yetenek yok) sürüm 3 (asa yok) ve sürüm 4 (ahlak seçimi yok) kayıtlar
+ * Kayıt dosyası biçimi (sürüm 6). İstemci ile aynı alanları kullanır (client/src/save/saveData.ts);
+ * sunucu burada doğrular, istemciye güvenmez. Sürüm 1 (ekonomi yok), sürüm 2 (yetenek yok) sürüm 3 (asa yok), sürüm 4 (ahlak seçimi yok) ve sürüm 5 (asalar seviyesiz, 8 yuvalı) kayıtlar
  * kabul edilir ve varsayılanlarla yükseltilir.
  */
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 /** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe + 3 Taşıyıcı) */
 const MAX_SKILLS = 39;
-/** Asa kataloğunda 48 asa var; kuşanma yuvaları element-rol çiftleridir */
-const MAX_WANDS = 48;
+/** Asalar element, rol, nadirlik ve seviye taşır (4x2x6x30 = 1440 çeşit); çantaya sığanlar sınırlıdır, 200 çeşit yeter */
+const MAX_WANDS = 200;
 /** Hikâyede 16 ahlak seçimi var */
 const MAX_CHOICES = 16;
 const MAX_WAND_STACK = 999;
-const WAND_SLOTS = ['fire', 'water', 'earth', 'air'].flatMap((e) => ['attack', 'defense'].map((r) => `${e}-${r}`));
+/** `wand-fire-attack-3-12`; eski kayıtlardaki seviyesiz biçim (`wand-fire-attack-3`) seviye 1 sayılır */
+const WAND_ID = /^wand-(fire|water|earth|air)-(attack|defense)-([1-6])(?:-(\d{1,2}))?$/;
+const MAX_WAND_LEVEL = 30;
+
+/** Asa kimliğini yeni biçime çevirir; geçersizse null. */
+export function normalizeWandId(id: string): string | null {
+  const m = WAND_ID.exec(id);
+  if (!m) return null;
+  const level = m[4] === undefined ? 1 : Number(m[4]);
+  if (level < 1 || level > MAX_WAND_LEVEL) return null;
+  return `wand-${m[1]}-${m[2]}-${m[3]}-${level}`;
+}
 export const LAST_CHAPTER = 8;
 /** Kayıt noktası olabilecek şehirler (client/src/world/locations.ts ile aynı kimlikler) */
 export const SAVE_CITY_IDS = ['ignis', 'abyss', 'stone-heart', 'still-crystal'] as const;
@@ -23,7 +34,8 @@ export const MAX_STACK = 999;
 const MAX_ENTRIES = 64;
 const MAX_COLLECTED = 200;
 const ID_PATTERN = /^[a-z0-9-]{1,40}$/;
-const GEAR_SLOTS = ['robe', 'hat', 'amulet', 'bag'] as const;
+/** Ekipman yuvaları (Task 23). `amulet` eski kayıtlarda vardı; istemci yüklerken yüzüğe çevirir. */
+const GEAR_SLOTS = ['robe', 'hat', 'pants', 'bag', 'ring', 'boots', 'amulet'] as const;
 
 export interface SavePoint {
   cityId: string;
@@ -57,8 +69,8 @@ export interface SaveData {
   skills: string[];
   /** Asa envanteri: asa kimliği → adet */
   wands: Record<string, number>;
-  /** Kuşanılan asalar: yuva ("fire-attack") → asa kimliği */
-  wandsEquipped: Record<string, string>;
+  /** Kuşanılı tek asa (kimliği); yoksa null */
+  wandEquipped: string | null;
   /** Yapılan ahlak seçimleri: seçim kimliği → 'good' (iyi) ya da 'bad' (kötü). Puan bunlardan hesaplanır. */
   choices: Record<string, 'good' | 'bad'>;
 }
@@ -130,22 +142,42 @@ function parseWands(input: unknown): Parsed<Record<string, number>> {
   if (input === undefined) return { ok: true, value: {} };
   if (!isPlainObject(input) || Object.keys(input).length > MAX_WANDS) return { ok: false, error: 'Asalar geçersiz.' };
   const out: Record<string, number> = {};
-  for (const [id, count] of Object.entries(input)) {
-    if (!isId(id) || !isInt(count, 1, MAX_WAND_STACK)) return { ok: false, error: 'Asalar geçersiz.' };
-    out[id] = count;
+  for (const [rawId, count] of Object.entries(input)) {
+    const id = normalizeWandId(rawId);
+    if (!id || !isInt(count, 1, MAX_WAND_STACK)) return { ok: false, error: 'Asalar geçersiz.' };
+    out[id] = Math.min(MAX_WAND_STACK, (out[id] ?? 0) + count); // eski ve yeni biçim aynı asaya çıkarsa toplanır
   }
   return { ok: true, value: out };
 }
 
-function parseWandsEquipped(input: unknown): Parsed<Record<string, string>> {
-  if (input === undefined) return { ok: true, value: {} };
-  if (!isPlainObject(input)) return { ok: false, error: 'Kuşanılan asalar geçersiz.' };
-  const out: Record<string, string> = {};
-  for (const [slot, id] of Object.entries(input)) {
-    if (!WAND_SLOTS.includes(slot) || !isId(id)) return { ok: false, error: 'Kuşanılan asalar geçersiz.' };
-    out[slot] = id;
+/**
+ * Kuşanılı asa: v6'da tek kimlik ya da null. Eski kayıtlarda (v5 ve öncesi) `wandsEquipped` (yuva → asa) vardı;
+ * en yüksek nadirlikteki sahip olunan asa seçilir.
+ */
+function parseWandEquipped(b: Record<string, unknown>, wands: Record<string, number>): Parsed<string | null> {
+  const bad = { ok: false as const, error: 'Kuşanılan asa geçersiz.' };
+  if (b.wandEquipped !== undefined && b.wandEquipped !== null) {
+    if (typeof b.wandEquipped !== 'string') return bad;
+    const id = normalizeWandId(b.wandEquipped);
+    if (!id) return bad;
+    return { ok: true, value: id in wands ? id : null };
   }
-  return { ok: true, value: out };
+  if (b.wandEquipped === undefined && b.wandsEquipped !== undefined) {
+    if (!isPlainObject(b.wandsEquipped)) return bad;
+    let best: string | null = null;
+    let bestRarity = 0;
+    for (const raw of Object.values(b.wandsEquipped)) {
+      const id = typeof raw === 'string' ? normalizeWandId(raw) : null;
+      if (!id) return bad;
+      const rarity = Number(id.split('-')[3]);
+      if (id in wands && rarity > bestRarity) {
+        best = id;
+        bestRarity = rarity;
+      }
+    }
+    return { ok: true, value: best };
+  }
+  return { ok: true, value: null };
 }
 
 function parseChoices(input: unknown): Parsed<Record<string, 'good' | 'bad'>> {
@@ -165,7 +197,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   if (!isPlainObject(input)) return bad('Kayıt verisi geçersiz.');
   const b = input;
 
-  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
+  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== 5 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
 
   const nameError = validatePlayerName(b.playerName);
   if (nameError) return bad(nameError);
@@ -208,8 +240,8 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   if (!skills.ok) return bad(skills.error);
   const wands = parseWands(b.wands);
   if (!wands.ok) return bad(wands.error);
-  const wandsEquipped = parseWandsEquipped(b.wandsEquipped);
-  if (!wandsEquipped.ok) return bad(wandsEquipped.error);
+  const wandEquipped = parseWandEquipped(b, wands.value);
+  if (!wandEquipped.ok) return bad(wandEquipped.error);
   const choices = parseChoices(b.choices);
   if (!choices.ok) return bad(choices.error);
 
@@ -228,7 +260,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
       collected: collected.value,
       skills: skills.value,
       wands: wands.value,
-      wandsEquipped: wandsEquipped.value,
+      wandEquipped: wandEquipped.value,
       choices: choices.value,
     },
   };
