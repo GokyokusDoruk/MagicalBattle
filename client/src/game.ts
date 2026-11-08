@@ -15,6 +15,7 @@ import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
 import { Morality } from './morality/morality';
 import { getBoss } from './boss/bosses';
+import { goldLoss, nearestHealer, respawnLines } from './economy/death';
 import { DialogueUi } from './ui/dialogueUi';
 import { runBossFight } from './ui/bossFight';
 import { WandUi } from './ui/wandUi';
@@ -233,6 +234,22 @@ async function playChapterChoices(chapter: number): Promise<void> {
   if (chapter === 8) await dialogueUi.run(linesTree('final', finalLines(morality.score)), ctx);
 }
 
+/**
+ * Ölüm (boss savaşında yenilip pes etmek): altının seviyeye göre bir kısmı kaybolur, en yakın köyün şifacısının
+ * yanında ayılırsın. XP, seviye, eşya, asa ve ekipman korunur. (Task 20, docs/olum-ve-ekonomi.md)
+ */
+async function handleDeath(): Promise<void> {
+  const spot = nearestHealer(debug.player.x / TILE_SIZE, debug.player.y / TILE_SIZE);
+  const lost = goldLoss(hero.level, hero.gold);
+  if (lost > 0) hero.spendGold(lost);
+  setDirty(true);
+  sfx.play('lose');
+  if (!spot) return;
+  pendingTeleport = { x: spot.tileX * TILE_SIZE + TILE_SIZE / 2, y: spot.tileY * TILE_SIZE + TILE_SIZE / 2 };
+  const ctx = { score: () => morality.score, flags: new Set<string>(), onEffect: (): void => {} };
+  await dialogueUi.run(linesTree('respawn', respawnLines(spot, lost, hero.level)), ctx);
+}
+
 /** Sahne bu oturumda izlendi mi (yenilgiden sonra tekrar denerken sahne baştan oynamasın) */
 const scenesSeen = new Set<number>();
 
@@ -261,7 +278,12 @@ async function playChapter(chapter: number): Promise<void> {
         morality.finalPath,
       );
       if (outcome !== 'won') {
-        toast.show(outcome === 'lost' ? `${boss.title} seni yendi. Hazırlanıp tekrar dene.` : 'Geri çekildin. Hazır olunca tekrar gel.');
+        if (outcome === 'lost') {
+          toast.show(`${boss.title} seni yendi.`);
+          await handleDeath();
+        } else {
+          toast.show('Geri çekildin. Hazır olunca tekrar gel.');
+        }
         return;
       }
       hero.addGold(boss.reward.gold);
@@ -309,6 +331,7 @@ const debug = {
   dialogueUi,
   playChapterChoices,
   playChapter,
+  handleDeath,
   collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */
