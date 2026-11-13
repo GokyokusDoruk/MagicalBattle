@@ -21,6 +21,9 @@ export const ELEMENT_PALETTE: Record<Element, Palette> = {
   air: { main: '#f8fafc', dark: '#64748b', light: '#ffffff' },
 };
 
+/** Elementi olmayan ekipman (eski çantalar): gri */
+export const NEUTRAL_PALETTE: Palette = { main: '#94a3b8', dark: '#334155', light: '#e2e8f0' };
+
 /** Yuva şekilleri (48x48). Dolgu: ana renk, çizgi: koyu renk. */
 function shape(slot: GearSlot, p: Palette): string {
   const stroke = `stroke="${p.dark}" stroke-width="1.6" stroke-linejoin="round"`;
@@ -78,8 +81,8 @@ export function itemIconSvg(item: ItemDef, size = 40): string {
   let body: string;
   let back = '';
   let front = '';
-  if (item.slot && item.element) {
-    const palette = ELEMENT_PALETTE[item.element];
+  if (item.slot) {
+    const palette = item.element ? ELEMENT_PALETTE[item.element] : NEUTRAL_PALETTE;
     body = shape(item.slot, palette);
     ({ back, front } = decorations(item.rarity ?? 1));
   } else if (item.heal !== undefined) {

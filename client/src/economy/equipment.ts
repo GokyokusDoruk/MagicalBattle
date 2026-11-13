@@ -114,8 +114,8 @@ export const EQUIPMENT: readonly ItemDef[] = GEAR_SLOT_LIST.flatMap((slot) =>
 );
 
 /**
- * Eski kayıtlardaki ekipman (Task 21'e kadar: 7 zırh eşyası ve 5 çanta) yeni eşyalara dönüşür. Tılsım yuvası kalktı;
- * tılsımlar yüzük olur. Böylece eski oyuncular ekipmanını kaybetmez.
+ * Eski kayıtlardaki zırh eşyaları (Task 21'e kadar) yeni eşyalara dönüşür. Tılsım yuvası kalktı; tılsımlar yüzük olur.
+ * Eski ÇANTALAR dönüşmez: aynen kalır (aşağıda `LEGACY_BAGS`), kendi kapasitesini korur.
  */
 export const LEGACY_ITEMS: Readonly<Record<string, string>> = {
   'cirak-cuppesi': 'eq-robe-earth-1',
@@ -125,12 +125,24 @@ export const LEGACY_ITEMS: Readonly<Record<string, string>> = {
   'tilsimli-sapka': 'eq-hat-air-2',
   'tas-tilsim': 'eq-ring-earth-1',
   'ruzgar-tilsimi': 'eq-ring-air-2',
-  'kucuk-canta': 'eq-bag-earth-1',
-  'deri-canta': 'eq-bag-earth-2',
-  'gezgin-cantasi': 'eq-bag-earth-3',
-  'usta-cantasi': 'eq-bag-earth-4',
-  'efsunlu-canta': 'eq-bag-earth-5',
 };
 export const LEGACY_SLOTS: Readonly<Record<string, GearSlot>> = { amulet: 'ring' };
 
 export const migrateItemId = (id: string): string => LEGACY_ITEMS[id] ?? id;
+
+/**
+ * Eski çantalar (Task 21): kimlikleri, adları ve kapasiteleri aynen korunur, kuşanılabilir ve satılabilir. Elementleri
+ * olmadığı için şehir bonusu almazlar. Artık tüccarda satılmaz ve yeni oyunlarda verilmez.
+ */
+export const LEGACY_BAGS: readonly ItemDef[] = ([
+  { id: 'kucuk-canta', name: 'Küçük Çanta (eski)', price: 100, carry: { wands: 3, goods: 20, gear: 2 }, rarity: 1 },
+  { id: 'deri-canta', name: 'Deri Çanta (eski)', price: 300, carry: { wands: 5, goods: 40, gear: 3 }, rarity: 2 },
+  { id: 'gezgin-cantasi', name: 'Gezgin Çantası (eski)', price: 800, carry: { wands: 8, goods: 70, gear: 5 }, rarity: 3 },
+  { id: 'usta-cantasi', name: 'Usta Çantası (eski)', price: 2000, carry: { wands: 12, goods: 110, gear: 7 }, rarity: 4 },
+  { id: 'efsunlu-canta', name: 'Efsunlu Çanta (eski)', price: 5000, carry: { wands: 18, goods: 170, gear: 10 }, rarity: 5 },
+] as const satisfies readonly Pick<ItemDef, 'id' | 'name' | 'price' | 'carry' | 'rarity'>[]).map((b): ItemDef => ({
+  ...b,
+  carry: { ...b.carry },
+  description: 'Eski çanta: kapasitesini korur, element bonusu yoktur.',
+  slot: 'bag',
+}));

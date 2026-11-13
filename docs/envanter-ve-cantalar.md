@@ -37,6 +37,20 @@ Kurallar:
 - Çantayı çıkarırken ya da daha küçüğüne geçerken **eldekiler yeni kapasiteye sığmıyorsa reddedilir** ("Önce fazlalığı sat ya da at").
 - Ekipman değiştirince net yer artmaz (yeni giyilen çıkar, eskisi girer). Giyili ekipmanı çıkarmak için "Kuşanılabilir" yerinde yer gerekir. Aynı eşyadan fazla kopya varsa giyilen kopya sayılmaz.
 
+## Şehir bonusu ve şehirden çıkarken eşya bırakma
+
+Kendi elementinin şehrinde (ya da köyünde) çantanın kattığı kapasite **%50** artar ([ekipman.md](ekipman.md)). Bu yüzden şehirde çok eşya taşıyıp çıkarken çanta **küçülür**:
+
+1. Şehirden (köyden) çıkış anında taşıdıkların yeni kapasiteye sığmıyorsa **"Çantan küçülüyor"** ekranı açılır: hangi kategoride kaç tane fazla olduğu ve eşya listesi. **Hangilerini bırakmak istediğini seçersin** (+/−). En ucuzlar önceden seçilir.
+2. Fazlalık karşılanınca **Seçilenleri bırak ve çık** açılır. Seçim zorunludur (Esc ya da dışarı tıklama kapatmaz).
+3. Ya da **Geri dön (satıp boşalt)** ile şehrin merkezine dönersin, eşyalarını satıp tekrar çıkarsın.
+
+Giyilen ekipman ve kuşanılı asa bırakılamaz (çantada sayılmazlar).
+
+**Yerdeki eşya:** Bırakılan eşyalar çıkış noktasında bir çuval olarak yere düşer ve **10 dakika** (oyun açıkken) kalır, sonra kaybolur; kayda yazılmaz. Yığına yaklaşınca **Yerdeki eşyalar** ekranı açılır: çantanda yer olduğu kadar tek tek ya da "Hepsini al" ile alırsın, süre geri sayar. Bırakırken yığının üstünde durduğun için kendiliğinden açılmaz; uzaklaşıp dönmek gerekir. Çantaya sığmayan ganimet de aynı şekilde yerde kalacak (Task 27+).
+
+Çanta ekranında (B) şehir bonusu aktifken bir not görünür.
+
 ## Taşıyıcı yetenekleri
 
 Yetenek ağacının 5. sekmesi (**🎒 Taşıyıcı**), 3 kademe, **1 / 2 / 3 puan**, sırayla alınır:

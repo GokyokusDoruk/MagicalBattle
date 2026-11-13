@@ -178,3 +178,6 @@ export function describeWand(w: WandDef): string[] {
     `${ELEMENT_NAMES[w.element]} büyüsünde hasar +%50 daha`,
   ];
 }
+
+/** Yeni oyuna eşyasız başlanır, yalnızca bir asa verilir: Sıradan Ateş Saldırı Asası (Sv 1). */
+export const STARTER_WAND_ID = wandIdOf({ element: 'fire', role: 'attack', rarity: 1, level: 1 });

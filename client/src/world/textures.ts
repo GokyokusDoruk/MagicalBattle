@@ -89,6 +89,7 @@ export function createPlayerTexture(scene: Scene): void {
 export const STALL_KEY = 'stall';
 export const HERB_KEY = 'pickup-herb';
 export const CRYSTAL_KEY = 'pickup-crystal';
+export const PILE_KEY = 'ground-pile';
 
 /** Tüccar tezgâhı ve toplanabilir eşyaların (ot, kristal) görselleri. */
 export function createWorldItemTextures(scene: Scene): void {
@@ -118,5 +119,14 @@ export function createWorldItemTextures(scene: Scene): void {
   g.fillStyle(0x7fe8ff, 1).fillTriangle(10, 2, 3, 13, 10, 24).fillTriangle(10, 2, 17, 13, 10, 24);
   g.fillStyle(0xd8fbff, 1).fillTriangle(10, 2, 6, 12, 10, 13);
   g.generateTexture(CRYSTAL_KEY, 20, 26);
+  g.clear();
+
+  // Yerdeki eşya: bırakılmış bir çuval, üstünde parıltı
+  g.fillStyle(0xfcd34d, 0.25).fillCircle(14, 15, 13);
+  g.fillStyle(0x8a5a2b, 1).fillEllipse(14, 20, 20, 14);
+  g.fillStyle(0x6b4423, 1).fillRect(11, 8, 6, 5);
+  g.fillStyle(0xb98550, 1).fillTriangle(8, 12, 14, 6, 20, 12);
+  g.fillStyle(0xfef3c7, 1).fillRect(11, 12, 6, 2);
+  g.generateTexture(PILE_KEY, 28, 30);
   g.destroy();
 }

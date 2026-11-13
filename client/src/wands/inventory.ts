@@ -136,6 +136,18 @@ export class WandInventory {
     return true;
   }
 
+  /** Çantadan asa çıkarır (bırakmak için). Kuşanılı asanın son kopyası çıkarılamaz. Başarılıysa true. */
+  remove(id: string, count = 1): boolean {
+    const n = Math.floor(count);
+    if (!(n > 0) || this.count(id) < n) return false;
+    if (this.equippedId === id && this.count(id) - n < 1) return false;
+    const left = this.count(id) - n;
+    if (left > 0) this.counts.set(id, left);
+    else this.counts.delete(id);
+    this.changed();
+    return true;
+  }
+
   /** Asayı kuşanır (öncekinin yerine). Seviye yetmiyorsa false, neden `lastBlockReason`. */
   equip(id: string): boolean {
     this.lastBlockReason = this.checkEquip(id);

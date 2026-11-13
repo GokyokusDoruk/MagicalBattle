@@ -11,6 +11,12 @@ import { QuestEngine, type QuestCompletion } from './quests/engine';
 import { normalizeSave, savePointForCity, type SaveData } from './save/saveData';
 import { SaveManager } from './save/saveManager';
 import { Carry } from './inventory/carry';
+import { applyDrop, dropCandidates } from './inventory/exitDrop';
+import { GroundLoot } from './world/groundLoot';
+import { locationAt } from './save/cityEntry';
+import { ExitDropUi } from './ui/exitDropUi';
+import { GroundPileUi } from './ui/groundPileUi';
+import { STARTER_WAND_ID } from './wands/catalog';
 import { WandInventory } from './wands/inventory';
 import { WandStock } from './wands/stock';
 import { GearStock } from './economy/gearStock';
@@ -38,7 +44,7 @@ import { lockTouchScroll } from './ui/touchLock';
 import { createUserBadge } from './ui/userBadge';
 import { GateRegistry } from './world/gates';
 import { generateMap } from './world/generateMap';
-import { LOCATIONS } from './world/locations';
+import { LOCATIONS, getLocation } from './world/locations';
 import { merchantSpots } from './world/merchantSpots';
 import { PICKUP_SPOTS } from './world/pickups';
 import { QuestTracker } from './world/questMarkers';
@@ -102,7 +108,10 @@ const skillTree = new SkillTree(() => hero.level);
 const wands = new WandInventory();
 // Envanter ağırlığı: çanta, Taşıyıcı yeteneği ve başlangıç kapasitesi (3 asa, 20 eşya, 2 kuşanılabilir)
 wands.setLevelProvider(() => hero.level);
-const carry = new Carry(hero, wands, () => skillTree.carryBonus);
+/** Bulunulan konum (şehir, köy, arena) ya da açık dünya (null). Kendi elementinin çantası ve ayakkabısı burada %50 güçlüdür. */
+let currentLocationId: string | null = null;
+const elementsHere = () => (currentLocationId ? getLocation(currentLocationId).elements : []);
+const carry = new Carry(hero, wands, () => skillTree.carryBonus, elementsHere);
 carry.install();
 const morality = new Morality();
 // Ahlak etkisi: Düzen Bekçisi görev altınını artırır (tüccar fiyatları merchantUi'a bağlı, aşağıda)
@@ -116,6 +125,9 @@ if (save) {
   skillTree.restore(save.skills); // seviye (puan) yüklendikten sonra
   wands.restore(save);
   morality.restore(save.choices);
+} else {
+  // Yeni oyun: eşyasız başlanır, yalnızca bir asa verilir
+  wands.add(STARTER_WAND_ID);
 }
 applyMoralEffects();
 
@@ -153,11 +165,26 @@ const skillUi = new SkillTreeUi({
 document.body.appendChild(skillUi.element);
 const wandUi = new WandUi({ wands, level: () => hero.level, onChanged: () => setDirty(true) });
 document.body.appendChild(wandUi.element);
-const bagUi = new BagUi({ player: hero, wands, carry, onChanged: () => setDirty(true) });
+/** Şehirde kullanılan bonusun açıklaması (çanta ekranında gösterilir) */
+const locationNote = (): string | null => {
+  const loc = currentLocationId ? getLocation(currentLocationId) : null;
+  if (!loc || loc.elements.length === 0) return null;
+  const bag = hero.equipped.bag ? getItem(hero.equipped.bag) : undefined;
+  const boots = hero.equipped.boots ? getItem(hero.equipped.boots) : undefined;
+  const active = [bag, boots].filter((i) => i?.element && loc.elements.includes(i.element)).map((i) => i!.name);
+  return active.length > 0 ? `${loc.name}: ${active.join(' ve ')} burada %50 daha güçlü (şehir bonusu).` : `${loc.name}: kendi elementinin çantası ve ayakkabısı burada %50 daha güçlüdür.`;
+};
+const bagUi = new BagUi({ player: hero, wands, carry, locationNote, onChanged: () => setDirty(true) });
 document.body.appendChild(bagUi.element);
+/** Şehirden çıkarken bırakılan ve sığmayan eşyalar yerde 10 dakika kalır */
+const ground = new GroundLoot(() => performance.now());
+const groundPileUi = new GroundPileUi({ ground, player: hero, wands, onChanged: () => setDirty(true) });
+document.body.appendChild(groundPileUi.element);
+const exitDropUi = new ExitDropUi();
+document.body.appendChild(exitDropUi.element);
 /** Başka bir panel (sahne, tüccar, diyalog ya da diğer çekmeceler) açıkken yeni panel açılmaz */
 const otherOpen = (except: { isOpen: boolean }): boolean =>
-  [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi].some((p) => p !== except && p.isOpen);
+  [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi, groundPileUi, exitDropUi].some((p) => p !== except && p.isOpen);
 const statusBar = new StatusBar(
   () => {
     if (!otherOpen(skillUi)) skillUi.toggle();
@@ -255,7 +282,7 @@ document.body.appendChild(dialogueUi.element);
 /** Bir bölümün sahnesi, boss savaşı ve seçimleri sürerken true (aralardaki boşlukta da dünya durur) */
 let chapterBusy = false;
 const modalOpen = (): boolean =>
-  chapterBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen;
+  chapterBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -344,7 +371,7 @@ async function playChapter(chapter: number): Promise<void> {
 }
 // K: yetenek ağacı, W: asalar (sahne ya da tüccar açıkken açılmaz)
 window.addEventListener('keydown', (e) => {
-  if (e.repeat || story.isOpen || merchantUi.isOpen || dialogueUi.isOpen) return;
+  if (e.repeat || story.isOpen || merchantUi.isOpen || dialogueUi.isOpen || exitDropUi.isOpen) return;
   if (e.code === 'KeyK' && !otherOpen(skillUi)) skillUi.toggle();
   if (e.code === 'KeyW' && !otherOpen(wandUi)) wandUi.toggle();
   if (e.code === 'KeyB' && !otherOpen(bagUi)) bagUi.toggle();
@@ -372,6 +399,10 @@ const debug = {
   wandUi,
   carry,
   bagUi,
+  ground,
+  groundPileUi,
+  exitDropUi,
+  handleLocationChange,
   morality,
   dialogueUi,
   playChapterChoices,
@@ -389,6 +420,50 @@ if (import.meta.env.DEV) Object.assign(window, { __mb: debug });
 
 const STILL = { x: 0, y: 0 };
 const startPoint = save?.savePoint ? { x: save.savePoint.tileX, y: save.savePoint.tileY } : undefined;
+{
+  const t = startPoint ?? map.spawn;
+  currentLocationId = locationAt(map.locations, t.x, t.y);
+}
+
+let exitBusy = false;
+
+/**
+ * Konum değişti. Şehirden (köyden) çıkınca çantanın şehir bonusu gider; taşıdıkların yeni kapasiteye sığmıyorsa oyuncuya
+ * hangilerini bırakmak istediği sorulur (bırakılanlar çıkış noktasında yerde 10 dakika kalır) ya da şehre geri döner.
+ */
+async function handleLocationChange(from: string | null, to: string | null): Promise<void> {
+  currentLocationId = to;
+  refreshHud();
+  if (!from || exitBusy || !carry.isOverloaded()) return;
+  exitBusy = true;
+  try {
+    const overflow = carry.overflow();
+    const result = await exitDropUi.prompt({
+      locationName: getLocation(from).name,
+      overflow,
+      candidates: dropCandidates(hero, wands),
+      capacity: carry.capacity(),
+      usage: carry.usage(),
+    });
+    if (result.action === 'drop') {
+      const tx = Math.floor(debug.player.x / TILE_SIZE);
+      const ty = Math.floor(debug.player.y / TILE_SIZE);
+      const pile = applyDrop(hero, wands, overflow, result.selection, ground, tx, ty);
+      if (pile) {
+        const n = Object.values(pile.items).reduce((a, b) => a + b, 0) + Object.values(pile.wands).reduce((a, b) => a + b, 0);
+        toast.show(`${n} eşya yere bırakıldı. 10 dakika içinde geri alabilirsin.`);
+        setDirty(true);
+      }
+    } else {
+      // Şehre geri dön: merkeze ışınlan, satıp boşalt
+      const loc = getLocation(from);
+      pendingTeleport = { x: loc.x * TILE_SIZE + TILE_SIZE / 2, y: loc.y * TILE_SIZE + TILE_SIZE / 2 };
+      toast.show('Şehre geri döndün. Eşyalarını sat ya da at, sonra çık.');
+    }
+  } finally {
+    exitBusy = false;
+  }
+}
 
 void import('./world/bootWorld').then((m) =>
   m.bootWorld(document.querySelector('#world')!, {
@@ -396,8 +471,8 @@ void import('./world/bootWorld').then((m) =>
     startTile: startPoint,
     // Sahne ya da tüccar ekranı açıkken karakter durur
     getAxis: () => (modalOpen() ? STILL : input.getAxis()),
-    // Ayakkabı yürüme hızını artırır (şehir bonusu Task 24'te eklenecek)
-    getSpeedMultiplier: () => 1 + hero.speedBonus,
+    // Ayakkabı yürüme hızını artırır; kendi elementinin şehrinde (köyde iki elementten biri) %50 daha çok
+    getSpeedMultiplier: () => 1 + hero.speedBonusIn(elementsHere()),
     gates,
     quests,
     notify: (message) => toast.show(message),
@@ -439,6 +514,11 @@ void import('./world/bootWorld').then((m) =>
       handleCompletions(sideQuests.onEvent({ type: 'collect' }));
     },
     onLocationEnter: (locationId) => handleCompletions(sideQuests.onEvent({ type: 'visit', locationId })),
+    onLocationChange: (from, to) => void handleLocationChange(from, to),
+    groundPiles: () => ground.piles(),
+    onPileEnter: (id) => {
+      if (!modalOpen()) groundPileUi.open(id);
+    },
     takeTeleport: () => {
       const t = pendingTeleport;
       pendingTeleport = null;
