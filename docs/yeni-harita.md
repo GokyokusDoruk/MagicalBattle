@@ -5,7 +5,7 @@ Kod: `client/src/world/smoothTerrain.ts` (yumuşak arazi çizici), `world/terrai
 ## Harita
 
 - **136×136** karo (eskiden 96×96); başlangıç ortada (68, 68). Şehir ve köyler **yerini korur**: hepsi 20 karo kaydırıldı (`MAP_OFFSET`). Yeni dış halka (eski haritanın dışı) yeni arazi ve daha uzak, daha tehlikeli bölgelerdir.
-- **Çalılık** (`Tile.Thicket`): geçilebilir yeni zemin. Orman geçilmez kalır. Düşman karşılaşmaları çalılıkta olacak (Task 40; şimdilik eski çimen ve kumsal karşılaşması sürüyor).
+- **Çalılık** (`Tile.Thicket`): geçilebilir yeni zemin. Orman geçilmez kalır. Düşman karşılaşmaları çalılıkta olacak (Task 40, bkz. [karsilasmalar-ve-rusvet.md](karsilasmalar-ve-rusvet.md)).
 - Düşman sayısı 32 → **88**, sandık 12 → **28**; kademeler kotayla dağıtılır (yakın alan küçük olduğu için rastgele yerleşim hep zor düşman verirdi). Madenler (şehir başına 4) aynı.
 - **Kayıt sürümü 9:** eski (v1-v8) kayıtlarda kayıt noktası yeni haritaya +20 karo kaydırılır (sunucuda ve istemcide).
 

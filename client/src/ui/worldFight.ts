@@ -6,7 +6,15 @@ import { enemyFighters, enemyStats } from '../enemies/catalog';
 import type { EnemySpot } from '../enemies/spots';
 import { BattleScreen } from './battleScreen';
 
-export type WorldFightOutcome = 'won' | 'lost' | 'retreat';
+export type WorldFightOutcome = 'won' | 'lost' | 'retreat' | 'bribed';
+
+/** Rüşvet seçeneği: bedel, para birimi adı, bakiye ve ödeme (başarılıysa true). Verilmezse panelde rüşvet düğmesi yoktur. */
+export interface BribeOption {
+  cost: number;
+  currencyName: string;
+  balance: () => number;
+  pay: () => boolean;
+}
 
 export interface WorldFightResult {
   outcome: WorldFightOutcome;
@@ -16,8 +24,10 @@ export interface WorldFightResult {
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-/** Savaş öncesi panel: düşman ve canların. true = savaşa gir, false = kaç. */
-function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, playerMaxHp: number): Promise<boolean> {
+type Choice = 'fight' | 'flee' | 'bribe';
+
+/** Savaş öncesi panel: düşman ve canların. Savaş, kaç ya da (varsa) rüşvet ver. */
+function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, playerMaxHp: number, bribe?: BribeOption): Promise<Choice> {
   const s = enemyStats(spot.element, spot.tier);
   const panel = document.createElement('div');
   panel.className = 'fixed inset-0 z-[71] flex items-center justify-center bg-black/85 p-4';
@@ -27,33 +37,38 @@ function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, pl
       <h2 class="text-xl font-bold text-amber-300" data-enemy>${esc(s.name)}</h2>
       <p class="text-sm text-slate-300">Element: <b>${ELEMENT_NAMES[spot.element]}</b> · Seviye ${s.level} · ${s.hp} can</p>
       <p class="text-sm" data-hp>Canın: <b class="${playerHp < playerMaxHp ? 'text-amber-300' : 'text-emerald-300'}">${playerHp} / ${playerMaxHp}</b></p>
+      ${bribe ? `<p class="text-xs text-slate-400">Rüşvet verirsen savaş olmaz ve düşman çekilir. Elindeki: <b>${bribe.balance()} ${esc(bribe.currencyName)}</b></p>` : ''}
       <div class="flex gap-3">
         <button data-go type="button" class="flex-1 rounded bg-amber-300 px-4 py-3 font-bold text-slate-900">Savaş</button>
         <button data-back type="button" class="flex-1 rounded bg-slate-700 px-4 py-3 font-bold">Kaç</button>
       </div>
+      ${bribe ? `<button data-bribe type="button" ${bribe.balance() < bribe.cost ? 'disabled' : ''} class="rounded bg-emerald-300 px-4 py-2 text-sm font-bold text-slate-900 disabled:opacity-40">💰 Rüşvet ver (${bribe.cost} ${esc(bribe.currencyName)})</button>` : ''}
     </div>`;
   parent.appendChild(panel);
   return new Promise((resolve) => {
-    const done = (go: boolean): void => {
+    const done = (c: Choice): void => {
       panel.remove();
-      resolve(go);
+      resolve(c);
     };
-    panel.querySelector('[data-go]')!.addEventListener('click', () => done(true));
-    panel.querySelector('[data-back]')!.addEventListener('click', () => done(false));
+    panel.querySelector('[data-go]')!.addEventListener('click', () => done('fight'));
+    panel.querySelector('[data-back]')!.addEventListener('click', () => done('flee'));
+    panel.querySelector('[data-bribe]')?.addEventListener('click', () => done('bribe'));
   });
 }
 
 /**
  * Dünya düşmanıyla savaş. Önce panel (kaçabilirsin), sonra savaş. Yenilince "Tekrar dene" ya da pes (ölüm).
- * Zaferde 'won' ve kalan can, pes edince 'lost', kaçınca 'retreat' döner.
+ * Zaferde 'won' ve kalan can, pes edince 'lost', kaçınca 'retreat', rüşvet verilince 'bribed' döner.
  */
-export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp: number): Promise<WorldFightResult> {
+export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp: number, bribe?: BribeOption): Promise<WorldFightResult> {
   const root = document.createElement('div');
   root.className = 'fixed inset-0 z-[70] bg-black';
   document.body.appendChild(root);
   try {
     const entryHp = player.hp ?? maxHp;
-    if (!(await confirmFight(root, spot, entryHp, maxHp))) return { outcome: 'retreat', hp: null };
+    const choice = await confirmFight(root, spot, entryHp, maxHp, bribe);
+    if (choice === 'flee') return { outcome: 'retreat', hp: null };
+    if (choice === 'bribe') return bribe?.pay() ? { outcome: 'bribed', hp: null } : { outcome: 'retreat', hp: null };
     for (;;) {
       const engine = new BattleEngine(enemyFighters(spot.element, spot.tier, { ...player, hp: entryHp }), { maxCycles: MAX_CYCLES });
       let again = false;

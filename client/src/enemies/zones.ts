@@ -5,28 +5,23 @@ import { Tile } from '../world/tiles';
 import { tierAt, type EnemySpot } from './spots';
 
 /**
- * Bölge savaşları (Task 29): açık zeminde (çimen ve kumsal) yürürken her yeni karoda %10 şansla düşman çıkar.
- * Zemin elementi belirler: kumsal (su kenarı) → su; şehrin yakınındaki çimen o şehrin elementi (Ignis çevresi köz → ateş,
- * Abyss çevresi rüzgâr → hava, Still Crystal çevresi → su); geri kalan yeşillik → toprak. Yollar, şehir ve köy alanları güvenlidir.
+ * Bölge savaşları (Task 29, Task 40'ta çalılığa taşındı): **yalnızca çalılıkta** yürürken her yeni karoda %10 şansla düşman
+ * çıkar. Düşmanın elementi çalılığa en yakın şehrin elementidir (Ignis çevresi ateş, Abyss hava, Stone Heart toprak, Still
+ * Crystal su). Çimen, kumsal, yol, şehir ve köy alanları güvenlidir; çalılıktan kaçınarak huzurla yürünebilir.
  */
 
 export const ENCOUNTER_CHANCE = 0.1;
 /** Savaştan sonra karşılaşma olmayan süre (ms) */
 export const GRACE_MS = 5000;
-/** Şehrin elementinin çimene yayıldığı uzaklık (karo) */
-export const CITY_ZONE_RADIUS = 18;
-
-/** Bu karoda karşılaşma olabilir mi, olursa hangi elementten? Güvenli karoda null. */
+/** Bu karoda karşılaşma olabilir mi, olursa hangi elementten? Çalılık dışında her yer güvenlidir (null). */
 export function zoneElementAt(map: WorldMap, x: number, y: number): Element | null {
-  const tile = tileAt(map, x, y);
-  if (tile !== Tile.Grass && tile !== Tile.Sand) return null;
+  if (tileAt(map, x, y) !== Tile.Thicket) return null;
   if (locationAt(map.locations, x, y) !== null) return null;
-  if (tile === Tile.Sand) return 'water';
   let best: { d: number; el: Element } | null = null;
   for (const loc of map.locations) {
     if (loc.kind !== 'city') continue;
     const d = Math.hypot(loc.x - x, loc.y - y);
-    if (d <= CITY_ZONE_RADIUS && (!best || d < best.d)) best = { d, el: loc.elements[0] };
+    if (!best || d < best.d) best = { d, el: loc.elements[0] };
   }
   return best ? best.el : 'earth';
 }

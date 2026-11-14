@@ -30,7 +30,8 @@ import { moneyLoss, nearestHealer, respawnLines } from './economy/death';
 import { CURRENCIES, CURRENCY_NAMES, cityCurrency, currencyAt, type Currency } from './economy/currency';
 import { DialogueUi } from './ui/dialogueUi';
 import { runBossFight, type HealHooks } from './ui/bossFight';
-import { runWorldFight } from './ui/worldFight';
+import { runWorldFight, type BribeOption } from './ui/worldFight';
+import { bribeCost } from './enemies/bribe';
 import { playEncounterIntro } from './ui/encounterIntro';
 import { ENEMY_SPOTS, EnemyBoard, type EnemySpot } from './enemies/spots';
 import { EncounterGuard, zoneEncounter } from './enemies/zones';
@@ -412,7 +413,19 @@ async function fightEnemy(id: string): Promise<void> {
 }
 
 /** Verilen düşmanla savaşır (sabit düşman ya da bölge karşılaşması). Savaş bitince 5 saniye karşılaşma olmaz. */
-type FightResult = 'won' | 'lost' | 'retreat' | 'skipped';
+/** Düşmana rüşvet seçeneği: bedel, bulunduğun bölgenin biriminden ödenir. */
+function bribeOption(spot: EnemySpot): BribeOption {
+  const currency = regionCurrency();
+  const cost = bribeCost(spot.element, spot.tier);
+  return {
+    cost,
+    currencyName: CURRENCY_NAMES[currency],
+    balance: () => hero.balance(currency),
+    pay: () => hero.spendMoney(currency, cost),
+  };
+}
+
+type FightResult = 'won' | 'lost' | 'retreat' | 'bribed' | 'skipped';
 
 async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro = false): Promise<FightResult> {
   const id = spot.id;
@@ -424,7 +437,17 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
       spot,
       { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
       hero.maxHp,
+      // Rüşvet: bölgenin parasıyla; maden ve sandık muhafızlarına verilmez
+      fromMine ? undefined : bribeOption(spot),
     );
+    if (outcome === 'bribed') {
+      // Sabit düşman haritadan kaybolur (yenilmiş gibi bir süre sonra geri gelir); çalılık karşılaşması hiç olmamış sayılır
+      enemyBoard.defeat(id);
+      sfx.play('pick');
+      toast.show(`Rüşvet verdin: ${enemyStats(spot.element, spot.tier).name} çekildi.`);
+      setDirty(true);
+      return 'bribed';
+    }
     if (outcome === 'retreat') return 'retreat';
     if (outcome === 'lost') {
       toast.show(`${enemyStats(spot.element, spot.tier).name} seni yendi.`);
