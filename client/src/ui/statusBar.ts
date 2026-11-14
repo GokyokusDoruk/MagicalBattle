@@ -41,7 +41,7 @@ export class StatusBar {
   private readonly bagBtn: HTMLButtonElement;
 
   /** `onSkills` verilirse durum çubuğunda yetenek ağacını açan bir düğme çıkar (dokunmatik için). */
-  constructor(onSkills?: () => void, onWands?: () => void, onBag?: () => void) {
+  constructor(onSkills?: () => void, onWands?: () => void, onBag?: () => void, onQuests?: () => void) {
     this.element = document.createElement('div');
     this.element.className =
       'pointer-events-none fixed left-3 top-14 z-40 w-48 rounded-lg bg-black/60 px-3 py-2 text-xs text-amber-50 shadow';
@@ -51,6 +51,7 @@ export class StatusBar {
       <div class="mt-1 h-1.5 overflow-hidden rounded bg-white/15"><div data-fill class="h-full bg-sky-400 transition-all duration-300"></div></div>
       <div class="mt-1 flex items-center justify-between text-[11px]"><span>❤ Can</span><b data-hp></b></div>
       <div class="h-1.5 overflow-hidden rounded bg-white/15"><div data-hpfill class="h-full bg-rose-400 transition-all duration-300"></div></div>
+      <button type="button" data-quests-btn class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">📜 Görevler (J)</button>
       <button type="button" data-skills class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">✦ Yetenekler (K)</button>
       <button type="button" data-wands class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🪄 Asalar (W)</button>
       <button type="button" data-bag class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🎒 Çanta (B)</button>
@@ -66,6 +67,9 @@ export class StatusBar {
     this.dirtyEl = q('[data-dirty]');
     this.questsEl = q('[data-quests]');
     this.moralEl = q('[data-moral]');
+    const questsBtn = q<HTMLButtonElement>('[data-quests-btn]');
+    questsBtn.hidden = !onQuests;
+    if (onQuests) questsBtn.addEventListener('click', onQuests);
     this.skillsBtn = q<HTMLButtonElement>('[data-skills]');
     this.skillsBtn.hidden = !onSkills;
     if (onSkills) this.skillsBtn.addEventListener('click', onSkills);
