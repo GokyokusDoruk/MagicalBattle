@@ -35,10 +35,20 @@ export interface SkillEffect {
   scatter?: number;
   /** Ateş (pasif): rakibin saldırı çizerken ekranında beliren yara izi sayısı */
   scars?: number;
+  /** Su: saldırının rakibi yavaşlatma (soğutma) şansı (0-1) */
+  chillChance?: number;
+  /** Su: yavaşlayan rakibin bir sonraki çiziminden kesilen süre (sn) */
+  chillSec?: number;
+  /** Su: verilen hasarın can olarak geri dönen oranı */
+  lifesteal?: number;
+  /** Su: savunmanın tuttuğu hasarın saldırana geri yansıyan oranı */
+  reflect?: number;
+  /** Su: rakibin savunma ekranını kaplayan sis bulutu sayısı (botlarda savunmayı zayıflatır) */
+  fog?: number;
 }
 
 export type EffectKey = keyof SkillEffect;
-export const EFFECT_KEYS: readonly EffectKey[] = ['burnChance', 'burnDamage', 'shieldBreak', 'chainBonus', 'scatter', 'scars'];
+export const EFFECT_KEYS: readonly EffectKey[] = ['burnChance', 'burnDamage', 'shieldBreak', 'chainBonus', 'scatter', 'scars', 'chillChance', 'chillSec', 'lifesteal', 'reflect', 'fog'];
 
 export interface SkillDef {
   id: string;
@@ -63,6 +73,11 @@ export function describeEffect(fx: SkillEffect): string[] {
   if (fx.chainBonus) out.push(`art arda her ateş büyüsü için +${pct(fx.chainBonus)} hasar (en çok 3 kez)`);
   if (fx.scatter) out.push(`büyünün ${pct(fx.scatter)} kısmı savunmaya takılmadan geçer`);
   if (fx.scars) out.push(`rakibin çizim ekranında ${fx.scars} yara izi; dokunursa 0.2 sn kaybeder`);
+  if (fx.chillChance) out.push(`${pct(fx.chillChance)} ihtimalle rakibi yavaşlatır`);
+  if (fx.chillSec) out.push(`yavaşlayan rakibin sonraki çizim süresi ${fx.chillSec} sn kısalır`);
+  if (fx.lifesteal) out.push(`verdiğin hasarın ${pct(fx.lifesteal)} kadarı sana can olarak döner`);
+  if (fx.reflect) out.push(`savunmanın tuttuğu hasarın ${pct(fx.reflect)} kadarı saldırana yansır`);
+  if (fx.fog) out.push(`rakibin savunma ekranında ${fx.fog} sis bulutu; botların savunması zayıflar`);
   return out;
 }
 
@@ -106,6 +121,38 @@ export const SKILLS: readonly SkillDef[] = [
     summary: 'Pasif: rakip saldırı büyüsü çizerken ekranında küçük yara izleri belirir; izlere dokunursa ekran kızarır ve 0.2 sn kaybeder.',
     passive: true,
     levels: [{ scars: 1 }, { scars: 2 }, { scars: 3 }],
+  },
+  {
+    id: 'water-chill',
+    element: 'water',
+    name: 'Buz Nefesi',
+    summary: 'Su saldırıları rakibi yavaşlatabilir: yavaşlayan rakibin bir sonraki büyü çizim süresi kısalır (birikmez).',
+    levels: [
+      { chillChance: 0.25, chillSec: 0.3 },
+      { chillChance: 0.4, chillSec: 0.5 },
+      { chillChance: 0.55, chillSec: 0.7 },
+    ],
+  },
+  {
+    id: 'water-bubble',
+    element: 'water',
+    name: 'Şifa Kabarcıkları',
+    summary: 'Su saldırıların verdiği hasarın bir kısmı su kabarcıkları olarak sana can verir.',
+    levels: [{ lifesteal: 0.08 }, { lifesteal: 0.14 }, { lifesteal: 0.2 }],
+  },
+  {
+    id: 'water-mirror',
+    element: 'water',
+    name: 'Yansıyan Dalga',
+    summary: 'Su savunman, kalkanının tuttuğu hasarın bir kısmını saldırana geri yollar.',
+    levels: [{ reflect: 0.15 }, { reflect: 0.25 }, { reflect: 0.35 }],
+  },
+  {
+    id: 'water-fog',
+    element: 'water',
+    name: 'Sis Perdesi',
+    summary: 'Su saldırısı rakibin savunma ekranını sisle kaplar; botlar sisin içinde zayıf savunur.',
+    levels: [{ fog: 1 }, { fog: 2 }, { fog: 3 }],
   },
 ];
 

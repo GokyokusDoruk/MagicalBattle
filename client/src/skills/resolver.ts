@@ -8,7 +8,14 @@ export const LIMITS = {
   /** Alev Zinciri: bonus uygulanan en çok art arda büyü sayısı */
   maxChainStacks: 3,
   maxScatter: 0.5,
+  maxChillChance: 0.7,
+  maxLifesteal: 0.3,
+  maxReflect: 0.5,
+  maxFog: 3,
 } as const;
+
+/** Sisli savunma ekranında botun savunması bulut başına bu oranda zayıflar (savunmanın o kısmı geçer) */
+export const FOG_BOT_BYPASS = 0.1;
 
 /** Kırılan kalkanın savunma etkisinin ne kadarı gider (0.6: savunmanın %60'ı geçersiz sayılır) */
 export const SHIELD_BREAK_STRENGTH = 0.6;
@@ -35,6 +42,11 @@ export interface SpellEffects {
   chainBonus: number;
   /** Ateş: büyünün savunmaya takılmadan geçen kısmı */
   scatter: number;
+  /** Su: yavaşlatma şansı ve kesilen süre (sn) */
+  chillChance: number;
+  chillSec: number;
+  /** Su: savunma ekranına konan sis bulutu sayısı */
+  fog: number;
   /** Etkiye katkı veren yeteneklerin kimlikleri */
   skills: string[];
 }
@@ -56,6 +68,9 @@ export const neutralEffects = (element: Element, role: SpellRole): SpellEffects 
   shieldBreak: 0,
   chainBonus: 0,
   scatter: 0,
+  chillChance: 0,
+  chillSec: 0,
+  fog: 0,
   skills: [],
 });
 
@@ -95,11 +110,21 @@ export function resolveSpell(levels: ReadonlyMap<string, number>, element: Eleme
       fx.shieldBreak += e.shieldBreak ?? 0;
       fx.chainBonus += e.chainBonus ?? 0;
       fx.scatter += e.scatter ?? 0;
+      fx.chillChance += e.chillChance ?? 0;
+      fx.chillSec = Math.max(fx.chillSec, e.chillSec ?? 0);
+      fx.lifesteal += e.lifesteal ?? 0;
+      fx.fog += e.fog ?? 0;
+    } else {
+      fx.reflect += e.reflect ?? 0;
     }
     fx.skills.push(`${skill.id}-${level}`);
   }
   fx.burnChance = Math.min(LIMITS.maxBurnChance, fx.burnChance);
   fx.shieldBreak = Math.min(LIMITS.maxShieldBreak, fx.shieldBreak);
   fx.scatter = Math.min(LIMITS.maxScatter, fx.scatter);
+  fx.chillChance = Math.min(LIMITS.maxChillChance, fx.chillChance);
+  fx.lifesteal = Math.min(LIMITS.maxLifesteal, fx.lifesteal);
+  fx.reflect = Math.min(LIMITS.maxReflect, fx.reflect);
+  fx.fog = Math.min(LIMITS.maxFog, Math.round(fx.fog));
   return fx;
 }

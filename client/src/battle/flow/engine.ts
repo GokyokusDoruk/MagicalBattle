@@ -45,6 +45,8 @@ export interface Fighter extends Required<Omit<FighterInit, 'persona' | 'ai' | '
   burn: number;
   /** Art arda ateş saldırısı sayısı (Alev Zinciri) */
   fireChain: number;
+  /** Buz Nefesi: bir sonraki çizimden kesilecek süre (sn); kullanılınca sıfırlanır */
+  chill: number;
 }
 
 /** Bir döngü başında yanan savaşçının yediği yanma hasarı */
@@ -107,6 +109,7 @@ export class BattleEngine {
         passives: init.passives ?? NO_PASSIVES,
         burn: 0,
         fireChain: 0,
+        chill: 0,
         wands: init.wands ?? neutralWand,
         persona: init.persona ?? null,
         ai: init.ai ?? null,

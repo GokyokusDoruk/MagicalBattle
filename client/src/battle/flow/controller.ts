@@ -4,7 +4,7 @@ import type { Element } from '../damage/elements';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { DRAW_TIME_MS } from '../gesture/config';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
-import { LIMITS, SHIELD_BREAK_STRENGTH } from '../../skills/resolver';
+import { FOG_BOT_BYPASS, LIMITS, SHIELD_BREAK_STRENGTH } from '../../skills/resolver';
 import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
 
 export type Role = 'attack' | 'defense';
@@ -42,12 +42,18 @@ export interface TurnReport {
   chainStacks?: number;
   /** Ateş: büyü saçılarak savunmayı kısmen aştı (Kıvılcım Saçması) */
   scatter?: boolean;
+  /** Su: savunan yavaşlatıldı (sonraki çizim süresi kısalır) */
+  chilled?: boolean;
+  /** Su: savunma ekranına konan sis bulutu sayısı */
+  fogged?: number;
 }
 
 /** Saldırı çizerken savunanın pasiflerinden gelen ekran engelleri (Yanık İzi) */
 export interface DrawExtras {
   /** Çizim ekranında beliren yara izi sayısı */
-  scars: number;
+  scars?: number;
+  /** Savunma ekranını kaplayan sis bulutu sayısı (Sis Perdesi) */
+  fog?: number;
 }
 
 /** Yara izine dokunmanın çizim süresinden aldığı */
@@ -157,8 +163,21 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const defenseSec = baseSec + defenseWand.timeBonusSec + defenseGear.timeBonusSec;
 
     // Yanık İzi: savunanın pasifi saldırganın çizim ekranına yara izi koyar (insan dokununca süre kaybeder; botlar rastgele denk gelir)
+    // Yetenek ağaçlarından büyüye özel etkiler: saldıran büyüsünün elementiyle, savunan savunduğu elementle
+    const attackFx = attacker.spells(attackerElement, 'attack');
+    const defenseFx = defender.spells(defenderElement, 'defense');
+
+    // Buz Nefesi: önceki vuruştan kalan yavaşlama bu çizimin süresini kısaltır (bir kez)
+    const attackChill = attacker.chill;
+    const defenseChill = defender.chill;
+    attacker.chill = 0;
+    defender.chill = 0;
+
     const scars = defender.passives.scars;
-    let attack = await io.draw(action.attacker, 'attack', undefined, attackSec, scars > 0 ? { scars } : undefined);
+    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), scars > 0 ? { scars } : undefined);
+    if (attackChill > 0 && attacker.control === 'bot' && attack.validity.valid) {
+      attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - attackChill) } };
+    }
     if (scars > 0 && attacker.control === 'bot' && attack.validity.valid) {
       let hits = 0;
       for (let i = 0; i < scars; i++) if (random() < BOT_SCAR_HIT_CHANCE) hits++;
@@ -197,12 +216,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       continue;
     }
 
-    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, defenseSec);
+    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attackFx.fog > 0 ? { fog: attackFx.fog } : undefined);
     const defenseFailed = !defense.validity.valid;
-
-    // Yetenek ağaçlarından büyüye özel etkiler: saldıran büyüsünün elementiyle, savunan savunduğu elementle
-    const attackFx = attacker.spells(attackerElement, 'attack');
-    const defenseFx = defender.spells(defenderElement, 'defense');
 
     // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
     const critical = random() < attackGear.crit;
@@ -210,8 +225,10 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     // Ateş yetenekleri: kalkan kırma zarı, saçma ve zincir (zar yalnızca ilgili yetenek varsa atılır)
     const chainStacks = attackFx.chainBonus > 0 ? Math.min(LIMITS.maxChainStacks, chainBefore) : 0;
     const shieldBroken = !defenseFailed && attackFx.shieldBreak > 0 && random() < attackFx.shieldBreak;
-    const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0));
-    const breakdown = calculateDamage({
+    // Sis Perdesi: sisli ekranda bir botun savunması zayıflar (insan sisi kendi gözüyle aşmaya çalışır)
+    const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attackFx.fog * FOG_BOT_BYPASS) : 0;
+    const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0)) * (1 - fogBypass);
+    const input = {
       basePower: attacker.basePower * attackWand.powerMultiplier,
       attack,
       defense: defenseFailed ? null : defense.density,
@@ -226,17 +243,24 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       attackerHeadBonus: attackFx.headBonus,
       attackerEffortBonus: attackFx.effortBonus,
       attackerDrawTimeSec: attackSec,
-    });
+    };
+    const breakdown = calculateDamage(input);
     const result = engine.applyDamage(action.defender, breakdown.finalDamage);
     const dealt = result.hpBefore - result.hpAfter;
 
     // Can çalma, sonra yansıtma (yansıma saldıranı yenebilir)
     const healed = dealt > 0 ? engine.heal(action.attacker, dealt * attackFx.lifesteal) : 0;
-    const reflected = dealt > 0 ? Math.round(dealt * defenseFx.reflect) : 0;
+    // Yansıyan Dalga: savunmanın tuttuğu hasar (savunma olmasaydı vereceği - verdiği) kadar saldırana döner
+    const blockedDamage = defenseFx.reflect > 0 && !defenseFailed ? Math.max(0, calculateDamage({ ...input, defense: null, defenseBypass: 0 }).finalDamage - breakdown.finalDamage) : 0;
+    const reflected = Math.round(blockedDamage * defenseFx.reflect);
     const reflectResult = reflected > 0 ? engine.applyDamage(action.attacker, reflected) : null;
 
     // Közleyen Alev: vuruş yaşayan rakibi tutuşturabilir (yanan rakipte yenilenmez, birikmez)
     const ignited = attackFx.burnChance > 0 && !result.defeated && random() < attackFx.burnChance ? engine.ignite(action.defender, attackFx.burnDamage) : false;
+
+    // Buz Nefesi: vuruş yaşayan rakibi yavaşlatabilir (birikmez, en uzun olan kalır)
+    const chilled = attackFx.chillChance > 0 && !result.defeated && random() < attackFx.chillChance;
+    if (chilled) defender.chill = Math.max(defender.chill, attackFx.chillSec);
 
     await io.play(
       {
@@ -260,6 +284,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         ignited,
         chainStacks,
         scatter: !defenseFailed && attackFx.scatter > 0,
+        chilled,
+        fogged: attackFx.fog,
       },
       engine,
     );
