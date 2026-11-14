@@ -267,7 +267,7 @@ describe('savaş akışına bağlantı', () => {
     const io: BattleIO = {
       announceTurn: async () => {},
       chooseElement: async () => element,
-      revealElements: async () => {},
+      revealRound: async () => {},
       draw: async (_r, role) => (role === 'attack' || defenderDraws ? good() : none()),
       play: async (r) => void (reports.push(r), stop.abort()),
       announceEnd: async () => {},

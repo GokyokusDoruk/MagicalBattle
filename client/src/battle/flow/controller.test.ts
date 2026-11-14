@@ -5,7 +5,7 @@ import type { Element } from '../damage/elements';
 import { analyzeStrokes } from '../gesture/analyze';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { Bot } from './bot';
-import { runBattle, type BattleIO, type Role, type TurnReport } from './controller';
+import { runBattle, type BattleIO, type Role, type RoundChoice, type TurnReport } from './controller';
 import { BattleEngine, type Action, type FighterInit } from './engine';
 import { buildShape } from './shapes';
 
@@ -20,6 +20,7 @@ interface Log {
   events: string[];
   reports: TurnReport[];
   draws: { ref: SlotRef; role: Role; ghost: boolean }[];
+  rounds: RoundChoice[][];
   winner: unknown;
 }
 
@@ -27,17 +28,22 @@ interface Log {
 function fakeIO(
   opts: {
     draw?: (ref: SlotRef, role: Role, ghost?: readonly Stroke[]) => DrawingResult;
-    element?: (ref: SlotRef, role: Role) => Element;
+    /** Savaşçının DÖNGÜ başında seçtiği element; ikinci parametre kaçıncı seçim olduğu (döngü sırası - 1) */
+    element?: (ref: SlotRef, cycleIndex: number) => Element;
   } = {},
 ): { io: BattleIO; log: Log } {
-  const log: Log = { events: [], reports: [], draws: [], winner: undefined };
+  const log: Log = { events: [], reports: [], draws: [], rounds: [], winner: undefined };
+  const picks = new Map<string, number>();
   const io: BattleIO = {
     announceTurn: async (a: Action) => void log.events.push(`tur ${a.attacker.team}${a.attacker.index}>${a.defender.team}${a.defender.index}`),
-    chooseElement: async (ref, role) => {
-      log.events.push(`seç ${role}`);
-      return opts.element?.(ref, role) ?? 'fire';
+    chooseElement: async (ref) => {
+      const k = `${ref.team}:${ref.index}`;
+      const n = picks.get(k) ?? 0;
+      picks.set(k, n + 1);
+      log.events.push(`seç ${ref.team}${ref.index}`);
+      return opts.element?.(ref, n) ?? 'fire';
     },
-    revealElements: async () => void log.events.push('açıldı'),
+    revealRound: async (round) => void (log.rounds.push([...round]), log.events.push('açıldı')),
     draw: async (ref, role, ghost) => {
       log.events.push(`çiz ${role}`);
       log.draws.push({ ref, role, ghost: ghost !== undefined });
@@ -49,17 +55,17 @@ function fakeIO(
   return { io, log };
 }
 
-describe('runBattle: tek tur akışı', () => {
-  it('sıra: duyuru → iki element seçimi → açılma → saldırı çizimi → savunma çizimi → oynatma', async () => {
+describe('runBattle: döngü ve tur akışı', () => {
+  it('sıra: döngü başında iki element seçimi → açılma → tur duyurusu → saldırı çizimi → savunma çizimi → oynatma', async () => {
     const { io, log } = fakeIO();
     const e = duel();
     e.applyDamage({ team: 1, index: 0 }, 290); // ilk vuruşla bitsin
     await runBattle(e, io);
-    expect(log.events.slice(0, 7)).toEqual(['tur 00>10', 'seç attack', 'seç defense', 'açıldı', 'çiz attack', 'çiz defense', 'oynat']);
+    expect(log.events.slice(0, 7)).toEqual(['seç 00', 'seç 10', 'açıldı', 'tur 00>10', 'çiz attack', 'çiz defense', 'oynat']);
     expect(log.events[log.events.length - 1]).toBe('bitti');
   });
 
-  it('iki oyuncunun element seçimi aynı anda başlar (kör seçim): ikisi de çağrılmadan hiçbiri sonuçlanmaz', async () => {
+  it('element seçimi aynı anda başlar (kör seçim): hepsi çağrılmadan hiçbiri sonuçlanmaz', async () => {
     const order: string[] = [];
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
@@ -67,18 +73,105 @@ describe('runBattle: tek tur akışı', () => {
     const e = duel();
     const stop = new AbortController();
     io.play = async () => stop.abort(); // yalnızca ilk tur
-    io.chooseElement = async (_ref, role) => {
-      order.push(`başladı ${role}`);
+    io.chooseElement = async (ref) => {
+      order.push(`başladı ${ref.team}`);
       await gate;
-      order.push(`bitti ${role}`);
+      order.push(`bitti ${ref.team}`);
       return 'water';
     };
     const run = runBattle(e, io, { signal: stop.signal });
     await new Promise((r) => setTimeout(r, 10));
-    expect(order).toEqual(['başladı attack', 'başladı defense']); // ikisi de başladı, ikisi de bekliyor
+    expect(order).toEqual(['başladı 0', 'başladı 1']); // ikisi de başladı, ikisi de bekliyor
     release();
     await run;
-    expect(order).toEqual(['başladı attack', 'başladı defense', 'bitti attack', 'bitti defense']);
+    expect(order).toEqual(['başladı 0', 'başladı 1', 'bitti 0', 'bitti 1']);
+  });
+
+  it('element döngüde BİR kez seçilir (turda değil): 1v1 bir döngüde 2 tur, 2 seçim', async () => {
+    const { io, log } = fakeIO();
+    const e = duel();
+    const stop = new AbortController();
+    let plays = 0;
+    io.play = async (r) => {
+      log.reports.push(r);
+      if (++plays === 4) stop.abort(); // iki döngü
+    };
+    await runBattle(e, io, { signal: stop.signal });
+    // döngü 1: seç seç açıldı tur tur ; döngü 2: seç seç açıldı tur tur
+    const picks = log.events.filter((x) => x.startsWith('seç'));
+    expect(picks).toEqual(['seç 00', 'seç 10', 'seç 00', 'seç 10']);
+    expect(log.events.filter((x) => x === 'açıldı')).toHaveLength(2);
+    expect(log.events.indexOf('açıldı')).toBe(2);
+    expect(log.events.slice(0, 3)).toEqual(['seç 00', 'seç 10', 'açıldı']);
+    const turnIndexes = log.events.map((x, i) => (x.startsWith('tur ') ? i : -1)).filter((i) => i >= 0);
+    expect(turnIndexes).toHaveLength(4);
+    // ikinci turdan önce yeni seçim yok (aynı döngü), üçüncü turdan önce var
+    expect(log.events.slice(turnIndexes[0] + 1, turnIndexes[1]).some((x) => x.startsWith('seç'))).toBe(false);
+    expect(log.events.slice(turnIndexes[1] + 1, turnIndexes[2]).filter((x) => x.startsWith('seç'))).toHaveLength(2);
+  });
+
+  it('saldırı ve savunma AYNI element: ateşle saldıran o döngü ateşle savunur', async () => {
+    const { io, log } = fakeIO({ element: (ref) => (ref.team === 0 ? 'fire' : 'water') });
+    const e = duel();
+    const stop = new AbortController();
+    let plays = 0;
+    io.play = async (r) => {
+      log.reports.push(r);
+      if (++plays === 2) stop.abort();
+    };
+    await runBattle(e, io, { signal: stop.signal });
+    const [aTurn, bTurn] = log.reports; // A saldırır (B savunur), sonra B saldırır (A savunur)
+    expect(aTurn.attackerElement).toBe('fire');
+    expect(aTurn.defenderElement).toBe('water');
+    expect(bTurn.attackerElement).toBe('water');
+    expect(bTurn.defenderElement).toBe('fire'); // A, saldırıdaki elementiyle (ateş) savundu
+    expect(aTurn.attackerElement).toBe(bTurn.defenderElement);
+    expect(aTurn.defenderElement).toBe(bTurn.attackerElement);
+  });
+
+  it('her döngüde yeni element seçilebilir', async () => {
+    const { io, log } = fakeIO({ element: (ref, n) => (ref.team === 0 ? (n === 0 ? 'fire' : 'air') : 'earth') });
+    const e = duel();
+    const stop = new AbortController();
+    let plays = 0;
+    io.play = async (r) => {
+      log.reports.push(r);
+      if (++plays === 4) stop.abort();
+    };
+    await runBattle(e, io, { signal: stop.signal });
+    expect(log.reports.map((r) => r.attackerElement)).toEqual(['fire', 'earth', 'air', 'earth']);
+    expect(log.rounds).toHaveLength(2);
+    expect(log.rounds[0].map((c) => c.element)).toEqual(['fire', 'earth']);
+    expect(log.rounds[1].map((c) => c.element)).toEqual(['air', 'earth']);
+  });
+
+  it('2v2: canlı herkes döngü başında bir kez seçer; ölenler seçmez', async () => {
+    const { io, log } = fakeIO();
+    const e = twoVsTwo();
+    e.applyDamage({ team: 1, index: 1 }, 300); // B2 baştan ölü
+    const stop = new AbortController();
+    let plays = 0;
+    io.play = async (r) => {
+      log.reports.push(r);
+      if (++plays === 3) stop.abort(); // ilk döngü: A1, A2, B1
+    };
+    await runBattle(e, io, { signal: stop.signal });
+    expect(log.events.filter((x) => x.startsWith('seç')).sort()).toEqual(['seç 00', 'seç 01', 'seç 10']);
+    expect(log.rounds[0].map((c) => `${c.ref.team}${c.ref.index}`).sort()).toEqual(['00', '01', '10']);
+  });
+
+  it('ölü savunanın yerine geçen takım arkadaşı, döngü başında seçtiği elementle savunur', async () => {
+    const { io, log } = fakeIO({ element: (ref) => (ref.team === 1 ? (ref.index === 0 ? 'water' : 'earth') : 'fire') });
+    const e = twoVsTwo();
+    e.applyDamage({ team: 1, index: 0 }, 300); // B1 ölü; A1'in savunanı B2 olur
+    const stop = new AbortController();
+    io.play = async (r) => {
+      log.reports.push(r);
+      stop.abort();
+    };
+    await runBattle(e, io, { signal: stop.signal });
+    expect(log.reports[0].action.defender).toEqual({ team: 1, index: 1 });
+    expect(log.reports[0].defenderElement).toBe('earth');
   });
 
   it('hasar, savunma yokken saldırının tamamıdır ve can düşer', async () => {
@@ -142,17 +235,56 @@ describe('runBattle: tek tur akışı', () => {
     }
   });
 
-  it('element çarpanı hasara yansır: üstünlük ×1.5, dezavantaj ×0.5', async () => {
-    const run = async (a: Element, d: Element): Promise<number> => {
-      const { io, log } = fakeIO({ element: (_r, role) => (role === 'attack' ? a : d), draw: (_r, role) => (role === 'attack' ? good() : invalid()) });
+  it('element çarpanı hasara yansır: üstünlük ×1.5, dezavantaj ×0.5 (aynı döngüde iki yönde)', async () => {
+    const run = async (a: Element, d: Element): Promise<[number, number]> => {
+      const { io, log } = fakeIO({ element: (ref) => (ref.team === 0 ? a : d), draw: (_r, role) => (role === 'attack' ? good() : invalid()) });
       const e = duel();
-      e.applyDamage({ team: 1, index: 0 }, 299);
-      await runBattle(e, io);
-      return log.reports[0].breakdown!.afterElement;
+      const stop = new AbortController();
+      let plays = 0;
+      io.play = async (r) => {
+        log.reports.push(r);
+        if (++plays === 2) stop.abort();
+      };
+      await runBattle(e, io, { signal: stop.signal });
+      return [log.reports[0].breakdown!.afterElement, log.reports[1].breakdown!.afterElement];
     };
-    const neutral = await run('fire', 'earth');
-    expect((await run('water', 'fire')) / neutral).toBeCloseTo(1.5, 5);
-    expect((await run('fire', 'water')) / neutral).toBeCloseTo(0.5, 5);
+    const [neutralA, neutralB] = await run('fire', 'earth'); // ateş-toprak etkisiz
+    expect(neutralA).toBeCloseTo(neutralB, 5);
+    // A su, B ateş: A üstün (×1.5), B'nin saldırısı dezavantajlı (×0.5)
+    const [aTurn, bTurn] = await run('water', 'fire');
+    expect(aTurn / neutralA).toBeCloseTo(1.5, 5);
+    expect(bTurn / neutralA).toBeCloseTo(0.5, 5);
+  });
+
+  it('ekipman döngü elementine göre: savunanın zırhı ve yüzük süresi seçilen büyüye göre hesaplanır', async () => {
+    const calls: string[] = [];
+    const gear = (el: Element) => {
+      calls.push(el);
+      return { armor: el === 'fire' ? 0.5 : 0, timeBonusSec: el === 'fire' ? 1 : 0 };
+    };
+    const limits: number[] = [];
+    const run = async (element: Element): Promise<number> => {
+      const { io, log } = fakeIO({ element: () => element, draw: (_r, role) => (role === 'attack' ? good() : invalid()) });
+      const orig = io.draw;
+      io.draw = async (ref, role, ghost, limitSec) => {
+        if (limitSec !== undefined) limits.push(limitSec);
+        return orig(ref, role, ghost, limitSec);
+      };
+      const e = new BattleEngine([f('A', 0), { ...f('B', 1), gear }]);
+      e.applyDamage({ team: 1, index: 0 }, 1);
+      const stop = new AbortController();
+      io.play = async (r) => {
+        log.reports.push(r);
+        stop.abort();
+      };
+      await runBattle(e, io, { signal: stop.signal });
+      return log.reports[0].breakdown!.armorReduction;
+    };
+    expect(await run('fire')).toBeCloseTo(0.5);
+    expect(await run('water')).toBe(0);
+    expect(calls.every((c) => c === 'fire' || c === 'water')).toBe(true);
+    expect(limits).toContain(3); // savunma elementi 'water': yüzük süresi yok
+    expect(limits).toContain(4); // savunma elementi 'fire': +1 sn
   });
 
   it('savaşçının zırhı, skill çarpanları ve taban gücü hesaba girer', async () => {
@@ -186,7 +318,7 @@ describe('runBattle: tam savaşlar (botlara karşı)', () => {
     return {
       announceTurn: async (a) => void log.turns.push(`${a.attacker.team}${a.attacker.index}>${a.defender.team}${a.defender.index}`),
       chooseElement: async (ref) => pick(ref).chooseElement(),
-      revealElements: async () => {},
+      revealRound: async () => {},
       draw: async (ref, role, ghost) => (role === 'attack' ? pick(ref).drawAttack() : pick(ref).drawDefense(ghost)),
       play: async (r) => {
         const key = `${r.action.defender.team}${r.action.defender.index}`;

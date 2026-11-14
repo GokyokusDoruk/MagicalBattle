@@ -19,7 +19,7 @@ Nadirlikler: Sıradan, Gelişmiş, Nadir, Destansı, Efsanevi, Mistik. Renk: ele
 | **Saldırı hasarı** | `(1 + B) × rol` (saldırı asası rol = 1.25, savunma asası = 0.75) |
 | **Savunma gücü** | `(1 + B) × rol` (savunma asası rol = 1.25, saldırı asası = 0.75). Alınan hasar = 1 / savunma gücü |
 | **Büyü süresi** | + `2 × B` saniye (çizim süresi 3 sn + bu). Hem saldırı hem savunma çiziminde |
-| **Element eşleşmesi** | Seçilen büyünün elementi asanın elementiyle aynıysa saldırı hasarı **×1.5** (%50 daha fazla) |
+| **Element eşleşmesi** | O döngüde seçtiğin element asanın elementiyle aynıysa saldırı hasarı **×1.5** (%50 daha fazla) |
 
 Yani **saldırı asası** saldırırken %25 daha fazla vurur ama savunması %25 zayıflar; **savunma asası** tersi. Element bonusu yalnızca saldırı hasarında (savunmada yok).
 
