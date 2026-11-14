@@ -55,6 +55,12 @@ export const ITEMS: readonly ItemDef[] = [
   { id: 'ates-tozu', name: 'Ateş Tozu', description: 'Dokununca ısınan kızıl toz.', price: 15 },
   { id: 'kurt-postu', name: 'Kurt Postu', description: 'Kalın ve sıcak tutan bir post.', price: 35 },
 
+  // Ticari mallar (Task 26): şehir tüccarlarından alınır, fiyatı şehre göre değişir (bkz. trade.ts)
+  { id: 'kor-baharati', name: 'Kor Baharatı', description: 'Ignis kervanlarının kızıl baharatı. Ateş şehrinde bol, uzakta pahalıdır.', price: 30 },
+  { id: 'bulut-ipegi', name: 'Bulut İpeği', description: 'Abyss rahiplerinin dokuduğu, havadan hafif ipek.', price: 40 },
+  { id: 'tas-cevheri', name: 'Taş Cevheri', description: 'Stone Heart madenlerinin ağır, damarlı cevheri.', price: 50 },
+  { id: 'derin-inci', name: 'Derin İnci', description: 'Still Crystal dalgıçlarının çıkardığı mavi inci.', price: 70 },
+
   // Can iksirleri: çantada eşya yeri kaplar
   { id: 'iksir-kucuk', name: 'Küçük Can İksiri', description: 'Küçük bir şişede kırmızı sıvı. 60 can yeniler.', price: 25, heal: 60 },
   { id: 'iksir-orta', name: 'Can İksiri', description: 'Yaraları hızla kapatan iksir. 150 can yeniler.', price: 60, heal: 150 },

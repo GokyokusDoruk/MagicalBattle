@@ -4,7 +4,7 @@ Kod: `client/src/economy/` (altın, XP, eşya, alışveriş), `client/src/quests
 
 ## Oyunda nasıl çalışıyor
 
-- **Üç köyde** (Ash Kanyon, Vine Surları, Sisli Bataklık) birer **tüccar** durur. Tezgâhına yaklaşınca alışveriş ekranı kendiliğinden açılır (Esc ya da dışarı tıklayınca kapanır; açıkken karakter durur).
+- **Dört şehirde** (Ignis, Abyss, Stone Heart, Still Crystal) birer **tüccar** ve birer **asacı** durur; köylerde tüccar yoktur (Task 26, bkz. [sehir-tuccarlari.md](sehir-tuccarlari.md)). Tezgâhına yaklaşınca alışveriş ekranı kendiliğinden açılır (Esc ya da dışarı tıklayınca kapanır; açıkken karakter durur).
 - **Alışveriş sekmesi:** ekipman satın alırsın; çantandaki ganimeti satarsın (tüccar değerin yarısını öder); ekipmanı kuşanıp çıkarırsın.
 - **Görevler sekmesi:** köyün yan görevlerini görürsün (aktif, alabileceğin, kilitli, tamamlanan). "Kabul et" ile başlarsın.
 - **Ödül kendiliğinden gelir:** görev hedefi bitince altın, XP ve eşya doğrudan çantana yatar, tüccara dönüp teslim etmen gerekmez.

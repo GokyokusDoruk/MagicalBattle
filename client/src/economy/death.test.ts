@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { LOCATIONS } from '../world/locations';
-import { MERCHANTS } from './merchants';
 import { PlayerState } from './player';
 import { HEALERS, LOSS_CAP, getHealer, goldLoss, goldLossFraction, healerSpots, nearestHealer, respawnLines } from './death';
 
@@ -51,8 +50,8 @@ describe('altın kaybı', () => {
 });
 
 describe('şifacılar', () => {
-  it('her köyde bir şifacı var, tüccarlarla aynı köyler', () => {
-    expect(HEALERS.map((h) => h.locationId).sort()).toEqual(MERCHANTS.map((m) => m.locationId).sort());
+  it('her köyde bir şifacı var', () => {
+    expect(HEALERS.map((h) => h.locationId).sort()).toEqual(LOCATIONS.filter((l) => l.kind === 'village').map((l) => l.id).sort());
     expect(new Set(HEALERS.map((h) => h.id)).size).toBe(HEALERS.length);
     for (const h of HEALERS) {
       expect(LOCATIONS.find((l) => l.id === h.locationId)?.kind).toBe('village');

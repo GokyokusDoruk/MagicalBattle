@@ -1,6 +1,6 @@
 # Geliştirme planı (Task 21 ve sonrası)
 
-İlk 20 task tamamlandı (ana oyun baştan sona oynanabilir). Deneme sonrası gelen 8 madde aşağıdaki task'lara bölündü; her task ayrı bir PR'dır ve sırayla yapılır. Çok oyunculu arena (eski Task 21) en sona alındı (Task 29).
+İlk 20 task tamamlandı (ana oyun baştan sona oynanabilir). Deneme sonrası gelen 8 madde aşağıdaki task'lara bölündü; her task ayrı bir PR'dır ve sırayla yapılır. Çok oyunculu arena (eski Task 21) en sona alındı (Task 32).
 
 ## Kararlar (senin cevapların)
 
@@ -20,14 +20,15 @@ Not: **Asa birleştirme (5 → 1) kaldırıldı** (Task 22).
 | 21 | Envanter, ağırlık, çantalar (5 çanta), Taşıyıcı yetenekleri, iksir eşyaları (**bitti**) | 8 |
 | **22** | **Asa v2:** seviye, tek asa, rol dengesi, element bonusu, büyü süresi, seviye şartı, 5 dakikada yenilenen tüccar stoğu; birleştirme kaldırıldı | asa |
 | **23** | **Ekipman sistemi (bu PR):** 6 yuva (Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı) × 4 element × 6 nadirlik = 144 eşya, renkli ikonlar, tur başına element bonusu, ayakkabı hızı, yüzük büyü süresi. Eski 12 ekipman ve 5 çantanın yerine geçer | ekipman |
-| **24** | **Şehir bonusu (bu PR)** (ayakkabı hızı, çanta kapasitesi, kendi elementinin şehrinde +%50), şehirden çıkarken eşya bırakma, yerde kalan eşya (10 dk) | ekipman |
-| 25 | **Şehir tüccarları** (köydekiler kalkar), 4 ticari eşya, şehre özel fiyat çarpanları, 5 dakikalık dönen ekipman stoğu (tek Nadir). **Asacı** (asa alım satım) | 4, 5 |
-| 26 | **Han** (bedava can), şehir görevleri, kalıcı can, iksir kullanma, boss mevcut canla | 6 |
-| 27 | **Dünya düşmanları ve ganimet** (karışık paketler, nadirlik arttıkça düşen şans, karanlık yolda artan oran) | 7 |
-| 28 | **Bölge savaşları** (yeşillik, su, köz, rüzgâr; karo başına %10, savaştan sonra 5 sn koruma) | 2 |
-| 29 | **Madenler** (şehir başına 4 element madeni, 3 düşman, 10 dk bekleme) | 1 |
-| 30 | **Korumalı sandıklar** | 3 |
-| 31 | Çok oyunculu 1v1 arena (Colyseus) | eski 21 |
+| **24** | **Şehir bonusu** (ayakkabı hızı, çanta kapasitesi, kendi elementinin şehrinde +%50), şehirden çıkarken eşya bırakma, yerde kalan eşya (10 dk) (**bitti**) | ekipman |
+| **25** | **Tur elementi:** her döngü başında gizlice tek element; hem saldırı hem savunma elementi (**bitti**) | savaş |
+| **26** | **Şehir tüccarları (bu PR):** köy tüccarları kalktı, her şehirde tüccar + asacı, 4 ticari mal, şehre özel fiyat çarpanları, asacı (asa alım satım, ±%10 şehir farkı) | 4, 5 |
+| 27 | **Han** (bedava can), şehir görevleri (görevler tüccardan han'a taşınır), kalıcı can, iksir kullanma, boss mevcut canla | 6 |
+| 28 | **Dünya düşmanları ve ganimet** (karışık paketler, nadirlik arttıkça düşen şans, karanlık yolda artan oran) | 7 |
+| 29 | **Bölge savaşları** (yeşillik, su, köz, rüzgâr; karo başına %10, savaştan sonra 5 sn koruma) | 2 |
+| 30 | **Madenler** (şehir başına 4 element madeni, 3 düşman, 10 dk bekleme) | 1 |
+| 31 | **Korumalı sandıklar** | 3 |
+| 32 | Çok oyunculu 1v1 arena (Colyseus) | eski 21 |
 
 ## Kararlar (devamı)
 
@@ -40,7 +41,8 @@ Not: **Asa birleştirme (5 → 1) kaldırıldı** (Task 22).
 | Başlangıç | Yeni oyuna eşyasız başlanır, yalnızca bir asa (Sıradan Ateş Saldırı Asası Sv 1) verilir |
 | Eski çantalar | Dönüşmez, kendi özelliklerini korur (elementsiz), satılabilir |
 | Düşüşler | Destansı ve üstü eşyalar rakiplerden, madenlerden, görevlerden ve ganimetten düşebilir (nadirlik arttıkça şans azalır, iki yönde de) |
-| **Bekleyen** | **Tur elementi:** Her tur seçilen büyünün elementi o turun hem saldırı hem savunma elementidir (ateşle saldırdıysan ateşle savunursun); rakibin büyüsü buna göre hasarı artırır ya da azaltır. Savaş akışını değiştirir, ayrı bir task (Task 25) olarak onaya sunulacak |
+| Tur elementi | Her döngü başında herkes gizlice tek element seçer; o döngüde hem saldırı hem savunma elementidir: [savas-akisi.md](savas-akisi.md) |
+| Şehir tüccarları | Köylerde tüccar yok. Her şehirde tüccar (ekipman, ticari mal, görev) ve asacı (asa): [sehir-tuccarlari.md](sehir-tuccarlari.md) |
 
 ## Task 21 tasarımı
 

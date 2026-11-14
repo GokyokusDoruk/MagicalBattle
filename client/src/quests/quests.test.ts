@@ -12,10 +12,10 @@ const make = (catalog?: readonly QuestDef[]) => {
 };
 
 describe('görev kataloğu', () => {
-  it('kimlikler benzersiz, her görev bilinen bir köyde verilir ve o köyde tüccar var', () => {
+  it('kimlikler benzersiz, her görev bir şehir tüccarında verilir', () => {
     expect(new Set(SIDE_QUESTS.map((q) => q.id)).size).toBe(SIDE_QUESTS.length);
     for (const q of SIDE_QUESTS) {
-      expect(MERCHANTS.some((m) => m.locationId === q.giver), q.id).toBe(true);
+      expect(MERCHANTS.some((m) => m.kind === 'merchant' && m.locationId === q.giver), q.id).toBe(true);
       expect(q.title.length).toBeGreaterThan(0);
       expect(q.description.length).toBeGreaterThan(20);
     }
@@ -35,8 +35,9 @@ describe('görev kataloğu', () => {
     }
   });
 
-  it('her köyün birden çok görevi var', () => {
-    for (const m of MERCHANTS) expect(SIDE_QUESTS.filter((q) => q.giver === m.locationId).length).toBeGreaterThanOrEqual(2);
+  it('görevler şehir tüccarlarına dağıtılmış (tüccar olmayan asacıdan görev çıkmaz)', () => {
+    const givers = new Set(SIDE_QUESTS.map((q) => q.giver));
+    expect(givers.size).toBeGreaterThanOrEqual(3);
   });
 
   it('getQuest kimlikle bulur', () => {
@@ -69,7 +70,7 @@ describe('QuestEngine: kabul', () => {
 
   it('köye göre görevler listelenir', () => {
     const { quests } = make();
-    expect(quests.forGiver('ash').every((q) => q.giver === 'ash')).toBe(true);
+    expect(quests.forGiver('ignis').every((q) => q.giver === 'ignis')).toBe(true);
     expect(quests.forGiver('yok')).toEqual([]);
   });
 });

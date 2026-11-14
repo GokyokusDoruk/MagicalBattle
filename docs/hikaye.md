@@ -40,7 +40,7 @@ Malakor'la yüzleşir.
 | Still Crystal | Surlu şehir | Su | 7 |
 | Cadı Sis Geçidi | Son arena | Gölge | 8 |
 
-Köyler her zaman açıktır (tüccar, şifacı, yan görev). Şehir kapıları, o bölgenin ana görev zinciri
+Köyler her zaman açıktır (şifacı; tüccar ve yan görevler Task 26 ile şehirlere taşındı). Şehir kapıları, o bölgenin ana görev zinciri
 bitene kadar **kilitlidir**. Şehre girmek ve **save noktasını** aktifleştirmek bölümün bir ödülüdür.
 
 ## 4. Bölümler
