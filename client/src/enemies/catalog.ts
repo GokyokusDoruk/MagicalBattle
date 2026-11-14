@@ -2,6 +2,7 @@ import type { Element } from '../battle/damage/elements';
 import type { FighterInit } from '../battle/flow/engine';
 import { playerMaxHp } from '../economy/health';
 import type { PlayerStats } from '../boss/bosses';
+import { enemySkills } from './skills';
 
 /**
  * Dünya düşmanları (Task 28): haritada dolaşan yaratıklar. Dokunursan savaş başlar; yenince ganimet (loot.ts) düşer.
@@ -57,6 +58,7 @@ export function enemyStats(element: Element, tier: Tier): EnemyStats {
 /** Savaşın dövüşçüleri: takım 0 = oyuncu (mevcut canıyla), takım 1 = düşman. */
 export function enemyFighters(element: Element, tier: Tier, player: PlayerStats): FighterInit[] {
   const s = enemyStats(element, tier);
+  const skills = enemySkills(element, tier);
   return [
     {
       name: player.name,
@@ -79,6 +81,8 @@ export function enemyFighters(element: Element, tier: Tier, player: PlayerStats)
       maxHp: s.hp,
       basePower: s.basePower,
       armor: s.armor,
+      spells: skills.spells,
+      passives: skills.passives,
       ai: { skill: s.skill, elements: { [element]: 3 } },
     },
   ];
