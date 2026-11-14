@@ -42,3 +42,14 @@ arena.defeat(defender);
 ## Mantık testleri
 
 Three.js'ten bağımsız parçalar birim testlidir: takım yerleşimi, çizgiden 3D yola çevirme, zamanlayıcı (`Tweens`), parçacık havuzu ve kamera (yumuşatma, sarsıntı, dikey ekran). Görseller tarayıcıda denenir.
+
+## Asa modeli (Task 29b)
+
+Büyücülerin asası artık gerçek bir 3D modeldir (`battle/arena/models/wand.obj`, yaklaşık 2000 köşe, 386 KB; `wandModel.ts` bir kez çözer ve tüm savaşçılar paylaşır). Ucundaki element küresi eskisi gibi parlar. Model dokusuz, düz ahşap rengiyle çizilir.
+
+### Değerlendirilen ve kullanılmayan varlıklar
+
+- **Cadı ve süpürge** (`Witch_store_upload.zip`): rig'li FBX (5,3 MB) ama dokuları çok ağır (normal harita 32 MB). Küçültülürse Morga/Elysia için uygun; şimdilik kullanılmadı.
+- **Erkek insan** (`Male_Human.obj`, 16 bin köşe): dokuları klasörde yok, düz renkli kalırdı. Kullanılmadı.
+- **3Demon asa baskı dosyaları** (OBJ/STL, 18-180 MB): web için çok ağır, ayrıca tanınmış bir filmin karakter asaları olduğu için telif riski var. Kullanılmadı.
+- Lisans: dosyaların lisansı doğrulanmadı; yayından önce kaynaklarını kontrol et.
