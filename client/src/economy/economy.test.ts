@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LEGACY_BAGS } from './equipment';
 import { GEAR_SLOTS, ITEMS, getItem, isGear } from './items';
 import { MAX_LEVEL, levelForXp, levelProgress, xpToReach } from './leveling';
 import { MERCHANTS, getMerchant } from './merchants';
@@ -18,7 +19,7 @@ describe('katalog', () => {
     for (const i of ITEMS) {
       if (isGear(i)) {
         expect(GEAR_SLOTS).toContain(i.slot);
-        expect(i.element).toBeDefined();
+        if (!LEGACY_BAGS.some((b) => b.id === i.id)) expect(i.element).toBeDefined(); // eski çantaların elementi yoktur
         expect(i.rarity).toBeGreaterThanOrEqual(1);
         expect(i.rarity).toBeLessThanOrEqual(6);
       } else {
@@ -168,7 +169,7 @@ describe('PlayerState', () => {
     expect(p.snapshot()).toEqual({ gold: 0, xp: 0, items: {}, equipped: {} });
   });
 
-  it('eski kayıt: eski ekipman kimlikleri yeni eşyalara dönüşür, tılsım yüzük olur', () => {
+  it('eski kayıt: eski zırh kimlikleri yeni eşyalara dönüşür, tılsım yüzük olur; eski çanta aynen kalır', () => {
     const p = new PlayerState();
     p.restore({
       gold: 10,
@@ -178,7 +179,10 @@ describe('PlayerState', () => {
     });
     expect(p.count('eq-robe-earth-1')).toBe(1);
     expect(p.count('cirak-cuppesi')).toBe(0);
-    expect(p.equipped).toEqual({ robe: 'eq-robe-earth-1', hat: 'eq-hat-earth-1', ring: 'eq-ring-earth-1', bag: 'eq-bag-earth-1' });
+    expect(p.equipped).toEqual({ robe: 'eq-robe-earth-1', hat: 'eq-hat-earth-1', ring: 'eq-ring-earth-1', bag: 'kucuk-canta' }); // çanta dönüşmez
+    expect(p.count('kucuk-canta')).toBe(1);
+    expect(getItem('kucuk-canta')?.carry).toEqual({ wands: 3, goods: 20, gear: 2 });
+    expect(getItem('kucuk-canta')?.element).toBeUndefined();
     expect(p.count('sifali-ot')).toBe(2);
   });
 

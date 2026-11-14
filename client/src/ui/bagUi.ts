@@ -11,6 +11,8 @@ export interface BagUiDeps {
   carry: Carry;
   /** Kuşanma, çıkarma ya da atma oldu (kaydedilmemiş değişiklik) */
   onChanged?: () => void;
+  /** Bulunulan konumun şehir bonusu açıklaması (yoksa null) */
+  locationNote?: () => string | null;
 }
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -143,6 +145,7 @@ export class BagUi {
           <button type="button" data-action="close" class="rounded bg-white/10 px-2 py-1 text-sm hover:bg-white/20" aria-label="Kapat">✕</button>
         </div>
         <div class="grid gap-2 rounded bg-black/40 p-3 sm:grid-cols-3" data-bars>${this.bars()}</div>
+        ${this.deps.locationNote?.() ? `<p class="rounded bg-emerald-900/40 px-3 py-1 text-[11px] text-emerald-100" data-location-note>🏙 ${esc(this.deps.locationNote()!)}</p>` : ''}
         <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
           <h3 class="mb-1 text-sm font-bold text-amber-200">Kuşanılanlar</h3>
           ${this.equippedHtml()}

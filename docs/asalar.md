@@ -52,6 +52,10 @@ Asa satmak (asacıda) Task 25'te gelecek; ganimetten asa düşmesi Task 27'de.
 
 `fiyat = 40 × 2.2^(nadirlik−1) × (1 + 0.08 × (seviye−1))`, Nadir asa ×1.5. Örn. Sıradan Sv1 = 40, Gelişmiş Sv1 = 88, Nadir Sv1 = 194 (×1.5 = 291). Ahlak indirimi/zammı uygulanır.
 
+## Başlangıç asası
+
+Yeni oyuna eşyasız başlanır; oyuncuya yalnızca **Sıradan Ateş Saldırı Asası (Sv 1)** verilir ve kendiliğinden kuşanılır.
+
 ## Oyunda
 
 - **W** tuşu ya da sol üstteki **🪄 Asalar** düğmesi asa ekranını açar: kuşanılı asa ve etkileri, sahip olunan asalar (kuşan, çıkar). Seviyesi yetmeyen asa kırmızı "Sv" ile işaretlenir, Kuşan düğmesi kapalıdır.

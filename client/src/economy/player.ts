@@ -1,6 +1,6 @@
 import type { Element } from '../battle/damage/elements';
 import { LEGACY_SLOTS, migrateItemId } from './equipment';
-import { bootsSpeed, gearEffects, type GearEffects, type GearResolver } from './gearEffects';
+import { bootsSpeed, bootsSpeedIn, gearEffects, type GearEffects, type GearResolver } from './gearEffects';
 import { GEAR_SLOTS, getItem, type GearSlot } from './items';
 import { levelForXp } from './leveling';
 
@@ -81,9 +81,14 @@ export class PlayerState {
     return (element) => this.gearFor(element);
   }
 
-  /** Ayakkabıdan gelen yürüme hızı bonusu (0.1 = +%10). Şehir bonusu ayrıca eklenir (Task 24). */
+  /** Ayakkabıdan gelen yürüme hızı bonusu (0.1 = +%10), şehir bonusu hariç. */
   get speedBonus(): number {
     return bootsSpeed(this.equippedSlots);
+  }
+
+  /** Verilen konum elementlerinde (şehir ya da köy) yürüme hızı bonusu: kendi elementinin ayakkabısı %50 daha hızlı. */
+  speedBonusIn(elements: readonly Element[]): number {
+    return bootsSpeedIn(this.equippedSlots, elements);
   }
 
   onChange(listener: () => void): void {

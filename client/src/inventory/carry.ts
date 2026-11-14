@@ -1,3 +1,5 @@
+import type { Element } from '../battle/damage/elements';
+import { LOCATION_BONUS, matchesLocation } from '../economy/gearEffects';
 import { NO_BONUS, getItem, itemCategory, type CarryBonus, type GearSlot } from '../economy/items';
 import type { PlayerState } from '../economy/player';
 import type { WandInventory } from '../wands/inventory';
@@ -30,6 +32,8 @@ export class Carry {
     private readonly wands: WandInventory,
     /** Taşıyıcı yeteneklerinden gelen ek kapasite */
     private readonly skillBonus: () => CarryBonus = () => NO_BONUS,
+    /** Bulunulan konumun elementleri (şehir/köy); kendi elementinin çantası burada %50 daha geniştir. Dışarıda boş. */
+    private readonly elementsHere: () => readonly Element[] = () => [],
   ) {}
 
   /** Kuralları bağlar: eşya ekleme, ekipman değiştirme ve asa ekleme artık kapasiteye bakar. */
@@ -41,10 +45,42 @@ export class Carry {
     this.wands.setLimit((carried) => carried <= this.capacity().wands);
   }
 
-  /** Verilen çanta (ya da çantasızlık) ile toplam kapasite. */
-  capacity(bagId: string | null | undefined = this.player.equipped.bag): CarryBonus {
-    const bag = bagId ? (getItem(bagId)?.carry ?? NO_BONUS) : NO_BONUS;
+  /**
+   * Verilen çanta (ya da çantasızlık) ile toplam kapasite, `elements` konumunda. Çantanın elementi konumun
+   * elementlerinden biriyse çantanın kattığı kapasite %50 artar (tam sayıya yuvarlanır). Başlangıç kapasitesi ve
+   * yetenek bonusu konuma bağlı değildir.
+   */
+  capacityIn(elements: readonly Element[], bagId: string | null | undefined = this.player.equipped.bag): CarryBonus {
+    const item = bagId ? getItem(bagId) : undefined;
+    let bag = item?.carry ?? NO_BONUS;
+    if (item && matchesLocation(item.element, elements)) {
+      bag = { wands: Math.round(bag.wands * LOCATION_BONUS), goods: Math.round(bag.goods * LOCATION_BONUS), gear: Math.round(bag.gear * LOCATION_BONUS) };
+    }
     return add(add(BASE_CAPACITY, bag), this.skillBonus());
+  }
+
+  /** Şu anki konumdaki kapasite (şehir bonusu dahil). */
+  capacity(bagId: string | null | undefined = this.player.equipped.bag): CarryBonus {
+    return this.capacityIn(this.elementsHere(), bagId);
+  }
+
+  /** Şehir bonusu OLMADAN kapasite (şehirden çıkınca geçerli olan). */
+  capacityOutside(bagId: string | null | undefined = this.player.equipped.bag): CarryBonus {
+    return this.capacityIn([], bagId);
+  }
+
+  /** Şu anki konumdaki kapasiteye göre fazlalık (kategori başına, negatif olmaz). */
+  overflow(): CarryBonus {
+    const cap = this.capacity();
+    const use = this.usage();
+    return { wands: Math.max(0, use.wands - cap.wands), goods: Math.max(0, use.goods - cap.goods), gear: Math.max(0, use.gear - cap.gear) };
+  }
+
+  /** Şehirden çıkınca sığmayacak fazlalık (kategori başına, negatif olmaz). */
+  overflowOutside(): CarryBonus {
+    const cap = this.capacityOutside();
+    const use = this.usage();
+    return { wands: Math.max(0, use.wands - cap.wands), goods: Math.max(0, use.goods - cap.goods), gear: Math.max(0, use.gear - cap.gear) };
   }
 
   /** Şu an taşınanlar. */

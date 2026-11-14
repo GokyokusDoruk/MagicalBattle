@@ -7,7 +7,7 @@ import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
 import type { PickupSpot } from './pickups';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CRYSTAL_KEY, HERB_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
+import { CRYSTAL_KEY, HERB_KEY, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
 const PLAYER_SPEED = 150; // piksel/saniye
@@ -18,6 +18,7 @@ const GATE_NOTICE_COOLDOWN_MS = 3000;
 const MARKER_TRIGGER_RANGE = TILE_SIZE * 0.9;
 const MERCHANT_RANGE = TILE_SIZE * 1.6;
 const PICKUP_RANGE = TILE_SIZE * 0.85;
+const PILE_RANGE = TILE_SIZE * 0.9;
 
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
 export interface WorldContext {
@@ -46,6 +47,11 @@ export interface WorldContext {
   onPickup?: (spot: PickupSpot) => void;
   /** Oyuncu bir konumun (şehir, köy, arena) alanına yeni girdi */
   onLocationEnter?: (locationId: string) => void;
+  /** Oyuncunun bulunduğu konum değişti (`null` = açık dünya): şehre girme, şehirden çıkma ve konumlar arası geçiş */
+  onLocationChange?: (from: string | null, to: string | null) => void;
+  /** Yerdeki eşya yığınları (şehirden çıkarken bırakılanlar); yığına yaklaşınca `onPileEnter` çağrılır */
+  groundPiles?: () => readonly { id: string; tileX: number; tileY: number }[];
+  onPileEnter?: (pileId: string) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
   takeTeleport?: () => { x: number; y: number } | null;
 }
@@ -61,6 +67,9 @@ export class WorldScene extends Phaser.Scene {
   private locationTracker = new CityEntryTracker();
   private pickupSprites = new Map<string, Phaser.GameObjects.Image>();
   private insideMerchants = new Set<string>();
+  private currentLocation: string | null = null;
+  private pileSprites = new Map<string, Phaser.GameObjects.Image>();
+  private insidePiles = new Set<string>();
 
   constructor(private readonly ctx: WorldContext) {
     super('world');
@@ -87,6 +96,7 @@ export class WorldScene extends Phaser.Scene {
     // Kayıttan şehrin içinde başlanıyorsa bu yeni bir "giriş" sayılmaz (tekrar kayıt tetiklenmesin)
     this.cityTracker = new CityEntryTracker(cityAt(map.locations, start.x, start.y));
     this.locationTracker = new CityEntryTracker(locationAt(map.locations, start.x, start.y));
+    this.currentLocation = locationAt(map.locations, start.x, start.y);
     this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.8).setDepth(10);
 
     const cam = this.cameras.main;
@@ -148,6 +158,7 @@ export class WorldScene extends Phaser.Scene {
     this.checkMarkers();
     this.checkCityEntry();
     this.checkLocationEntry();
+    this.syncPiles();
     this.checkMerchants();
     this.checkPickups();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
@@ -224,6 +235,38 @@ export class WorldScene extends Phaser.Scene {
     const id = locationAt(this.ctx.map.locations, Math.floor(this.pos.x / TILE_SIZE), Math.floor(this.pos.y / TILE_SIZE));
     const entered = this.locationTracker.update(id);
     if (entered) this.ctx.onLocationEnter?.(entered);
+    if (id !== this.currentLocation) {
+      const from = this.currentLocation;
+      this.currentLocation = id;
+      this.ctx.onLocationChange?.(from, id);
+    }
+  }
+
+  /** Yerdeki eşya yığınlarının sprite'larını oyunla eşler (yeni gelen çizilir, kaybolan silinir) ve yaklaşmayı bildirir. */
+  private syncPiles(): void {
+    const piles = this.ctx.groundPiles?.() ?? [];
+    const alive = new Set(piles.map((p) => p.id));
+    for (const [id, sprite] of this.pileSprites) {
+      if (alive.has(id)) continue;
+      this.pileSprites.delete(id);
+      this.tweens.add({ targets: sprite, alpha: 0, duration: 300, onComplete: () => sprite.destroy() });
+    }
+    const near = new Set<string>();
+    for (const p of piles) {
+      const x = p.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = p.tileY * TILE_SIZE + TILE_SIZE / 2;
+      const within = Math.hypot(x - this.pos.x, y - this.pos.y) <= PILE_RANGE;
+      if (!this.pileSprites.has(p.id)) {
+        // Yeni görünen yığının üstündeysek (az önce biz bıraktık) kendiliğinden açılmaz: uzaklaşıp dönmek gerekir
+        if (within) this.insidePiles.add(p.id);
+        const sprite = this.add.image(x, y, PILE_KEY).setDepth(3);
+        this.tweens.add({ targets: sprite, y: y - 3, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        this.pileSprites.set(p.id, sprite);
+      }
+      if (within) near.add(p.id);
+    }
+    for (const id of near) if (!this.insidePiles.has(id)) this.ctx.onPileEnter?.(id);
+    this.insidePiles = near;
   }
 
   /** Tüccarın yanına gelince (bir kez, uzaklaşıp dönene kadar) alışveriş ekranını açtırır. */

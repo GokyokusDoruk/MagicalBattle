@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BAG_BY_RARITY } from '../economy/equipment';
 import { ITEMS, isBag, itemCategory } from '../economy/items';
 import { PlayerState } from '../economy/player';
-import { buyItem } from '../economy/shop';
+import { buyItem, sell as sellItem } from '../economy/shop';
 import { QuestEngine } from '../quests/engine';
 import { CARRY_SKILLS, getCarrySkill } from '../skills/catalog';
 import { SkillTree } from '../skills/tree';
@@ -22,7 +22,7 @@ function setup(level = 30) {
 }
 
 describe('katalog: çantalar ve iksirler', () => {
-  const bags = ITEMS.filter(isBag);
+  const bags = ITEMS.filter((i) => isBag(i) && i.element !== undefined); // yeni çantalar (eski çantalar ayrı)
 
   it('24 çanta var (4 element x 6 nadirlik); nadirlik arttıkça kapasite ve fiyat artar, hepsi tam sayı', () => {
     expect(bags).toHaveLength(24);
@@ -36,6 +36,25 @@ describe('katalog: çantalar ve iksirler', () => {
     }
     for (const b of bags) for (const v of Object.values(b.carry!)) expect(Number.isInteger(v)).toBe(true);
     expect(bags.find((b) => b.id === 'eq-bag-fire-6')!.carry).toEqual(BAG_BY_RARITY[5]);
+  });
+
+  it('eski çantalar kendi kapasitesini korur, elementi yoktur, satılabilir', () => {
+    const legacy = ITEMS.filter((i) => isBag(i) && i.element === undefined);
+    expect(legacy.map((b) => b.id)).toEqual(['kucuk-canta', 'deri-canta', 'gezgin-cantasi', 'usta-cantasi', 'efsunlu-canta']);
+    expect(legacy.map((b) => b.carry)).toEqual([
+      { wands: 3, goods: 20, gear: 2 },
+      { wands: 5, goods: 40, gear: 3 },
+      { wands: 8, goods: 70, gear: 5 },
+      { wands: 12, goods: 110, gear: 7 },
+      { wands: 18, goods: 170, gear: 10 },
+    ]);
+    const { player, carry } = setup(1);
+    player.addItem('deri-canta');
+    player.equip('deri-canta');
+    expect(carry.capacity()).toEqual({ wands: 8, goods: 60, gear: 5 });
+    expect(carry.capacityIn(['fire', 'water', 'earth', 'air'])).toEqual({ wands: 8, goods: 60, gear: 5 }); // element yok: şehir bonusu yok
+    player.unequip('bag');
+    expect(sellItem(player, 'deri-canta')).toMatchObject({ ok: true, price: 150 });
   });
 
   it('başlangıç kapasitesi 3 asa, 20 eşya, 2 kuşanılabilir; çantalar artırır', () => {

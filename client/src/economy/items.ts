@@ -1,5 +1,5 @@
 import type { Element } from '../battle/damage/elements';
-import { EQUIPMENT, GEAR_SLOT_LIST, SLOT_LABELS } from './equipment';
+import { EQUIPMENT, GEAR_SLOT_LIST, LEGACY_BAGS, SLOT_LABELS } from './equipment';
 
 /** Ekipman yuvaları (Task 23): Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı */
 export type GearSlot = 'robe' | 'hat' | 'pants' | 'bag' | 'ring' | 'boots';
@@ -28,7 +28,7 @@ export interface ItemDef {
   price: number;
   /** Ekipmansa takıldığı yer */
   slot?: GearSlot;
-  /** Ekipmansa elementi (renk ve bonus): ateş kırmızı, su mavi, toprak kahverengi, hava beyaz */
+  /** Ekipmansa elementi (renk ve bonus): ateş kırmızı, su mavi, toprak kahverengi, hava beyaz. Eski çantalarda yoktur. */
   element?: Element;
   /** Ekipmansa nadirlik (1-6) */
   rarity?: 1 | 2 | 3 | 4 | 5 | 6;
@@ -45,7 +45,7 @@ export interface ItemDef {
 }
 
 /**
- * Eşya kataloğu: ganimet, can iksirleri ve 144 ekipman (bkz. equipment.ts).
+ * Eşya kataloğu: ganimet, can iksirleri, 144 ekipman ve 5 eski çanta (bkz. equipment.ts).
  * Ganimet (ot, kristal...) yalnızca satılır ve görevlerde kullanılır.
  */
 export const ITEMS: readonly ItemDef[] = [
@@ -62,6 +62,9 @@ export const ITEMS: readonly ItemDef[] = [
 
   // Ekipman: 6 yuva x 4 element x 6 nadirlik
   ...EQUIPMENT,
+
+  // Eski çantalar (Task 21): kendi özelliklerini korur, elementi yoktur
+  ...LEGACY_BAGS,
 ];
 
 const BY_ID = new Map(ITEMS.map((i) => [i.id, i]));

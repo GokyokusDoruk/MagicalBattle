@@ -38,3 +38,17 @@ export function bootsSpeed(equipped: EquippedMap): number {
   const boots = equipped.boots ? getItem(equipped.boots) : undefined;
   return boots?.speed ?? 0;
 }
+
+/** Kendi elementinin şehrinde (ya da köyünde) ayakkabı ve çanta bu kadar güçlüdür (%50). */
+export const LOCATION_BONUS = 1.5;
+
+/** Eşyanın elementi, bulunulan konumun elementlerinden biriyse şehir bonusu geçerlidir. */
+export const matchesLocation = (element: Element | undefined, elements: readonly Element[]): boolean =>
+  element !== undefined && elements.includes(element);
+
+/** Ayakkabının yürüme hızı bonusu; bulunulan konumun elementindeyse %50 daha fazla. */
+export function bootsSpeedIn(equipped: EquippedMap, elements: readonly Element[]): number {
+  const boots = equipped.boots ? getItem(equipped.boots) : undefined;
+  if (!boots?.speed) return 0;
+  return boots.speed * (matchesLocation(boots.element, elements) ? LOCATION_BONUS : 1);
+}
