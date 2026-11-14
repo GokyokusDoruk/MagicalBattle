@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiClient, ApiError, resolveApiUrl } from '../api/client';
+import { ApiClient, ApiError, REQUEST_TIMEOUT_MS, resolveApiUrl } from '../api/client';
 import { Progress } from '../story/progress';
 import { GateRegistry } from '../world/gates';
 import { LOCATIONS, getLocation } from '../world/locations';
@@ -235,6 +235,20 @@ describe('ApiClient', () => {
     expect(err.isNetwork).toBe(true);
     expect(err.message).toMatch(/ulaşılamadı/);
   });
+
+  it('cevap vermeyen sunucuda zaman aşımıyla ağ hatası verir (boş ekranda kalmaz)', async () => {
+    let signal: AbortSignal | undefined;
+    // Hiç dönmeyen istek: yalnızca iptal sinyaliyle biter
+    const api = new ApiClient('x', (_url, init) => {
+      signal = init?.signal ?? undefined;
+      return new Promise((_resolve, reject) => signal?.addEventListener('abort', () => reject(new DOMException('zaman aşımı', 'TimeoutError'))));
+    });
+    const started = Date.now();
+    const err = (await api.me().catch((e) => e)) as ApiError;
+    expect(signal).toBeDefined();
+    expect(err.isNetwork).toBe(true);
+    expect(Date.now() - started).toBeLessThan(REQUEST_TIMEOUT_MS + 2000);
+  }, 15000);
 
   it('getSave kaydı ya da null döndürür', async () => {
     const api = new ApiClient('x', () => json(200, { save: null }));

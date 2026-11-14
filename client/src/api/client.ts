@@ -37,6 +37,9 @@ export function resolveApiUrl(hostname: string, envUrl?: string): string {
   return 'http://localhost:3000';
 }
 
+/** Sunucu bu sürede cevap vermezse istek hata sayılır (sunucu kapalıyken oyun boş ekranda kalmasın). */
+export const REQUEST_TIMEOUT_MS = 8000;
+
 type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
 
 /** Sunucu API'si. Oturum HttpOnly çerezle tutulur, bu yüzden hep `credentials: 'include'`. */
@@ -54,6 +57,7 @@ export class ApiClient {
         credentials: 'include',
         headers: body === undefined ? undefined : { 'content-type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
     } catch {
       throw new ApiError(0, 'NETWORK', 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.');
