@@ -226,7 +226,12 @@ export class WorldScene extends Phaser.Scene {
       if (now - last < GATE_NOTICE_COOLDOWN_MS) continue;
       this.lastGateNotice.set(gate.cityId, now);
       const city = map.locations.find((l) => l.id === gate.cityId)!;
-      this.ctx.notify(`${city.name} kapısı kilitli. Bu bölgenin ana görevini tamamla.`);
+      const next = this.ctx.quests.activeMarkers()[0];
+      this.ctx.notify(
+        next
+          ? `${city.name} kapısı kilitli. Önce ana görevi yap: «${next.title}» (sarı ! işareti, ${this.ctx.map.locations.find((l) => l.id === next.locationId)?.name ?? ''}).`
+          : `${city.name} kapısı kilitli. Bu bölgenin ana görevini tamamla.`,
+      );
     }
   }
 

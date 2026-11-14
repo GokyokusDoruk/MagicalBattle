@@ -71,3 +71,20 @@ describe('moveWithCollision', () => {
     expect(isBlockedTile(Tile.Sand)).toBe(false);
   });
 });
+
+import { directionTo, mainQuestHint, MAIN_QUEST_MARKERS } from './questMarkers';
+
+describe('ana görev rehberi', () => {
+  it('yön okunu ve uzaklığı verir', () => {
+    expect(directionTo(0, 0, { px: 320, py: 0 })).toEqual({ arrow: '→', tiles: 10 });
+    expect(directionTo(0, 0, { px: 0, py: -320 })).toEqual({ arrow: '↑', tiles: 10 });
+    expect(directionTo(0, 0, { px: -320, py: 320 }).arrow).toBe('↙');
+  });
+
+  it('en küçük aktif bölümün görevini gösterir; aktif yoksa null', () => {
+    const hint = mainQuestHint(MAIN_QUEST_MARKERS, 0, 0)!;
+    expect(hint.title).toBe(MAIN_QUEST_MARKERS[0].title);
+    expect(hint.place.length).toBeGreaterThan(0);
+    expect(mainQuestHint([], 0, 0)).toBeNull();
+  });
+});

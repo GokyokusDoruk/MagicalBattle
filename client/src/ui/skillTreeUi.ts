@@ -1,5 +1,5 @@
 import { ELEMENTS, ELEMENT_NAMES, type Element } from '../battle/damage/elements';
-import { BRANCH_KINDS, BRANCH_ROLE_NAMES, CARRY_SKILLS, SKILLS, TIERS, describeStats, getBranch, getCarrySkill, getSkill, skillId, type BranchKind, type Tier } from '../skills/catalog';
+import { BRANCH_KINDS, BRANCH_ROLE_NAMES, CARRY_SKILLS, SKILLS, TIERS, getBranch, getCarrySkill, getSkill, skillId, type Tier } from '../skills/catalog';
 import { SYNERGY, synergyLevel } from '../skills/resolver';
 import type { SkillTree } from '../skills/tree';
 
@@ -99,7 +99,7 @@ export class SkillTreeUi {
         </div>
         <div role="tablist" class="flex gap-2">${tabs}${carryTab}</div>
         <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
-          ${this.selected === 'carry' ? this.carryHtml() : this.synergyHtml(this.selected) + `<div class="grid gap-3 sm:grid-cols-3">${BRANCH_KINDS.map((k) => this.branchHtml(this.selected as Element, k)).join('')}</div>`}
+          ${this.selected === 'carry' ? this.carryHtml() : this.synergyHtml(this.selected) + this.tableHtml(this.selected)}
         </div>
       </div>`;
   }
@@ -132,33 +132,36 @@ export class SkillTreeUi {
     return `<p class="mb-3 rounded px-3 py-2 text-xs ${level === 'none' ? 'bg-slate-900 text-slate-400' : 'bg-emerald-900/50 text-emerald-100'}" data-synergy="${level}">${text}</p>`;
   }
 
-  private branchHtml(element: Element, kind: BranchKind): string {
-    const branch = getBranch(element, kind);
-    const cards = TIERS.map((tier) => this.skillHtml(skillId(element, kind, tier))).join('');
-    return `<section class="flex flex-col gap-2 rounded-lg bg-slate-900 p-2" data-branch="${element}-${kind}">
-      <h3 class="text-sm font-bold text-amber-200">${esc(branch.name)}</h3>
-      <p class="text-[11px] text-slate-400">${BRANCH_ROLE_NAMES[kind]}</p>${cards}</section>`;
-  }
-
-  private skillHtml(id: string): string {
-    const skill = getSkill(id)!;
+  /** Elementin 9 yeteneği tek tabloda: satır = yetenek (dal ve kademe), sütun = etkiler. Satıra dokununca öğrenilir. */
+  private tableHtml(element: Element): string {
     const { tree } = this.deps;
-    const owned = tree.has(id);
-    const check = tree.check(id);
-    const learnable = check.ok;
-    const state = owned ? 'owned' : learnable ? 'learnable' : 'locked';
-    const style =
-      state === 'owned'
-        ? 'border-emerald-400 bg-emerald-900/40'
-        : state === 'learnable'
-          ? 'border-amber-300 bg-slate-800 hover:bg-slate-700'
-          : 'border-slate-700 bg-slate-900 opacity-60';
-    const lines = describeStats(skill.stats).map((l) => `<li>${esc(l)}</li>`).join('');
-    return `<button type="button" data-action="learn" data-id="${id}" data-state="${state}" class="rounded border p-2 text-left text-xs ${style}">
-      <div class="flex items-center justify-between gap-1"><b>${esc(skill.name)}</b><span class="text-[10px] ${skill.tier === 3 ? 'text-amber-300' : 'text-slate-300'}">${TIER_LABEL[skill.tier]}</span></div>
-      <ul class="mt-1 list-disc pl-4 text-slate-200">${lines}</ul>
-      <div class="mt-1 text-[10px] ${owned ? 'text-emerald-300' : 'text-slate-400'}">${owned ? '✓ Alındı' : `${skill.cost} puan`}</div>
-    </button>`;
+    const cell = (v: number | undefined, sign: string): string =>
+      v ? `<td class="px-2 py-1 text-center font-bold text-emerald-300">${sign}%${Math.round(v * 100)}</td>` : '<td class="px-2 py-1 text-center text-slate-600">–</td>';
+    const rows = BRANCH_KINDS.flatMap((kind) => {
+      const branch = getBranch(element, kind);
+      return TIERS.map((tier, i) => {
+        const id = skillId(element, kind, tier);
+        const skill = getSkill(id)!;
+        const owned = tree.has(id);
+        const learnable = tree.check(id).ok;
+        const state = owned ? 'owned' : learnable ? 'learnable' : 'locked';
+        const rowStyle = state === 'owned' ? 'bg-emerald-900/40' : state === 'learnable' ? 'bg-slate-800 hover:bg-slate-700 cursor-pointer' : 'opacity-50';
+        const s = skill.stats;
+        const head = i === 0 ? `<td rowspan="3" class="border-r border-slate-700 px-2 py-1 align-top"><b class="text-amber-200">${esc(branch.name)}</b><div class="text-[10px] text-slate-400">${BRANCH_ROLE_NAMES[kind]}</div></td>` : '';
+        return `<tr data-action="learn" data-id="${id}" data-state="${state}" class="${rowStyle} border-t border-slate-700">${head}
+          <td class="px-2 py-1"><b>${esc(skill.name)}</b><div class="text-[10px] ${tier === 3 ? 'text-amber-300' : 'text-slate-400'}">${TIER_LABEL[tier]}</div></td>
+          ${cell(s.dealt, '+')}${cell(s.taken, '−')}${cell(s.headBonus, '+')}${cell(s.pierce, '')}${cell(s.reflect, '')}${cell(s.lifesteal, '')}${cell(s.effort, '+')}
+          <td class="px-2 py-1 text-center text-[11px] ${owned ? 'text-emerald-300' : 'text-slate-300'}">${owned ? '✓ Alındı' : `${skill.cost} puan`}</td></tr>`;
+      });
+    }).join('');
+    const th = (t: string, tip: string): string => `<th class="px-2 py-1 text-center font-semibold" title="${tip}">${t}</th>`;
+    return `<div class="overflow-x-auto" style="touch-action:pan-x pan-y"><table class="w-full min-w-[40rem] border-collapse text-left text-xs" data-skill-table="${element}">
+      <thead class="bg-slate-900 text-slate-300"><tr>
+        <th class="px-2 py-1">Dal</th><th class="px-2 py-1">Yetenek</th>
+        ${th('Verilen hasar', 'Verdiğin hasar bu kadar artar')}${th('Alınan hasar', 'Yediğin hasar bu kadar azalır')}${th('Baş bonusu', 'Baş vuruşu çarpanı ×1.5 yerine daha yüksek olur')}${th('Zırh delme', 'Rakip zırhının bu kadarı yok sayılır')}${th('Yansıtma', 'Yediğin hasarın bu kadarı saldırana döner')}${th('Can çalma', 'Verdiğin hasarın bu kadarı sana can olur')}${th('Acele çizim', 'Aceleyle çizilen büyünün güç tabanı bu kadar yükselir')}
+        <th class="px-2 py-1 text-center">Bedel</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+      <p class="mt-2 text-[11px] text-slate-400">Aceleyle çizilen büyü: süreyi doldurmadan bitirdiğin ya da çok küçük çizdiğin büyü; gücü %40'a kadar düşer. "Acele çizim" sütunu bu tabanı yükseltir.</p>`;
   }
 
   // --- Etkileşim ---------------------------------------------------------------------------
