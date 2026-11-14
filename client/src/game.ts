@@ -33,6 +33,8 @@ import { ENEMY_SPOTS, EnemyBoard, type EnemySpot } from './enemies/spots';
 import { EncounterGuard, zoneEncounter } from './enemies/zones';
 import { MINE_DROP_BOOST, MINE_SPOTS, MineBoard, mineEnemies } from './enemies/mines';
 import { confirmMine } from './ui/mineUi';
+import { CHEST_SPOTS, chestGuards, rollChestLoot } from './enemies/chests';
+import { confirmChest } from './ui/chestUi';
 import { enemyStats } from './enemies/catalog';
 import { rollLoot } from './enemies/loot';
 import { applyLoot } from './enemies/applyLoot';
@@ -294,12 +296,13 @@ document.body.appendChild(dialogueUi.element);
 let chapterBusy = false;
 let fightBusy = false;
 let mineBusy = false;
+let chestBusy = false;
 const mineBoard = new MineBoard(() => performance.now());
 const enemyBoard = new EnemyBoard(() => performance.now());
 const encounters = new EncounterGuard(() => performance.now());
 const lootRand = mulberry32(Date.now());
 const modalOpen = (): boolean =>
-  chapterBusy || fightBusy || mineBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
+  chapterBusy || fightBusy || mineBusy || chestBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -435,6 +438,37 @@ async function enterMine(id: string): Promise<void> {
   }
 }
 
+/**
+ * Korumalı sandık (Task 31): 2 muhafızla peş peşe savaş (can taşınır); ikisi de yenilirse sandık açılır ve kayda
+ * "açıldı" yazılır. Yarıda bırakırsan muhafızlar yenilenir.
+ */
+async function openChest(id: string): Promise<void> {
+  const chest = CHEST_SPOTS.find((c) => c.id === id);
+  if (!chest || collected.has(id) || chestBusy || mineBusy || fightBusy || modalOpen()) return;
+  chestBusy = true;
+  try {
+    if (!(await confirmChest(chest, hero.hp, hero.maxHp))) return;
+    for (const guard of chestGuards(chest)) {
+      const r = await fightSpot(guard, 1, true);
+      if (r !== 'won') return;
+    }
+    collected.add(id);
+    const loot = rollChestLoot(chest, hero.level, morality.effects.dropRateMultiplier, lootRand);
+    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
+    const names = [
+      ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
+      ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
+    ];
+    sfx.play('victory');
+    toast.show(`Sandık açıldı! +${got.gold} altın, +${got.xp} XP, ${names.join(', ')}`);
+    if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
+    if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
+    setDirty(true);
+  } finally {
+    chestBusy = false;
+  }
+}
+
 /** Sahne bu oturumda izlendi mi (yenilgiden sonra tekrar denerken sahne baştan oynamasın) */
 const scenesSeen = new Set<number>();
 
@@ -527,6 +561,7 @@ const debug = {
   playChapter,
   handleDeath,
   fightEnemy,
+  openChest,
   enterMine,
   mineBoard,
   enemyBoard,
@@ -622,6 +657,9 @@ void import('./world/bootWorld').then((m) =>
     onMerchantEnter: (id) => {
       if (!modalOpen()) merchantUi.open(id);
     },
+    chests: CHEST_SPOTS,
+    isChestOpen: (id) => collected.has(id),
+    onChestEnter: (id) => void openChest(id),
     mines: MINE_SPOTS,
     isMineReady: (id) => mineBoard.isReady(id),
     onMineEnter: (id) => void enterMine(id),

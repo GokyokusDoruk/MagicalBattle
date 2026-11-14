@@ -37,7 +37,8 @@ describe('görev kataloğu', () => {
 
   it('görevler şehir tüccarlarına dağıtılmış (tüccar olmayan asacıdan görev çıkmaz)', () => {
     const givers = new Set(SIDE_QUESTS.map((q) => q.giver));
-    expect(givers.size).toBeGreaterThanOrEqual(3);
+    expect(givers.size).toBeGreaterThanOrEqual(4);
+    expect(givers.has('still-crystal')).toBe(true);
   });
 
   it('getQuest kimlikle bulur', () => {

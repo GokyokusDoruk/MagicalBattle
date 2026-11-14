@@ -40,7 +40,7 @@ export function rarityOdds(tier: Tier): Record<Rarity, number> {
   return raw;
 }
 
-function rollRarity(rand: () => number, tier: Tier): Rarity {
+export function rollRarity(rand: () => number, tier: Tier): Rarity {
   const odds = rarityOdds(tier);
   let x = rand();
   for (const r of [1, 2, 3, 4, 5, 6] as const) {
