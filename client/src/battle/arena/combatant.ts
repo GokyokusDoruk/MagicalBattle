@@ -1,3 +1,4 @@
+import { wandGeometry } from './wandModel';
 import * as THREE from 'three';
 import type { Element } from '../damage/elements';
 import { ELEMENT_COLORS } from './palette';
@@ -36,7 +37,7 @@ export class Combatant {
     const cloak = this.material(colors.main, 0.12);
     const trim = this.material(new THREE.Color(colors.main).multiplyScalar(0.55).getHex(), 0.05);
     const skin = this.material(SKIN, 0.4);
-    const wood = this.material(0x6b4a2b, 0);
+    const wood = this.material(0xb07a42, 0.12);
     this.orbMaterial = this.material(colors.glow, 0.9);
 
     const mesh = (geo: THREE.BufferGeometry, mat: THREE.Material): THREE.Mesh => {
@@ -56,10 +57,10 @@ export class Combatant {
     const brim = mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.07, 10), trim);
     brim.position.y = 2.42;
 
-    const rod = mesh(new THREE.CylinderGeometry(0.045, 0.055, 2.5, 6), wood);
-    rod.position.y = 1.25;
-    const orb = mesh(new THREE.SphereGeometry(0.17, 8, 6), this.orbMaterial);
-    orb.position.y = 2.6;
+    // Gerçek asa modeli (paylaşılan geometri, atılmaz); ucunda element küresi parlar
+    const rod = new THREE.Mesh(wandGeometry(), wood);
+    const orb = mesh(new THREE.SphereGeometry(0.15, 8, 6), this.orbMaterial);
+    orb.position.y = 2.62;
     this.staff.add(rod, orb);
     this.staff.position.set(0.72, 0, 0.25);
 
