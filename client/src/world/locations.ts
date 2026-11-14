@@ -24,16 +24,22 @@ export const OPEN_HALF = 4;
 /** Kapının önündeki, yolun bittiği noktaya uzaklık. */
 const APPROACH_DISTANCE = 3;
 
+/**
+ * Harita 96x96'dan 136x136'ya büyüdü (Task 39): konumlar yerini korur, hepsi 20 karo kaydırıldı (eski kayıtlar sunucuda ve
+ * istemcide aynı kadar kaydırılır, bkz. save/saveData.ts). `MAP_OFFSET` bu kaymadır.
+ */
+export const MAP_OFFSET = 20;
+
 /** Bölüm sırasına göre dizilidir; yollar bu sırayla birbirine bağlanır. */
 export const LOCATIONS: readonly LocationDef[] = [
-  { id: 'ignis', name: 'Ignis Surları', kind: 'city', chapter: 1, x: 64, y: 60, elements: ['fire'] },
-  { id: 'ash', name: 'Ash Kanyon', kind: 'village', chapter: 2, x: 78, y: 38, elements: ['fire', 'air'] },
-  { id: 'abyss', name: 'Abyss Tapınağı', kind: 'city', chapter: 3, x: 62, y: 16, elements: ['air'] },
-  { id: 'vine', name: 'Vine Surları', kind: 'village', chapter: 4, x: 36, y: 14, elements: ['air', 'earth'] },
-  { id: 'stone-heart', name: 'Stone Heart Kalesi', kind: 'city', chapter: 5, x: 16, y: 30, elements: ['earth'] },
-  { id: 'marsh', name: 'Sisli Bataklık', kind: 'village', chapter: 6, x: 18, y: 60, elements: ['earth', 'water'] },
-  { id: 'still-crystal', name: 'Still Crystal', kind: 'city', chapter: 7, x: 36, y: 80, elements: ['water'] },
-  { id: 'witch-pass', name: 'Cadı Sis Geçidi', kind: 'arena', chapter: 8, x: 70, y: 82, elements: [] },
+  { id: 'ignis', name: 'Ignis Surları', kind: 'city', chapter: 1, x: 84, y: 80, elements: ['fire'] },
+  { id: 'ash', name: 'Ash Kanyon', kind: 'village', chapter: 2, x: 98, y: 58, elements: ['fire', 'air'] },
+  { id: 'abyss', name: 'Abyss Tapınağı', kind: 'city', chapter: 3, x: 82, y: 36, elements: ['air'] },
+  { id: 'vine', name: 'Vine Surları', kind: 'village', chapter: 4, x: 56, y: 34, elements: ['air', 'earth'] },
+  { id: 'stone-heart', name: 'Stone Heart Kalesi', kind: 'city', chapter: 5, x: 36, y: 50, elements: ['earth'] },
+  { id: 'marsh', name: 'Sisli Bataklık', kind: 'village', chapter: 6, x: 38, y: 80, elements: ['earth', 'water'] },
+  { id: 'still-crystal', name: 'Still Crystal', kind: 'city', chapter: 7, x: 56, y: 100, elements: ['water'] },
+  { id: 'witch-pass', name: 'Cadı Sis Geçidi', kind: 'arena', chapter: 8, x: 90, y: 102, elements: [] },
 ];
 
 export function gateTile(loc: LocationDef): { x: number; y: number } {

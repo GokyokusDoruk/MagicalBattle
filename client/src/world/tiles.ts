@@ -8,9 +8,11 @@ export enum Tile {
   Wall = 4,
   Gate = 5,
   Path = 6,
+  /** Çalılık: geçilebilir; düşman karşılaşmaları yalnızca burada çıkar (Task 40) */
+  Thicket = 7,
 }
 
-export const TILE_COUNT = 7;
+export const TILE_COUNT = 8;
 
 /**
  * Zemin türü olarak geçilemeyenler. Kapı (Gate) burada geçilebilir sayılır,

@@ -12,6 +12,7 @@ const COLORS: Record<Tile, string> = {
   [Tile.Wall]: '#8a8a95',
   [Tile.Gate]: '#8a8a95',
   [Tile.Path]: '#a67c52',
+  [Tile.Thicket]: '#687d34',
 };
 
 /** Tüm haritayı gösteren küçük harita: oyuncu (beyaz), ana görevler (sarı), kapılar (kırmızı/yeşil). */

@@ -4,7 +4,9 @@
  * kabul edilir ve varsayılanlarla yükseltilir.
  */
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
+/** Sürüm 9'da harita 96x96'dan 136x136'ya büyüdü: eski kayıtların kayıt noktası bu kadar karo kaydırılır. */
+export const MAP_OFFSET = 20;
 /** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe + 3 Taşıyıcı) */
 const MAX_SKILLS = 39;
 /** Asalar element, rol, nadirlik ve seviye taşır (4x2x6x30 = 1440 çeşit); çantaya sığanlar sınırlıdır, 200 çeşit yeter */
@@ -203,7 +205,7 @@ function parseChoices(input: unknown): Parsed<Record<string, 'good' | 'bad'>> {
 function parseWallet(b: Record<string, unknown>): { ok: true; value: Wallet } | { ok: false; error: string } {
   const bad = { ok: false as const, error: 'Para bakiyesi geçersiz.' };
   const wallet: Wallet = { kor: 0, ciy: 0, tunc: 0, tuy: 0 };
-  if (b.version === SAVE_VERSION) {
+  if ((b.version as number) >= 8) {
     const raw = b.wallet ?? {};
     if (!isPlainObject(raw)) return bad;
     for (const key of Object.keys(raw)) if (!(CURRENCY_KEYS as readonly string[]).includes(key)) return bad;
@@ -226,7 +228,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   if (!isPlainObject(input)) return bad('Kayıt verisi geçersiz.');
   const b = input;
 
-  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== 5 && b.version !== 6 && b.version !== 7 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
+  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== 5 && b.version !== 6 && b.version !== 7 && b.version !== 8 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
 
   const nameError = validatePlayerName(b.playerName);
   if (nameError) return bad(nameError);
@@ -250,7 +252,9 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
     ) {
       return bad('Kayıt noktası geçersiz.');
     }
-    savePoint = { cityId: sp.cityId, tileX: sp.tileX, tileY: sp.tileY };
+    // Eski (v1-v8) kayıtlar eski haritanın koordinatlarındadır: yeni haritaya kaydır
+    const shift = (b.version as number) < 9 ? MAP_OFFSET : 0;
+    savePoint = { cityId: sp.cityId, tileX: sp.tileX + shift, tileY: sp.tileY + shift };
   }
 
   // Ekonomi alanları: v1'de yoktur (varsayılan), v2'de verilenler doğrulanır
