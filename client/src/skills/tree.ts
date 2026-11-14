@@ -2,8 +2,8 @@ import type { Element } from '../battle/damage/elements';
 import { CARRY_SKILLS, SKILLS, SP_PER_LEVEL, TIERS, getCarrySkill, getSkill, skillId, type BranchKind, type SkillDef, type SpellRole } from './catalog';
 import { resolveSpell, type SpellEffects, type SpellResolver } from './resolver';
 
-/** Yetenekleri sıfırlamanın bedeli: seviye başına bu kadar altın (hiç yetenek yoksa bedava) */
-export const RESET_GOLD_PER_LEVEL = 25;
+/** Yetenekleri sıfırlamanın toplam bedeli: seviye başına bu kadar değer; dört para biriminden her biri dörtte birini öder (hiç yetenek yoksa bedava) */
+export const RESET_COST_PER_LEVEL = 25;
 
 export type LearnCheck = { ok: true } | { ok: false; reason: string };
 
@@ -83,12 +83,17 @@ export class SkillTree {
     return true;
   }
 
-  /** Sıfırlamanın altın bedeli; hiç yetenek yoksa 0. */
+  /** Sıfırlamanın toplam bedeli; hiç yetenek yoksa 0. */
   get resetCost(): number {
-    return this.ownedIds.size === 0 ? 0 : RESET_GOLD_PER_LEVEL * Math.max(1, Math.floor(this.levelOf()));
+    return this.ownedIds.size === 0 ? 0 : RESET_COST_PER_LEVEL * Math.max(1, Math.floor(this.levelOf()));
   }
 
-  /** Tüm yetenekleri geri verir (altın bedelini çağıran öder). */
+  /** Her para biriminden alınacak miktar (toplam bedelin dörtte biri, yukarı yuvarlanır). */
+  get resetCostEach(): number {
+    return Math.ceil(this.resetCost / 4);
+  }
+
+  /** Tüm yetenekleri geri verir (bedeli çağıran öder). */
   reset(): void {
     if (this.ownedIds.size === 0) return;
     this.ownedIds.clear();

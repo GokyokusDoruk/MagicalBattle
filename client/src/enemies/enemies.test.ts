@@ -49,7 +49,7 @@ describe('ganimet', () => {
     const rand = mulberry32(7);
     for (let i = 0; i < 300; i++) {
       const l = rollLoot(ELEMENTS[i % 4], TIERS[i % 4], 5, 1, rand);
-      expect(l.gold).toBeGreaterThan(0);
+      expect(l.money).toBeGreaterThan(0);
       expect(l.xp).toBeGreaterThan(0);
       for (const id of Object.keys(l.items)) expect(getItem(id)).toBeDefined();
       for (const id of Object.keys(l.wands)) expect(parseWandId(id)).not.toBeNull();
@@ -105,8 +105,8 @@ describe('ganimeti uygulama', () => {
 
   it('altın, XP ve eşya çantaya girer', () => {
     const { hero, wands, ground } = setup();
-    const out = applyLoot({ gold: 30, xp: 20, items: { 'ates-tozu': 2 }, wands: {} }, hero, wands, ground, 5, 5);
-    expect(hero.gold).toBe(30);
+    const out = applyLoot({ money: 30, xp: 20, items: { 'ates-tozu': 2 }, wands: {} }, hero, wands, ground, 5, 5, 'kor');
+    expect(hero.balance('kor')).toBe(30);
     expect(hero.count('ates-tozu')).toBe(2);
     expect(out).toMatchObject({ taken: 2, dropped: 0 });
     expect(ground.piles()).toHaveLength(0);
@@ -115,7 +115,7 @@ describe('ganimeti uygulama', () => {
   it('sığmayan eşya savaş karosunda yerde kalır', () => {
     const { hero, wands, ground } = setup();
     hero.setGuards({ room: (id: string) => (id === 'ates-tozu' ? 1 : 0) } as never);
-    const out = applyLoot({ gold: 0, xp: 0, items: { 'ates-tozu': 3, 'kurt-postu': 1 }, wands: {} }, hero, wands, ground, 8, 9);
+    const out = applyLoot({ money: 0, xp: 0, items: { 'ates-tozu': 3, 'kurt-postu': 1 }, wands: {} }, hero, wands, ground, 8, 9, 'kor');
     expect(hero.count('ates-tozu')).toBe(1);
     expect(out).toMatchObject({ taken: 1, dropped: 3 });
     const pile = ground.piles()[0];
@@ -125,7 +125,7 @@ describe('ganimeti uygulama', () => {
   it('asa düşünce asa envanterine girer', () => {
     const { hero, wands, ground } = setup();
     const id = 'wand-fire-attack-3-4';
-    applyLoot({ gold: 0, xp: 0, items: {}, wands: { [id]: 1 } }, hero, wands, ground, 1, 1);
+    applyLoot({ money: 0, xp: 0, items: {}, wands: { [id]: 1 } }, hero, wands, ground, 1, 1, 'kor');
     expect(wands.count(id)).toBe(1);
   });
 });

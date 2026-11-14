@@ -5,7 +5,7 @@ import { ENEMY_KINDS, enemyStats, type Tier } from './catalog';
 import type { Element } from '../battle/damage/elements';
 
 /**
- * Düşman ganimeti (Task 28): karışık paket. Her zaman altın ve XP; ayrıca malzeme, can iksiri, ekipman ve asa şansla
+ * Düşman ganimeti (Task 28): karışık paket. Her zaman para ve XP; ayrıca malzeme, can iksiri, ekipman ve asa şansla
  * düşer. Ekipman ve asada **nadirlik arttıkça düşme şansı azalır**; Destansı (4) ve üstü çok nadirdir. Karanlık yol
  * ganimet oranını artırır (`dropRateMultiplier`, 1.0-1.3). Kademe yükseldikçe yüksek nadirliğin payı biraz artar.
  */
@@ -20,7 +20,7 @@ export const DROP_CHANCE = { material: 0.7, potion: 0.2, gear: 0.18, wand: 0.08 
 export const TIER_RARITY_BOOST = 0.3;
 
 export interface LootResult {
-  gold: number;
+  money: number;
   xp: number;
   /** Ticari eşya, iksir ve ekipman: eşya kimliği → adet */
   items: Record<string, number>;
@@ -78,5 +78,5 @@ export function rollLoot(element: Element, tier: Tier, playerLevel: number, drop
     add(wands, makeWand({ element: el, role: pick(ROLES), rarity: rollRarity(rand, tier), level: 1 + Math.floor(rand() * cap) }).id);
   }
 
-  return { gold: stats.gold, xp: stats.xp, items, wands };
+  return { money: stats.money, xp: stats.xp, items, wands };
 }

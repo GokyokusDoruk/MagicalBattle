@@ -29,7 +29,7 @@ describe('görev kataloğu', () => {
         expect(o.count).toBeGreaterThan(0);
       }
       if (o.type === 'visit') expect(LOCATIONS.some((l) => l.id === o.locationId), q.id).toBe(true);
-      expect(q.reward.gold).toBeGreaterThan(0);
+      expect(q.reward.money).toBeGreaterThan(0);
       expect(q.reward.xp).toBeGreaterThan(0);
       for (const it of q.reward.items ?? []) expect(getItem(it.id), `${q.id} ödülü`).toBeDefined();
     }
@@ -83,13 +83,13 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
     player.addItem('sifali-ot', 3);
     expect(quests.onEvent({ type: 'collect' })).toEqual([]);
     expect(quests.progress('ash-ot-toplama').value).toBe(3);
-    expect(player.gold).toBe(0);
+    expect(player.balance('kor')).toBe(0);
 
     player.addItem('sifali-ot', 2);
     const done = quests.onEvent({ type: 'collect' });
     expect(done).toHaveLength(1);
-    expect(done[0]).toMatchObject({ gold: 60, xp: 40 });
-    expect(player.gold).toBe(60);
+    expect(done[0]).toMatchObject({ money: 60, xp: 40 });
+    expect(player.balance('kor')).toBe(60);
     expect(player.xp).toBe(40);
     expect(quests.view('ash-ot-toplama')).toBe('completed');
   });
@@ -129,8 +129,8 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
     const { quests, player } = make();
     player.addItem('sifali-ot', 6);
     const r = quests.accept('ash-ot-toplama');
-    expect(r).toMatchObject({ ok: true, completion: { gold: 60 } });
-    expect(player.gold).toBe(60);
+    expect(r).toMatchObject({ ok: true, completion: { money: 60 } });
+    expect(player.balance('kor')).toBe(60);
     expect(quests.view('ash-ot-toplama')).toBe('completed');
   });
 
@@ -157,27 +157,27 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
     const { quests, player } = make();
     quests.accept('ash-ignis-yolu');
     quests.onEvent({ type: 'visit', locationId: 'ignis' });
-    const gold = player.gold;
+    const gold = player.balance('kor');
     expect(quests.onEvent({ type: 'visit', locationId: 'ignis' })).toEqual([]);
-    expect(player.gold).toBe(gold);
+    expect(player.balance('kor')).toBe(gold);
     expect(quests.accept('ash-ignis-yolu')).toMatchObject({ ok: false });
   });
 
   it('aynı olayla birden çok görev birlikte tamamlanabilir', () => {
     const catalog: QuestDef[] = [
-      { id: 'a', title: 'A', giver: 'ash', description: 'x'.repeat(30), objective: { type: 'visit', locationId: 'ignis' }, reward: { gold: 10, xp: 5 } },
-      { id: 'b', title: 'B', giver: 'ash', description: 'x'.repeat(30), objective: { type: 'visit', locationId: 'ignis' }, reward: { gold: 20, xp: 5 } },
+      { id: 'a', title: 'A', giver: 'ignis', description: 'x'.repeat(30), objective: { type: 'visit', locationId: 'ignis' }, reward: { money: 10, xp: 5 } },
+      { id: 'b', title: 'B', giver: 'ignis', description: 'x'.repeat(30), objective: { type: 'visit', locationId: 'ignis' }, reward: { money: 20, xp: 5 } },
     ];
     const { quests, player } = make(catalog);
     quests.accept('a');
     quests.accept('b');
     expect(quests.onEvent({ type: 'visit', locationId: 'ignis' })).toHaveLength(2);
-    expect(player.gold).toBe(30);
+    expect(player.balance('kor')).toBe(30);
   });
 
   it('savaş görevi: her zaferde ilerler', () => {
     const catalog: QuestDef[] = [
-      { id: 'w', title: 'W', giver: 'ash', description: 'x'.repeat(30), objective: { type: 'battleWon', count: 2 }, reward: { gold: 50, xp: 10 } },
+      { id: 'w', title: 'W', giver: 'ash', description: 'x'.repeat(30), objective: { type: 'battleWon', count: 2 }, reward: { money: 50, xp: 10 } },
     ];
     const { quests } = make(catalog);
     quests.accept('w');
@@ -188,12 +188,12 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
 
   it('ahlak altın çarpanı yalnızca altını etkiler', () => {
     const { quests, player } = make();
-    quests.goldMultiplier = 1.5;
+    quests.moneyMultiplier = 1.5;
     quests.accept('ash-ignis-yolu');
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });
-    expect(c.gold).toBe(135);
+    expect(c.money).toBe(135);
     expect(c.xp).toBe(60);
-    expect(player.gold).toBe(135);
+    expect(player.balance(c.currency)).toBe(135);
   });
 
   it('dinleyiciler değişimde çağrılır', () => {
@@ -218,12 +218,12 @@ describe('QuestEngine: kayıt', () => {
 
     const b = make();
     b.player.restore(a.player.snapshot()); // önce oyuncu, sonra görevler
-    const goldBefore = b.player.gold;
+    const goldBefore = b.player.balance('kor');
     b.quests.restore(saved);
     expect(b.quests.view('ash-ot-toplama')).toBe('active');
     expect(b.quests.progress('ash-ot-toplama').value).toBe(2);
     expect(b.quests.view('ash-ignis-yolu')).toBe('completed');
-    expect(b.player.gold).toBe(goldBefore); // restore ödülü ikinci kez yatırmaz
+    expect(b.player.balance('kor')).toBe(goldBefore); // restore ödülü ikinci kez yatırmaz
   });
 
   it('restore bozuk kaydı temizler: bilinmeyen görev, geçersiz durum, taşan ilerleme', () => {

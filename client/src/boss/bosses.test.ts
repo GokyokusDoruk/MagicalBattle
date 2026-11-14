@@ -16,7 +16,7 @@ describe('boss verisi', () => {
   it('düşman ve ödül değerleri makul aralıkta', () => {
     for (const b of BOSSES) {
       expect(b.intro.length).toBeGreaterThan(0);
-      expect(b.reward.gold).toBeGreaterThan(0);
+      expect(b.reward.money).toBeGreaterThan(0);
       expect(b.reward.xp).toBeGreaterThan(0);
       for (const foe of [...b.foes, ...(b.foesDark ?? [])]) {
         expect(foe.hp).toBeGreaterThan(0);
@@ -32,7 +32,7 @@ describe('boss verisi', () => {
   it('hedef seviye ve ödüller bölümle birlikte artar', () => {
     for (let i = 1; i < BOSSES.length; i++) {
       expect(BOSSES[i].targetLevel).toBeGreaterThanOrEqual(BOSSES[i - 1].targetLevel);
-      expect(BOSSES[i].reward.gold).toBeGreaterThan(BOSSES[i - 1].reward.gold);
+      expect(BOSSES[i].reward.money).toBeGreaterThan(BOSSES[i - 1].reward.money);
       expect(BOSSES[i].reward.xp).toBeGreaterThan(BOSSES[i - 1].reward.xp);
     }
   });

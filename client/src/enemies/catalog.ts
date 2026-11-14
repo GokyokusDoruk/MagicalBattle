@@ -35,7 +35,7 @@ export interface EnemyStats {
   basePower: number;
   armor: number;
   skill: number;
-  gold: number;
+  money: number;
   xp: number;
 }
 
@@ -49,7 +49,7 @@ export function enemyStats(element: Element, tier: Tier): EnemyStats {
     basePower: 60 + level * 2,
     armor: Math.min(0.2, 0.01 * level),
     skill: Math.min(0.55, 0.2 + level * 0.02),
-    gold: 6 + level * 3,
+    money: 6 + level * 3,
     xp: 12 + level * 6,
   };
 }

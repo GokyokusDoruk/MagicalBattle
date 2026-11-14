@@ -44,7 +44,7 @@ describe('sandık ganimeti', () => {
       expect(gear).toHaveLength(1);
       for (const id of Object.keys(l.items)) expect(getItem(id)).toBeDefined();
       for (const id of Object.keys(l.wands)) expect(parseWandId(id)).not.toBeNull();
-      expect(l.gold).toBeGreaterThan(0);
+      expect(l.money).toBeGreaterThan(0);
     }
   });
 
@@ -77,7 +77,7 @@ describe('sandık ganimeti', () => {
           rarityFoe += p.rarity;
         }
       }
-      expect(a.gold).toBeGreaterThan(b.gold);
+      expect(a.money).toBeGreaterThan(b.money);
     }
     expect(chestWands).toBeGreaterThan(foeWands * 3);
     expect(chestGear).toBeGreaterThan(foeGear * 3);

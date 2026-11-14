@@ -1,4 +1,5 @@
 import { getItem } from '../economy/items';
+import { cityCurrency, type Currency } from '../economy/currency';
 import type { PlayerState } from '../economy/player';
 import { sellPrice } from '../economy/shop';
 import { SIDE_QUESTS, type QuestDef } from './catalog';
@@ -20,12 +21,14 @@ export type QuestEvent =
 
 export interface QuestCompletion {
   quest: QuestDef;
-  gold: number;
+  /** Ödülün para birimi (görevi veren şehrin birimi) ve miktarı */
+  currency: Currency;
+  money: number;
   xp: number;
   items: { id: string; count: number }[];
   levelsGained: number;
-  /** Çanta dolu olduğu için altına çevrilen ödül eşyalarının altını (0 = hepsi çantaya girdi) */
-  overflowGold: number;
+  /** Çanta dolu olduğu için paraya çevrilen ödül eşyalarının parası (0 = hepsi çantaya girdi) */
+  overflowMoney: number;
 }
 
 export type AcceptResult = { ok: true; completion?: QuestCompletion } | { ok: false; reason: string };
@@ -43,8 +46,8 @@ export class QuestEngine {
   /** Toplama görevlerinde son görülen çanta miktarı: yalnızca ARTIŞ ilerleme sayılır, satış ilerlemeyi silmez */
   private readonly seen = new Map<string, number>();
   private readonly listeners = new Set<() => void>();
-  /** Altın ödülü çarpanı: ahlak sistemi (Düzen Bekçisi daha çok altın verir, Task 18). 1 = etkisiz. */
-  goldMultiplier = 1;
+  /** Para ödülü çarpanı: ahlak sistemi (Düzen Bekçisi daha çok para verir, Task 18). 1 = etkisiz. */
+  moneyMultiplier = 1;
 
   constructor(
     private readonly player: PlayerState,
@@ -150,20 +153,21 @@ export class QuestEngine {
     rec.status = 'completed';
     rec.progress = targetOf(q);
 
-    const gold = Math.round(q.reward.gold * this.goldMultiplier);
+    const currency = cityCurrency(q.giver);
+    const money = Math.round(q.reward.money * this.moneyMultiplier);
     const items = q.reward.items ?? [];
-    this.player.addGold(gold);
-    // Çanta doluysa sığmayan ödül eşyası kaybolmaz: değerinin yarısı altın olarak verilir
-    let overflowGold = 0;
+    this.player.addMoney(currency, money);
+    // Çanta doluysa sığmayan ödül eşyası kaybolmaz: değerinin yarısı para olarak verilir
+    let overflowMoney = 0;
     for (const it of items) {
       const added = this.player.addItemPartial(it.id, it.count);
       const left = it.count - added;
       const def = getItem(it.id);
-      if (left > 0 && def) overflowGold += sellPrice(def.price) * left;
+      if (left > 0 && def) overflowMoney += sellPrice(def.price) * left;
     }
-    if (overflowGold > 0) this.player.addGold(overflowGold);
+    if (overflowMoney > 0) this.player.addMoney(currency, overflowMoney);
     const levelsGained = this.player.addXp(q.reward.xp);
-    return { quest: q, gold, xp: q.reward.xp, items, levelsGained, overflowGold };
+    return { quest: q, currency, money, xp: q.reward.xp, items, levelsGained, overflowMoney };
   }
 
   snapshot(): QuestSnapshot {

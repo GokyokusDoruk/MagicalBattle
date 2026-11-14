@@ -1,5 +1,6 @@
 import type { Element } from '../battle/damage/elements';
 import { getLocation } from '../world/locations';
+import { CURRENCY_NAMES, cityCurrency } from './currency';
 import { getItem } from './items';
 import type { PlayerState } from './player';
 import type { TradeResult } from './shop';
@@ -69,7 +70,8 @@ export function buyGood(player: PlayerState, cityId: string, goodId: string, cou
   if (!isTradeGood(goodId) || !(n > 0)) return { ok: false, reason: 'Böyle bir mal yok.' };
   if (player.roomFor(goodId) < n) return { ok: false, reason: 'Çantanda bu mal için yer yok. Önce bir şey sat ya da at.' };
   const total = tradeBuyPrice(cityId, goodId, moralityBuy) * n;
-  if (!player.spendGold(total)) return { ok: false, reason: 'Yeterli altın yok.' };
+  const currency = cityCurrency(cityId);
+  if (!player.spendMoney(currency, total)) return { ok: false, reason: `Yeterli ${CURRENCY_NAMES[currency]} yok.` };
   player.addItem(goodId, n);
   return { ok: true, price: total };
 }
@@ -80,6 +82,6 @@ export function sellGood(player: PlayerState, cityId: string, goodId: string, co
   if (player.count(goodId) < n) return { ok: false, reason: 'Bundan yeterince yok.' };
   const total = tradeSellPrice(cityId, goodId, moralitySell) * n;
   player.removeItem(goodId, n);
-  player.addGold(total);
+  player.addMoney(cityCurrency(cityId), total);
   return { ok: true, price: total };
 }

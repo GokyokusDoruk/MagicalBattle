@@ -4,7 +4,7 @@
  * kabul edilir ve varsayılanlarla yükseltilir.
  */
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 /** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe + 3 Taşıyıcı) */
 const MAX_SKILLS = 39;
 /** Asalar element, rol, nadirlik ve seviye taşır (4x2x6x30 = 1440 çeşit); çantaya sığanlar sınırlıdır, 200 çeşit yeter */
@@ -28,7 +28,10 @@ export const LAST_CHAPTER = 8;
 /** Kayıt noktası olabilecek şehirler (client/src/world/locations.ts ile aynı kimlikler) */
 export const SAVE_CITY_IDS = ['ignis', 'abyss', 'stone-heart', 'still-crystal'] as const;
 
-export const MAX_GOLD = 9_999_999;
+/** Her para biriminin (Kor, Çiy, Tunç, Tüy) kaydedilebilecek en yüksek bakiyesi */
+export const MAX_MONEY = 9_999_999;
+export const CURRENCY_KEYS = ['kor', 'ciy', 'tunc', 'tuy'] as const;
+export type Wallet = Record<(typeof CURRENCY_KEYS)[number], number>;
 export const MAX_XP = 1_000_000;
 /** Kaydedilebilecek en yüksek mevcut can (azami can seviyeyle artar, bunun çok altındadır) */
 export const MAX_HP_SAVED = 100_000;
@@ -57,7 +60,8 @@ export interface SaveData {
   completedChapters: number[];
   /** Oyuna devam edilecek yer; yeni oyunda henüz kayıt noktası yoksa null */
   savePoint: SavePoint | null;
-  gold: number;
+  /** Dört para biriminin bakiyesi (sürüm 8; eski kayıtlardaki altın Kor olur) */
+  wallet: Wallet;
   xp: number;
   /** Mevcut can; null = tam dolu */
   hp: number | null;
@@ -195,13 +199,34 @@ function parseChoices(input: unknown): Parsed<Record<string, 'good' | 'bad'>> {
   return { ok: true, value: out };
 }
 
+/** Cüzdan: sürüm 8'de dört birimli nesne; eski sürümlerde tek `gold` alanı Kor'a çevrilir. */
+function parseWallet(b: Record<string, unknown>): { ok: true; value: Wallet } | { ok: false; error: string } {
+  const bad = { ok: false as const, error: 'Para bakiyesi geçersiz.' };
+  const wallet: Wallet = { kor: 0, ciy: 0, tunc: 0, tuy: 0 };
+  if (b.version === SAVE_VERSION) {
+    const raw = b.wallet ?? {};
+    if (!isPlainObject(raw)) return bad;
+    for (const key of Object.keys(raw)) if (!(CURRENCY_KEYS as readonly string[]).includes(key)) return bad;
+    for (const key of CURRENCY_KEYS) {
+      const v = (raw as Record<string, unknown>)[key] ?? 0;
+      if (!isInt(v, 0, MAX_MONEY)) return bad;
+      wallet[key] = v;
+    }
+    return { ok: true, value: wallet };
+  }
+  const gold = b.gold ?? 0;
+  if (!isInt(gold, 0, MAX_MONEY)) return bad;
+  wallet.kor = gold;
+  return { ok: true, value: wallet };
+}
+
 /** Geçerliyse temizlenmiş (ve v5'e yükseltilmiş) kaydı, değilse Türkçe hata mesajını döndürür. */
 export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: false; error: string } {
   const bad = (error: string) => ({ ok: false as const, error });
   if (!isPlainObject(input)) return bad('Kayıt verisi geçersiz.');
   const b = input;
 
-  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== 5 && b.version !== 6 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
+  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== 5 && b.version !== 6 && b.version !== 7 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
 
   const nameError = validatePlayerName(b.playerName);
   if (nameError) return bad(nameError);
@@ -229,9 +254,10 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   }
 
   // Ekonomi alanları: v1'de yoktur (varsayılan), v2'de verilenler doğrulanır
-  const gold = b.gold ?? 0;
   const xp = b.xp ?? 0;
-  if (!isInt(gold, 0, MAX_GOLD) || !isInt(xp, 0, MAX_XP)) return bad('Altın ya da XP geçersiz.');
+  if (!isInt(xp, 0, MAX_XP)) return bad('XP geçersiz.');
+  const wallet = parseWallet(b);
+  if (!wallet.ok) return bad(wallet.error);
   const hp = b.hp ?? null;
   if (hp !== null && !isInt(hp, 1, MAX_HP_SAVED)) return bad('Can geçersiz.');
   const items = parseItems(b.items);
@@ -258,7 +284,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
       playerName: (b.playerName as string).trim(),
       completedChapters: chapters as number[],
       savePoint,
-      gold,
+      wallet: wallet.value,
       xp,
       hp,
       items: items.value,

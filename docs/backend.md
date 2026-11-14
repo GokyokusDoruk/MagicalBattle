@@ -41,15 +41,15 @@ Hatalar `{ code, error }` biçimindedir (`error` Türkçe, kullanıcıya göster
 
 ## Kayıt dosyası
 
-Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 7; eski (v1-v6) kayıtlar okunurken varsayılan alanlarla otomatik yükseltilir.
+Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 8; eski (v1-v7) kayıtlar okunurken varsayılan alanlarla otomatik yükseltilir.
 
 ```json
 {
-  "version": 7,
+  "version": 8,
   "playerName": "Aylin",
   "completedChapters": [1, 2],
   "savePoint": { "cityId": "ignis", "tileX": 64, "tileY": 64 },
-  "gold": 250,
+  "wallet": { "kor": 250, "ciy": 40, "tunc": 0, "tuy": 7 },
   "hp": 180,
   "xp": 320,
   "items": { "sifali-ot": 4, "gezgin-cuppesi": 1 },
@@ -69,7 +69,7 @@ Sunucu istemciye güvenmez ve her yazmada doğrular:
 - `playerName`: 2-20 karakter (harf, rakam, boşluk, `_ . -`)
 - `completedChapters`: aralıksız `[1..n]`, en fazla 8 bölüm
 - `savePoint`: `null` (yeni oyun) ya da bilinen bir şehir (`ignis`, `abyss`, `stone-heart`, `still-crystal`) ve 0-500 arası tam sayı karo
-- `gold` 0-9.999.999, `xp` 0-1.000.000 (tam sayı)
+- `wallet`: dört birim (`kor`, `ciy`, `tunc`, `tuy`), her biri 0-9.999.999 tam sayı; bilinmeyen birim reddedilir. Eski (v1-v7) kayıttaki tek `gold` alanı **Kor**'a çevrilir ([para-birimleri.md](para-birimleri.md)). `xp` 0-1.000.000 (tam sayı)
 - `items`: en çok 64 çeşit, kimlik `a-z 0-9 -`, adet 1-999; `equipped`: yalnızca `robe`, `hat`, `pants`, `bag`, `ring`, `boots` (eski `amulet` yuvası da okunur, istemci yüklerken yüzüğe çevirir); `quests`: en çok 64, durum `active`/`completed`, ilerleme 0-9999; `collected`: en çok 200 kimlik (tekrarlar atılır); `skills`: en çok 39 kimlik (36 element + 3 Taşıyıcı), `a-z 0-9 -` (tekrarlar atılır); `wands`: en çok 200 çeşit, kimlik `wand-<element>-<rol>-<nadirlik 1-6>-<seviye 1-30>`, adet 1-999; `wandEquipped`: kuşanılı asa kimliği ya da `null` (sahip olunmuyorsa `null` olur); `choices`: en çok 16 kayıt, değer yalnızca `good` ya da `bad`
 - Fazla alanlar atılır, gövde en fazla 16 KB
 

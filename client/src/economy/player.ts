@@ -4,14 +4,14 @@ import { bootsSpeed, bootsSpeedIn, gearEffects, type GearEffects, type GearResol
 import { GEAR_SLOTS, getItem, type GearSlot } from './items';
 import { playerMaxHp } from './health';
 import { levelForXp } from './leveling';
+import { MAX_MONEY, emptyWallet, sanitizeWallet, type Currency, type Wallet } from './currency';
 
-
-export const MAX_GOLD = 9_999_999;
 export const MAX_XP = 1_000_000;
 export const MAX_STACK = 999;
 
 export interface EconomySnapshot {
-  gold: number;
+  /** Dört para biriminin bakiyesi (Task 35) */
+  wallet: Wallet;
   xp: number;
   items: Record<string, number>;
   equipped: Partial<Record<GearSlot, string>>;
@@ -31,11 +31,11 @@ const toInt = (v: unknown, max: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.floor(v))) : 0;
 
 /**
- * Oyuncunun ekonomisi: altın, XP/seviye, çanta ve kuşanılan ekipman. Arayüzden bağımsızdır;
+ * Oyuncunun ekonomisi: dört para birimi (Kor, Çiy, Tunç, Tüy), XP/seviye, çanta ve kuşanılan ekipman. Arayüzden bağımsızdır;
  * değişince `onChange` dinleyicilerini çağırır (durum çubuğu, tüccar ekranı).
  */
 export class PlayerState {
-  private goldValue = 0;
+  private readonly money: Wallet = emptyWallet();
   private xpValue = 0;
   private readonly items = new Map<string, number>();
   private equippedSlots: Partial<Record<GearSlot, string>> = {};
@@ -56,8 +56,14 @@ export class PlayerState {
     return this.guards ? this.guards.room(id) : Infinity;
   }
 
-  get gold(): number {
-    return this.goldValue;
+  /** Bir para biriminin bakiyesi. */
+  balance(currency: Currency): number {
+    return this.money[currency];
+  }
+
+  /** Tüm bakiyeler (salt okunur kopya). */
+  get wallet(): Readonly<Wallet> {
+    return { ...this.money };
   }
 
   get xp(): number {
@@ -114,18 +120,18 @@ export class PlayerState {
     return [...this.items.entries()].map(([id, count]) => ({ id, count })).sort((a, b) => a.id.localeCompare(b.id));
   }
 
-  addGold(amount: number): void {
+  addMoney(currency: Currency, amount: number): void {
     const n = Math.floor(amount);
     if (!(n > 0)) return;
-    this.goldValue = Math.min(MAX_GOLD, this.goldValue + n);
+    this.money[currency] = Math.min(MAX_MONEY, this.money[currency] + n);
     this.changed();
   }
 
-  /** Yeterli altın varsa harcar. */
-  spendGold(amount: number): boolean {
+  /** O birimden yeterli para varsa harcar. */
+  spendMoney(currency: Currency, amount: number): boolean {
     const n = Math.floor(amount);
-    if (!(n >= 0) || n > this.goldValue) return false;
-    this.goldValue -= n;
+    if (!(n >= 0) || n > this.money[currency]) return false;
+    this.money[currency] -= n;
     this.changed();
     return true;
   }
@@ -255,7 +261,7 @@ export class PlayerState {
 
   snapshot(): EconomySnapshot {
     return {
-      gold: this.goldValue,
+      wallet: { ...this.money },
       xp: this.xpValue,
       items: Object.fromEntries(this.items),
       equipped: { ...this.equippedSlots },
@@ -264,8 +270,10 @@ export class PlayerState {
   }
 
   /** Kayıttan yükler. Bilinmeyen eşyalar atılır, sayılar sınırlara çekilir, sahip olunmayan ekipman kuşanılmaz. */
-  restore(snapshot: Partial<EconomySnapshot> | undefined): void {
-    this.goldValue = toInt(snapshot?.gold, MAX_GOLD);
+  restore(snapshot: (Partial<EconomySnapshot> & { gold?: number }) | undefined): void {
+    // Eski kayıtta (sürüm 7 ve öncesi) tek altın vardı: Kor'a çevrilir
+    const wallet = snapshot?.wallet ? sanitizeWallet(snapshot.wallet) : sanitizeWallet({ kor: snapshot?.gold });
+    Object.assign(this.money, wallet);
     this.xpValue = toInt(snapshot?.xp, MAX_XP);
     this.items.clear();
     // Eski ekipman kimlikleri yeni eşyalara dönüşür (aynı eşyaya düşenler toplanır)

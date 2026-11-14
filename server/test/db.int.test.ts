@@ -160,12 +160,12 @@ describe('uygulama + gerçek veritabanı', () => {
 describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
   const saves = () => new PrismaSaveRepository(prisma);
   const data = {
-    version: 7 as const,
+    version: 8 as const,
     hp: 120,
     playerName: 'Aylin',
     completedChapters: [1, 2],
     savePoint: { cityId: 'ignis', tileX: 64, tileY: 62 },
-    gold: 320,
+    wallet: { kor: 320, ciy: 15, tunc: 0, tuy: 2 },
     xp: 150,
     items: { 'sifali-ot': 3, 'cirak-cuppesi': 1 },
     equipped: { robe: 'cirak-cuppesi' },
@@ -200,11 +200,11 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
       data: { userId: user.id, data: { version: 1, playerName: 'Eski', completedChapters: [1], savePoint: null } },
     });
     expect(await saves().get(user.id)).toEqual({
-      version: 7,
+      version: 8,
       playerName: 'Eski',
       completedChapters: [1],
       savePoint: null,
-      gold: 0,
+      wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 },
       xp: 0,
       hp: null,
       items: {},

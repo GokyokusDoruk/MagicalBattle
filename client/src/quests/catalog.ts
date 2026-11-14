@@ -7,7 +7,7 @@ export type Objective =
   | { type: 'battleWon'; count: number };
 
 export interface QuestReward {
-  gold: number;
+  money: number;
   xp: number;
   items?: { id: string; count: number }[];
 }
@@ -36,7 +36,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     description:
       'Ambargodan beri köyde ilaç yapacak ot kalmadı. Yolların kenarında biten şifalı otlardan beş tane topla, geri dönmene gerek yok, ödülün yoluna düşecek.',
     objective: { type: 'collect', itemId: 'sifali-ot', count: 5 },
-    reward: { gold: 60, xp: 40 },
+    reward: { money: 60, xp: 40 },
   },
   {
     id: 'ash-ignis-yolu',
@@ -45,7 +45,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     description:
       "Kervancılar Ignis'in kapılarının açıldığını söylüyor ama kimse inanmıyor. Surların içine gir, gözünle gör ki köy haberi öğrensin.",
     objective: { type: 'visit', locationId: 'ignis' },
-    reward: { gold: 90, xp: 60, items: [{ id: 'ates-tozu', count: 2 }] },
+    reward: { money: 90, xp: 60, items: [{ id: 'ates-tozu', count: 2 }] },
   },
   {
     id: 'vine-kristal-avi',
@@ -54,7 +54,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     description:
       'Kumsallarda ışık saçan kristal parçaları çıkıyor. Soylular için süs yapacağım, üç tane bulursan iyi para ederim.',
     objective: { type: 'collect', itemId: 'kristal-parcasi', count: 3 },
-    reward: { gold: 120, xp: 70 },
+    reward: { money: 120, xp: 70 },
   },
   {
     id: 'vine-abyss-haberi',
@@ -64,7 +64,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
       "Abyss Tapınağı'ndan haber alınamıyor. İçeri girebilirsen köyün büyükleri rahatlayacak.",
     objective: { type: 'visit', locationId: 'abyss' },
     minLevel: 2,
-    reward: { gold: 150, xp: 90, items: [{ id: 'kurt-postu', count: 1 }] },
+    reward: { money: 150, xp: 90, items: [{ id: 'kurt-postu', count: 1 }] },
   },
   {
     id: 'marsh-ot-sepeti',
@@ -74,7 +74,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
       'Bataklığın şifacısı sekiz tane taze ot istiyor. Sisin içinde yol bulmak zor ama otlar yolların kenarında.',
     objective: { type: 'collect', itemId: 'sifali-ot', count: 8 },
     minLevel: 2,
-    reward: { gold: 100, xp: 80, items: [{ id: 'ates-tozu', count: 2 }] },
+    reward: { money: 100, xp: 80, items: [{ id: 'ates-tozu', count: 2 }] },
   },
   {
     id: 'marsh-kristal-sehri',
@@ -83,7 +83,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     description: "Su altındaki Still Crystal'ın efsanesi anlatılır durur. Sur kapısından geçip bir kez gör, sonra bize de anlat.",
     objective: { type: 'visit', locationId: 'still-crystal' },
     minLevel: 3,
-    reward: { gold: 220, xp: 140 },
+    reward: { money: 220, xp: 140 },
   },
   {
     id: 'crystal-dalga-avi',
@@ -92,7 +92,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     description: 'Sahildeki yaratıklar dalgıçlarımızı korkutuyor. Yolda karşına çıkan üç düşmanı yen, ödülün yoluna düşecek.',
     objective: { type: 'battleWon', count: 3 },
     minLevel: 3,
-    reward: { gold: 150, xp: 120, items: [{ id: 'iksir-orta', count: 1 }] },
+    reward: { money: 150, xp: 120, items: [{ id: 'iksir-orta', count: 1 }] },
   },
   {
     id: 'crystal-tas-haberi',
@@ -101,7 +101,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     description: "Derin incilerimizi satacak yeni alıcı arıyoruz. Stone Heart Kalesi'ne git, surların içine gir, dönüşte seni zengin eden bir ödül olacak.",
     objective: { type: 'visit', locationId: 'stone-heart' },
     minLevel: 2,
-    reward: { gold: 130, xp: 90 },
+    reward: { money: 130, xp: 90 },
   },
 ];
 

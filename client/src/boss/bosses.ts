@@ -46,7 +46,8 @@ export interface BossDef {
   gimmick?: BossGimmick;
   /** Savaş başlamadan önce söylenen satırlar */
   intro: readonly ChoiceLine[];
-  reward: { gold: number; xp: number };
+  /** Ödül parası, bölümün şehrinin/köyünün para biriminde (bkz. economy/currency.ts) */
+  reward: { money: number; xp: number };
   /** Hedeflenen oyuncu seviyesi (yetenek ve asalarla birlikte) */
   targetLevel: number;
   /** Döngü sınırı (uzun savaşlar için artırılır) */
@@ -60,7 +61,7 @@ export const BOSSES: readonly BossDef[] = [
     title: 'General Vael',
     foes: [{ name: 'General Vael', hp: 310, basePower: 115, armor: 0, skill: 0.25, elements: { fire: 1 }, attackScale: 1.15 }],
     intro: [{ speaker: 'General Vael', text: 'Bir çırak mı? Küle döneceksin! Alevlerim senden büyük!' }],
-    reward: { gold: 120, xp: 110 },
+    reward: { money: 120, xp: 110 },
     targetLevel: 1,
   },
   {
@@ -69,7 +70,7 @@ export const BOSSES: readonly BossDef[] = [
     title: 'Ambargo Komutanı',
     foes: [{ name: 'Ambargo Komutanı', hp: 300, basePower: 85, armor: 0.2, skill: 0.7, elements: { earth: 2, water: 1 } }],
     intro: [{ speaker: 'Ambargo Komutanı', text: 'Kervan yolu benim. Geçmek istiyorsan önce beni aşacaksın.' }],
-    reward: { gold: 160, xp: 150 },
+    reward: { money: 160, xp: 150 },
     targetLevel: 4,
   },
   {
@@ -84,7 +85,7 @@ export const BOSSES: readonly BossDef[] = [
       { speaker: 'Tapınak Bekçisi', text: 'Kutsal toprağa iki yabancı! Rüzgâr sizi geri üfleyecek.' },
       { speaker: 'Elysia', text: 'Hazırım. Sıranı bekle, birlikte vuracağız!' },
     ],
-    reward: { gold: 220, xp: 200 },
+    reward: { money: 220, xp: 200 },
     targetLevel: 5,
   },
   {
@@ -93,7 +94,7 @@ export const BOSSES: readonly BossDef[] = [
     title: 'Soylu Şampiyonu',
     foes: [{ name: 'Soylu Şampiyonu', hp: 540, basePower: 85, armor: 0.35, skill: 0.55, elements: { earth: 2, air: 1 } }],
     intro: [{ speaker: 'Soylu Şampiyonu', text: 'Ailemi tehdit eden sensin. Zırhımı delecek büyü henüz doğmadı.' }],
-    reward: { gold: 280, xp: 250 },
+    reward: { money: 280, xp: 250 },
     targetLevel: 7,
   },
   {
@@ -102,7 +103,7 @@ export const BOSSES: readonly BossDef[] = [
     title: 'General Kaelen',
     foes: [{ name: 'General Kaelen', hp: 580, basePower: 95, armor: 0.25, skill: 0.6, elements: { earth: 4, fire: 1 } }],
     intro: [{ speaker: 'General Kaelen', text: 'Taş çökmez. Sabrım, senin gücünden uzun sürer.' }],
-    reward: { gold: 360, xp: 330 },
+    reward: { money: 360, xp: 330 },
     targetLevel: 10,
     maxCycles: 60,
   },
@@ -113,7 +114,7 @@ export const BOSSES: readonly BossDef[] = [
     foes: [{ name: 'Cadı Morga', hp: 560, basePower: 110, armor: 0.15, skill: 0.6, elements: { water: 2, earth: 2 } }],
     gimmick: { hideGhost: true, note: 'Sis yanılsama yaratıyor: gelen saldırıyı savunurken göremezsin.' },
     intro: [{ speaker: 'Cadı Morga', text: 'Sis her şeyi gizler, çırak. Sınavımı geç, o zaman konuşuruz.' }],
-    reward: { gold: 420, xp: 400 },
+    reward: { money: 420, xp: 400 },
     targetLevel: 12,
   },
   {
@@ -123,7 +124,7 @@ export const BOSSES: readonly BossDef[] = [
     foes: [{ name: 'General Morwenna', hp: 560, basePower: 108, armor: 0.2, skill: 0.65, elements: { water: 4, air: 1 } }],
     gimmick: { blurFromCycle: 3, note: 'Zihin kontrolü: savaş ilerledikçe çizim tuvali bulanıklaşır.' },
     intro: [{ speaker: 'General Morwenna', text: 'Zihnin benim oyuncağım olacak. Elysia gibi...' }],
-    reward: { gold: 500, xp: 480 },
+    reward: { money: 500, xp: 480 },
     targetLevel: 17,
   },
   {
@@ -136,7 +137,7 @@ export const BOSSES: readonly BossDef[] = [
     ],
     foesDark: [{ name: 'Malakor', hp: 560, basePower: 110, armor: 0.2, skill: 0.7, attackScale: 1.1 }],
     intro: [{ speaker: 'Malakor', text: 'Dört elementin sahibi karşında. Gel, gölgeme katıl ya da sön.' }],
-    reward: { gold: 900, xp: 900 },
+    reward: { money: 900, xp: 900 },
     targetLevel: 20,
     maxCycles: 60,
   },

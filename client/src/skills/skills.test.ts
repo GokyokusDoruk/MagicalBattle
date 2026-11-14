@@ -7,7 +7,7 @@ import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
 import { BRANCHES, BRANCH_KINDS, SKILLS, SP_PER_LEVEL, describeStats, getSkill, skillId } from './catalog';
 import { LIMITS, SYNERGY, neutralEffects, resolveSpell } from './resolver';
-import { RESET_GOLD_PER_LEVEL, SkillTree } from './tree';
+import { RESET_COST_PER_LEVEL, SkillTree } from './tree';
 
 const treeAt = (level: number) => {
   const state = { level };
@@ -94,7 +94,7 @@ describe('SkillTree: puan ve alma kuralları', () => {
     const { tree } = treeAt(10);
     expect(tree.resetCost).toBe(0);
     learnBranch(tree, 'air', 'precision', 3);
-    expect(tree.resetCost).toBe(RESET_GOLD_PER_LEVEL * 10);
+    expect(tree.resetCost).toBe(RESET_COST_PER_LEVEL * 10);
     tree.reset();
     expect(tree.pointsFree).toBe(18);
     expect(tree.snapshot()).toEqual([]);

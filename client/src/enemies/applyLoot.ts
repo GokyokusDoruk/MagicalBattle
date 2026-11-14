@@ -1,10 +1,12 @@
 import type { GroundLoot } from '../world/groundLoot';
 import type { PlayerState } from '../economy/player';
 import type { WandInventory } from '../wands/inventory';
+import type { Currency } from '../economy/currency';
 import type { LootResult } from './loot';
 
 export interface LootOutcome {
-  gold: number;
+  currency: Currency;
+  money: number;
   xp: number;
   levelsGained: number;
   /** Çantaya giren eşya ve asa adedi */
@@ -17,7 +19,7 @@ export interface LootOutcome {
 }
 
 /**
- * Ganimeti oyuncuya verir: altın ve XP doğrudan; eşya ve asa çantaya, sığmayanlar savaşın yapıldığı karoya (yere)
+ * Ganimeti oyuncuya verir: para (bölgenin biriminde) ve XP doğrudan; eşya ve asa çantaya, sığmayanlar savaşın yapıldığı karoya (yere)
  * bırakılır ve 10 dakika bekler.
  */
 export function applyLoot(
@@ -27,10 +29,11 @@ export function applyLoot(
   ground: GroundLoot,
   tileX: number,
   tileY: number,
+  currency: Currency,
 ): LootOutcome {
-  hero.addGold(loot.gold);
+  hero.addMoney(currency, loot.money);
   const levelsGained = hero.addXp(loot.xp);
-  const out: LootOutcome = { gold: loot.gold, xp: loot.xp, levelsGained, taken: 0, dropped: 0, items: {}, wands: {} };
+  const out: LootOutcome = { currency, money: loot.money, xp: loot.xp, levelsGained, taken: 0, dropped: 0, items: {}, wands: {} };
   const leftItems: Record<string, number> = {};
   const leftWands: Record<string, number> = {};
 

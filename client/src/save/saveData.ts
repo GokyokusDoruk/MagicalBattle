@@ -1,3 +1,4 @@
+import { emptyWallet, sanitizeWallet } from '../economy/currency';
 import type { EconomySnapshot } from '../economy/player';
 import type { QuestSnapshot } from '../quests/engine';
 import type { Side } from '../morality/catalog';
@@ -5,10 +6,10 @@ import type { WandSnapshot } from '../wands/inventory';
 import { CITY_HALF, type LocationDef } from '../world/locations';
 
 /**
- * Kayıt dosyası biçimi (sürüm 6: asalar seviyeli ve tek kuşanılı; sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
+ * Kayıt dosyası biçimi (sürüm 8: dört para birimi (cüzdan); sürüm 6: asalar seviyeli ve tek kuşanılı; sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
  * aynı alanları doğrular ve eski (v1-v5) kayıtları yükseltir (server/src/save/saveData.ts).
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export interface SavePoint {
   cityId: string;
@@ -42,7 +43,7 @@ export interface SaveExtras {
   choices: Readonly<Record<string, Side>>;
 }
 
-const EMPTY_EXTRAS: SaveExtras = { economy: { gold: 0, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandEquipped: null }, choices: {} };
+const EMPTY_EXTRAS: SaveExtras = { economy: { wallet: emptyWallet(), xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandEquipped: null }, choices: {} };
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
 
@@ -71,7 +72,7 @@ export function buildSave(
     playerName: playerName.trim(),
     completedChapters: [...completedChapters],
     savePoint,
-    gold: extras.economy.gold,
+    wallet: { ...extras.economy.wallet },
     xp: extras.economy.xp,
     hp: extras.economy.hp ?? null,
     items: { ...extras.economy.items },
@@ -95,7 +96,8 @@ export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerNam
     playerName: raw.playerName,
     completedChapters: raw.completedChapters,
     savePoint: raw.savePoint ?? null,
-    gold: raw.gold ?? 0,
+    // Eski kayıtlarda (sürüm 7 ve öncesi) tek altın vardı: Kor'a çevrilir
+    wallet: raw.wallet ? sanitizeWallet(raw.wallet) : sanitizeWallet({ kor: (raw as { gold?: number }).gold }),
     xp: raw.xp ?? 0,
     hp: raw.hp ?? null,
     items: raw.items ?? {},
