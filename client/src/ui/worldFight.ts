@@ -3,6 +3,8 @@ import { ELEMENT_NAMES } from '../battle/damage/elements';
 import { MAX_CYCLES } from '../battle/flow/config';
 import type { PlayerStats } from '../boss/bosses';
 import { enemyFighters, enemyStats } from '../enemies/catalog';
+import { enemySkills } from '../enemies/skills';
+import { getSkill } from '../skills/catalog';
 import type { EnemySpot } from '../enemies/spots';
 import { BattleScreen } from './battleScreen';
 
@@ -29,6 +31,7 @@ type Choice = 'fight' | 'flee' | 'bribe';
 /** Savaş öncesi panel: düşman ve canların. Savaş, kaç ya da (varsa) rüşvet ver. */
 function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, playerMaxHp: number, bribe?: BribeOption): Promise<Choice> {
   const s = enemyStats(spot.element, spot.tier);
+  const skillLine = [...enemySkills(spot.element, spot.tier).levels].map(([id, lv]) => `${getSkill(id)?.name ?? id} Sv${lv}`).join(", ");
   const panel = document.createElement('div');
   panel.className = 'fixed inset-0 z-[71] flex items-center justify-center bg-black/85 p-4';
   panel.setAttribute('role', 'dialog');
@@ -36,6 +39,7 @@ function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, pl
     <div class="flex w-full max-w-sm flex-col gap-3 rounded-xl border border-amber-400/50 bg-slate-950 p-5 text-amber-50 shadow-2xl">
       <h2 class="text-xl font-bold text-amber-300" data-enemy>${esc(s.name)}</h2>
       <p class="text-sm text-slate-300">Element: <b>${ELEMENT_NAMES[spot.element]}</b> · Seviye ${s.level} · ${s.hp} can</p>
+      <p class="text-xs text-sky-300" data-skills>Yetenekler: ${esc(skillLine)}</p>
       <p class="text-sm" data-hp>Canın: <b class="${playerHp < playerMaxHp ? 'text-amber-300' : 'text-emerald-300'}">${playerHp} / ${playerMaxHp}</b></p>
       ${bribe ? `<p class="text-xs text-slate-400">Rüşvet verirsen savaş olmaz ve düşman çekilir. Elindeki: <b>${bribe.balance()} ${esc(bribe.currencyName)}</b></p>` : ''}
       <div class="flex gap-3">

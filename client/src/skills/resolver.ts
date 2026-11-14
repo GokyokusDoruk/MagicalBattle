@@ -14,6 +14,8 @@ export const LIMITS = {
   maxFog: 3,
   maxStunChance: 0.9,
   maxMud: 3,
+  maxTimeBonus: 1,
+  maxCritBonus: 0.3,
   maxArmorStack: 0.05,
   /** Savaş boyunca biriken Taş Kabuk zırhının üst sınırı */
   maxArmorBonus: 0.3,
@@ -61,6 +63,11 @@ export interface SpellEffects {
   armorStack: number;
   stunChance: number;
   mud: number;
+  /** Hava: çizim süresine eklenen sn, kritik şansı, geri savurma şansı ve oranı */
+  timeBonus: number;
+  critBonus: number;
+  reboundChance: number;
+  reboundShare: number;
   /** Etkiye katkı veren yeteneklerin kimlikleri */
   skills: string[];
 }
@@ -88,6 +95,10 @@ export const neutralEffects = (element: Element, role: SpellRole): SpellEffects 
   armorStack: 0,
   stunChance: 0,
   mud: 0,
+  timeBonus: 0,
+  critBonus: 0,
+  reboundChance: 0,
+  reboundShare: 0,
   skills: [],
 });
 
@@ -95,18 +106,24 @@ export const neutralEffects = (element: Element, role: SpellRole): SpellEffects 
 export interface Passives {
   /** Yanık İzi: rakibin saldırı çizerken ekranında beliren yara izi sayısı */
   scars: number;
+  /** Sarsıntılı Rüzgâr: rakibin saldırı çizim ekranının sarsıntı şiddeti (0-3) */
+  shake: number;
 }
 
-export const NO_PASSIVES: Passives = { scars: 0 };
+export const NO_PASSIVES: Passives = { scars: 0, shake: 0 };
 
 /** Pasifleri sahip olunan yetenek seviyelerinden okur. */
 export function resolvePassives(levels: ReadonlyMap<string, number>): Passives {
   let scars = 0;
+  let shake = 0;
   for (const skill of SKILLS) {
     const level = levels.get(skill.id) ?? 0;
-    if (level > 0 && skill.passive) scars += effectAt(skill, level).scars ?? 0;
+    if (level > 0 && skill.passive) {
+      scars += effectAt(skill, level).scars ?? 0;
+      shake += effectAt(skill, level).shake ?? 0;
+    }
   }
-  return { scars };
+  return { scars, shake: Math.min(3, shake) };
 }
 
 /**
@@ -133,7 +150,12 @@ export function resolveSpell(levels: ReadonlyMap<string, number>, element: Eleme
       fx.fog += e.fog ?? 0;
       fx.stunChance += e.stunChance ?? 0;
       fx.mud += e.mud ?? 0;
+      fx.critBonus += e.critBonus ?? 0;
+      fx.timeBonus += e.timeBonus ?? 0;
     } else {
+      fx.timeBonus += e.timeBonus ?? 0;
+      fx.reboundChance += e.reboundChance ?? 0;
+      fx.reboundShare = Math.max(fx.reboundShare, e.reboundShare ?? 0);
       fx.reflect += e.reflect ?? 0;
       fx.armorStack += e.armorStack ?? 0;
       fx.takenMultiplier *= 1 - (e.guard ?? 0);
@@ -150,5 +172,8 @@ export function resolveSpell(levels: ReadonlyMap<string, number>, element: Eleme
   fx.stunChance = Math.min(LIMITS.maxStunChance, fx.stunChance);
   fx.mud = Math.min(LIMITS.maxMud, Math.round(fx.mud));
   fx.armorStack = Math.min(LIMITS.maxArmorStack, fx.armorStack);
+  fx.timeBonus = Math.min(LIMITS.maxTimeBonus, fx.timeBonus);
+  fx.critBonus = Math.min(LIMITS.maxCritBonus, fx.critBonus);
+  fx.reboundChance = Math.min(0.9, fx.reboundChance);
   return fx;
 }
