@@ -110,14 +110,14 @@ describe('şehir bonusu: çanta kapasitesi', () => {
     const { state, player, wands, carry } = setup(['fire']);
     player.addItem('eq-bag-fire-1-1');
     player.equip('eq-bag-fire-1-1'); // şehirde 3+5=8 asa, 20+30=50 eşya
-    expect(player.addItem('kurt-postu', 50)).toBe(true);
+    expect(player.addItem('bulut-ipegi', 50)).toBe(true);
     expect(wands.add(wand(1))).toBe(true);
     expect(wands.add(wand(2), 7)).toBe(true); // 7 taşınan
     expect(carry.isOverloaded()).toBe(false);
     state.elements = []; // şehirden çıktı
     expect(carry.isOverloaded()).toBe(true);
     expect(carry.overflowOutside()).toEqual({ wands: 7 - 6, goods: 50 - 40, gear: 0 });
-    expect(player.addItem('kurt-postu')).toBe(false); // yeni eşya alınamaz
+    expect(player.addItem('bulut-ipegi')).toBe(false); // yeni eşya alınamaz
   });
 
   it('taşma yoksa fazlalık sıfır', () => {
@@ -134,7 +134,7 @@ describe('yerdeki eşya (10 dakika)', () => {
 
   it('bırakılan eşya yığın olur, 10 dakika kalır', () => {
     const { clock, ground } = setupGround();
-    const pile = ground.drop(10, 12, { items: { 'kurt-postu': 3 }, wands: { [wand(1)]: 1 } })!;
+    const pile = ground.drop(10, 12, { items: { 'bulut-ipegi': 3 }, wands: { [wand(1)]: 1 } })!;
     expect(pile.tileX).toBe(10);
     expect(ground.piles()).toHaveLength(1);
     expect(ground.timeLeftMs(pile.id)).toBe(GROUND_TTL_MS);
@@ -155,12 +155,12 @@ describe('yerdeki eşya (10 dakika)', () => {
 
   it('aynı karoya bırakılan eşya aynı yığına eklenir ve süre yenilenir', () => {
     const { clock, ground } = setupGround();
-    const a = ground.drop(5, 5, { items: { 'kurt-postu': 1 } })!;
+    const a = ground.drop(5, 5, { items: { 'bulut-ipegi': 1 } })!;
     clock.t = 300_000;
-    const b = ground.drop(5, 5, { items: { 'kurt-postu': 2, 'ates-tozu': 1 } })!;
+    const b = ground.drop(5, 5, { items: { 'bulut-ipegi': 2, 'kor-baharati': 1 } })!;
     expect(b.id).toBe(a.id);
     expect(ground.piles()).toHaveLength(1);
-    expect(b.items).toEqual({ 'kurt-postu': 3, 'ates-tozu': 1 });
+    expect(b.items).toEqual({ 'bulut-ipegi': 3, 'kor-baharati': 1 });
     expect(ground.timeLeftMs(b.id)).toBe(GROUND_TTL_MS);
     ground.drop(6, 5, { items: { x: 1 } });
     expect(ground.piles()).toHaveLength(2);
@@ -168,9 +168,9 @@ describe('yerdeki eşya (10 dakika)', () => {
 
   it('yığından alınır; boşalan yığın silinir; fazla adet alınamaz', () => {
     const { ground } = setupGround();
-    const p = ground.drop(2, 2, { items: { 'kurt-postu': 2 }, wands: { [wand(1)]: 1 } })!;
-    expect(ground.take(p.id, 'item', 'kurt-postu', 5)).toBe(2);
-    expect(ground.take(p.id, 'item', 'kurt-postu', 1)).toBe(0);
+    const p = ground.drop(2, 2, { items: { 'bulut-ipegi': 2 }, wands: { [wand(1)]: 1 } })!;
+    expect(ground.take(p.id, 'item', 'bulut-ipegi', 5)).toBe(2);
+    expect(ground.take(p.id, 'item', 'bulut-ipegi', 1)).toBe(0);
     expect(ground.take(p.id, 'item', 'yok', 1)).toBe(0);
     expect(ground.piles()).toHaveLength(1);
     expect(ground.take(p.id, 'wand', wand(1), 1)).toBe(1);
@@ -199,8 +199,8 @@ describe('şehirden çıkarken eşya bırakma', () => {
     const s = setup(['fire']);
     s.player.addItem('eq-bag-fire-1-1');
     s.player.equip('eq-bag-fire-1-1'); // şehirde 8 asa, 50 eşya, 5 kuşanılabilir
-    s.player.addItem('kurt-postu', 30); // 35 gold/adet
-    s.player.addItem('sifali-ot', 20); // 8 gold/adet
+    s.player.addItem('bulut-ipegi', 30); // 35 gold/adet
+    s.player.addItem('kor-baharati', 20); // 8 gold/adet
     s.wands.add(wand(1));
     s.wands.add(wand(2), 3);
     s.wands.add(wand(3), 3); // 6 taşınan
@@ -211,7 +211,7 @@ describe('şehirden çıkarken eşya bırakma', () => {
   it('adaylar: eşyalar ve kuşanılı olmayan asalar; giyilen/kuşanılı kopya hariç', () => {
     const { player, wands } = overloaded();
     const c = dropCandidates(player, wands);
-    expect(c.find((x) => x.key === 'item:kurt-postu')).toMatchObject({ category: 'goods', max: 30 });
+    expect(c.find((x) => x.key === 'item:bulut-ipegi')).toMatchObject({ category: 'goods', max: 30 });
     expect(c.find((x) => x.key === `wand:${wand(1)}`)).toBeUndefined(); // tek kopya kuşanılı
     expect(c.find((x) => x.key === `wand:${wand(2)}`)).toMatchObject({ category: 'wands', max: 3 });
     expect(c.find((x) => x.key === 'item:eq-bag-fire-1-1')).toBeUndefined(); // giyilen çanta
@@ -223,11 +223,11 @@ describe('şehirden çıkarken eşya bırakma', () => {
     expect(overflow).toEqual({ wands: 0, goods: 10, gear: 0 });
     const c = dropCandidates(player, wands);
     expect(resolves(overflow, c, {})).toBe(false);
-    expect(resolves(overflow, c, { 'item:kurt-postu': 9 })).toBe(false);
-    expect(resolves(overflow, c, { 'item:kurt-postu': 10 })).toBe(true);
-    expect(resolves(overflow, c, { 'item:kurt-postu': 4, 'item:sifali-ot': 6 })).toBe(true); // karışık
-    expect(remaining(overflow, c, { 'item:kurt-postu': 4 })).toEqual({ wands: 0, goods: 6, gear: 0 });
-    expect(selectedByCategory(c, { 'item:kurt-postu': 999 }).goods).toBe(30); // en çok bırakılabilen kadar sayılır
+    expect(resolves(overflow, c, { 'item:bulut-ipegi': 9 })).toBe(false);
+    expect(resolves(overflow, c, { 'item:bulut-ipegi': 10 })).toBe(true);
+    expect(resolves(overflow, c, { 'item:bulut-ipegi': 4, 'item:kor-baharati': 6 })).toBe(true); // karışık
+    expect(remaining(overflow, c, { 'item:bulut-ipegi': 4 })).toEqual({ wands: 0, goods: 6, gear: 0 });
+    expect(selectedByCategory(c, { 'item:bulut-ipegi': 999 }).goods).toBe(30); // en çok bırakılabilen kadar sayılır
   });
 
   it('öneri: her kategoride en ucuzlardan başlayarak fazlalık kadar', () => {
@@ -235,10 +235,10 @@ describe('şehirden çıkarken eşya bırakma', () => {
     const overflow = carry.overflowOutside();
     const c = dropCandidates(player, wands);
     const s = suggestDrop(overflow, c);
-    expect(s).toEqual({ 'item:sifali-ot': 10 }); // ot ucuz (8) önce
+    expect(s).toEqual({ 'item:kor-baharati': 10 }); // Kor Baharatı ucuz (30) önce
     expect(resolves(overflow, c, s)).toBe(true);
     const big = suggestDrop({ wands: 0, goods: 25, gear: 0 }, c);
-    expect(big).toEqual({ 'item:sifali-ot': 20, 'item:kurt-postu': 5 });
+    expect(big).toEqual({ 'item:kor-baharati': 20, 'item:bulut-ipegi': 5 });
   });
 
   it('asa fazlalığı: kuşanılı olmayan asalar önerilir', () => {
@@ -254,10 +254,10 @@ describe('şehirden çıkarken eşya bırakma', () => {
     const clock = { t: 0 };
     const ground = new GroundLoot(() => clock.t);
     const overflow = carry.overflowOutside();
-    const pile = applyDrop(player, wands, overflow, { 'item:sifali-ot': 10 }, ground, 64, 67);
+    const pile = applyDrop(player, wands, overflow, { 'item:kor-baharati': 10 }, ground, 64, 67);
     expect(pile).not.toBeNull();
-    expect(pile!.items).toEqual({ 'sifali-ot': 10 });
-    expect(player.count('sifali-ot')).toBe(10);
+    expect(pile!.items).toEqual({ 'kor-baharati': 10 });
+    expect(player.count('kor-baharati')).toBe(10);
     expect(carry.isOverloaded()).toBe(false);
     expect(ground.piles()).toHaveLength(1);
     expect([pile!.tileX, pile!.tileY]).toEqual([64, 67]);
@@ -266,8 +266,8 @@ describe('şehirden çıkarken eşya bırakma', () => {
   it('yetersiz seçimde hiçbir şey bırakılmaz', () => {
     const { player, wands, carry } = overloaded();
     const ground = new GroundLoot(() => 0);
-    expect(applyDrop(player, wands, carry.overflowOutside(), { 'item:sifali-ot': 3 }, ground, 1, 1)).toBeNull();
-    expect(player.count('sifali-ot')).toBe(20);
+    expect(applyDrop(player, wands, carry.overflowOutside(), { 'item:kor-baharati': 3 }, ground, 1, 1)).toBeNull();
+    expect(player.count('kor-baharati')).toBe(20);
     expect(ground.piles()).toEqual([]);
   });
 

@@ -73,7 +73,7 @@ describe('kalıcı can', () => {
     expect(p.hp).toBe(160);
     expect(p.count('iksir-kucuk')).toBe(1);
     expect(p.usePotion('iksir-orta').ok).toBe(false); // yok
-    expect(p.usePotion('sifali-ot').ok).toBe(false); // iksir değil
+    expect(p.usePotion('tas-cevheri').ok).toBe(false); // iksir değil
     p.setHp(290);
     expect(p.usePotion('iksir-kucuk')).toEqual({ ok: true, healed: 10 }); // fazlası boşa gider
     expect(p.hp).toBe(MAX_HP);

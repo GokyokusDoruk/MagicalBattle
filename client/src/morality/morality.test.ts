@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PlayerState } from '../economy/player';
 import { buyPrice, sellPrice } from '../economy/shop';
 import { QuestEngine } from '../quests/engine';
+import { TEST_QUESTS } from '../quests/testQuests';
 import { elysiaFightsAlongside, elysiaStatus } from '../story/elysia';
 import { MAX_WEIGHT, MIN_WEIGHT, MORAL_CHOICES, choicesForChapter, getChoice } from './catalog';
 import { finalLines } from './final';
@@ -195,7 +196,7 @@ describe('ekonomi ve görevlere bağlantı', () => {
     expect(sellPrice(100, e.sellMultiplier)).toBe(sellPrice(100)); // satış değişmez
 
     const player = new PlayerState();
-    const quests = new QuestEngine(player);
+    const quests = new QuestEngine(player, TEST_QUESTS);
     quests.moneyMultiplier = e.questGoldMultiplier;
     quests.accept('ash-ignis-yolu');
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });

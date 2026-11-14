@@ -91,7 +91,6 @@ describe('ticari mallar', () => {
     const room = rich.roomFor('kor-baharati');
     expect(buyGood(rich, 'ignis', 'kor-baharati', room + 1).ok).toBe(false);
     expect(rich.balance('kor')).toBe(1_000_000);
-    expect(buyGood(rich, 'ignis', 'ates-tozu', 1).ok).toBe(false); // ticari mal değil
   });
 
   it('satış: mal düşer, altın artar; olmayan mal satılmaz', () => {

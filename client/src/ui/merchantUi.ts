@@ -45,6 +45,9 @@ function objectiveText(q: QuestDef): string {
   const o = q.objective;
   if (o.type === 'collect') return `${getItem(o.itemId)?.name ?? o.itemId} topla (${o.count})`;
   if (o.type === 'visit') return `${LOCATIONS.find((l) => l.id === o.locationId)?.name ?? o.locationId} konumuna var`;
+  if (o.type === 'deliver') return `${o.count} ${getItem(o.itemId)?.name ?? o.itemId} al ve ${LOCATIONS.find((l) => l.id === o.locationId)?.name ?? o.locationId} şehrine götür`;
+  if (o.type === 'mine') return o.count === 1 ? 'bir madeni temizle' : `${o.count} madeni temizle`;
+  if (o.type === 'chest') return o.count === 1 ? 'bir korumalı sandık aç' : `${o.count} korumalı sandık aç`;
   return `${o.count} savaş kazan`;
 }
 

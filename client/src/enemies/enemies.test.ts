@@ -10,7 +10,7 @@ import { mulberry32 } from '../world/rng';
 import { WandInventory } from '../wands/inventory';
 import { parseWandId } from '../wands/catalog';
 import { applyLoot } from './applyLoot';
-import { TIERS, enemyFighters, enemyStats } from './catalog';
+import { ENEMY_KINDS, TIERS, enemyFighters, enemyStats } from './catalog';
 import { DROP_CHANCE, RARITY_WEIGHTS, rarityOdds, rollLoot } from './loot';
 import { ENEMY_COUNT, EnemyBoard, generateEnemySpots, tierAt } from './spots';
 
@@ -105,21 +105,21 @@ describe('ganimeti uygulama', () => {
 
   it('altın, XP ve eşya çantaya girer', () => {
     const { hero, wands, ground } = setup();
-    const out = applyLoot({ money: 30, xp: 20, items: { 'ates-tozu': 2 }, wands: {} }, hero, wands, ground, 5, 5, 'kor');
+    const out = applyLoot({ money: 30, xp: 20, items: { 'kor-baharati': 2 }, wands: {} }, hero, wands, ground, 5, 5, 'kor');
     expect(hero.balance('kor')).toBe(30);
-    expect(hero.count('ates-tozu')).toBe(2);
+    expect(hero.count('kor-baharati')).toBe(2);
     expect(out).toMatchObject({ taken: 2, dropped: 0 });
     expect(ground.piles()).toHaveLength(0);
   });
 
   it('sığmayan eşya savaş karosunda yerde kalır', () => {
     const { hero, wands, ground } = setup();
-    hero.setGuards({ room: (id: string) => (id === 'ates-tozu' ? 1 : 0) } as never);
-    const out = applyLoot({ money: 0, xp: 0, items: { 'ates-tozu': 3, 'kurt-postu': 1 }, wands: {} }, hero, wands, ground, 8, 9, 'kor');
-    expect(hero.count('ates-tozu')).toBe(1);
+    hero.setGuards({ room: (id: string) => (id === 'kor-baharati' ? 1 : 0) } as never);
+    const out = applyLoot({ money: 0, xp: 0, items: { 'kor-baharati': 3, 'bulut-ipegi': 1 }, wands: {} }, hero, wands, ground, 8, 9, 'kor');
+    expect(hero.count('kor-baharati')).toBe(1);
     expect(out).toMatchObject({ taken: 1, dropped: 3 });
     const pile = ground.piles()[0];
-    expect(pile).toMatchObject({ tileX: 8, tileY: 9, items: { 'ates-tozu': 2, 'kurt-postu': 1 } });
+    expect(pile).toMatchObject({ tileX: 8, tileY: 9, items: { 'kor-baharati': 2, 'bulut-ipegi': 1 } });
   });
 
   it('asa düşünce asa envanterine girer', () => {
@@ -175,5 +175,73 @@ describe('kademe dağılımı', () => {
     const map = generateMap();
     const tiers = new Set(generateEnemySpots(map).map((s) => s.tier));
     expect([...tiers].sort()).toEqual([1, 2, 3, 4]);
+  });
+});
+
+import { MAX_PIECES, difficultyMultiplier } from './loot';
+import { isTradeGood } from '../economy/trade';
+
+describe('ganimet v2', () => {
+  it('zorluk çarpanı: eşit seviyede 1, güçlü düşmanda artar, zayıfta azalır, sınırlıdır', () => {
+    expect(difficultyMultiplier(10, 10)).toBeCloseTo(1);
+    expect(difficultyMultiplier(20, 10)).toBeCloseTo(1.3);
+    expect(difficultyMultiplier(5, 10)).toBeCloseTo(0.85);
+    expect(difficultyMultiplier(1, 30)).toBeCloseTo(0.71, 2);
+    expect(difficultyMultiplier(0, 1000)).toBeCloseTo(0.7, 2);
+    expect(difficultyMultiplier(100, 1)).toBeCloseTo(1.6);
+  });
+
+  it('para ve XP her zaman düşer; zorlu savaş daha çok para ve XP verir', () => {
+    const rand = mulberry32(1);
+    const easy = rollLoot('fire', 2, 30, 1, rand);
+    const hard = rollLoot('fire', 2, 1, 1, rand);
+    expect(easy.money).toBeGreaterThan(0);
+    expect(easy.xp).toBeGreaterThan(0);
+    expect(hard.money).toBeGreaterThan(easy.money);
+    expect(hard.xp).toBeGreaterThan(easy.xp);
+  });
+
+  it('ganimet yalnızca ticari mal, ekipman ve asa içerir (iksir ve eski ganimet eşyaları yok)', () => {
+    const rand = mulberry32(8);
+    for (let i = 0; i < 2000; i++) {
+      const l = rollLoot(ELEMENTS[i % 4], TIERS[i % 4], 8, 1.3, rand);
+      for (const id of Object.keys(l.items)) expect(isTradeGood(id) || parseEquipmentId(id) !== null, id).toBe(true);
+    }
+  });
+
+  it('bir savaştan en çok 2 parça (ekipman + asa) düşer; ikisi de görülür', () => {
+    const rand = mulberry32(21);
+    let two = 0;
+    let twoGear = 0;
+    let twoWand = 0;
+    for (let i = 0; i < 40000; i++) {
+      const l = rollLoot('air', 4, 5, 1.6, rand);
+      const gear = Object.entries(l.items).filter(([id]) => parseEquipmentId(id) !== null).reduce((n, [, c]) => n + c, 0);
+      const wands = Object.values(l.wands).reduce((a, b) => a + b, 0);
+      expect(gear + wands).toBeLessThanOrEqual(MAX_PIECES);
+      if (gear + wands === 2) two++;
+      if (gear === 2) twoGear++;
+      if (wands === 2) twoWand++;
+    }
+    expect(two).toBeGreaterThan(0);
+    expect(twoGear).toBeGreaterThan(0);
+    expect(twoWand).toBeGreaterThan(0);
+  });
+
+  it('maden bonusu daha çok ticari mal getirir', () => {
+    const count = (opts: { goodsBonus?: boolean }): number => {
+      const rand = mulberry32(5);
+      let goods = 0;
+      for (let i = 0; i < 5000; i++) goods += Object.entries(rollLoot('earth', 2, 5, 1, rand, opts).items).filter(([id]) => isTradeGood(id)).reduce((n, [, c]) => n + c, 0);
+      return goods;
+    };
+    expect(count({ goodsBonus: true })).toBeGreaterThan(count({}) * 1.2);
+  });
+
+  it('düşman malı elementinin ticari malıdır', () => {
+    expect(ENEMY_KINDS.fire.material).toBe('kor-baharati');
+    expect(ENEMY_KINDS.air.material).toBe('bulut-ipegi');
+    expect(ENEMY_KINDS.earth.material).toBe('tas-cevheri');
+    expect(ENEMY_KINDS.water.material).toBe('derin-inci');
   });
 });

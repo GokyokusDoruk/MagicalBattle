@@ -49,16 +49,9 @@ export interface ItemDef {
 }
 
 /**
- * Eşya kataloğu: ganimet, can iksirleri, 144 ekipman ve 5 eski çanta (bkz. equipment.ts).
- * Ganimet (ot, kristal...) yalnızca satılır ve görevlerde kullanılır.
+ * Eşya kataloğu: ticari mallar (ganimet ve ticaret), can iksirleri, 6480 ekipman ve 5 eski çanta (bkz. equipment.ts).
  */
 export const ITEMS: readonly ItemDef[] = [
-  // Ganimet
-  { id: 'sifali-ot', name: 'Şifalı Ot', description: 'Yolların kenarında biten mis kokulu ot.', price: 8 },
-  { id: 'kristal-parcasi', name: 'Kristal Parçası', description: 'Kumsalda bulunan, içinde ışık dönen küçük bir parça.', price: 22 },
-  { id: 'ates-tozu', name: 'Ateş Tozu', description: 'Dokununca ısınan kızıl toz.', price: 15 },
-  { id: 'kurt-postu', name: 'Kurt Postu', description: 'Kalın ve sıcak tutan bir post.', price: 35 },
-
   // Ticari mallar (Task 26): şehir tüccarlarından alınır, fiyatı şehre göre değişir (bkz. trade.ts)
   { id: 'kor-baharati', name: 'Kor Baharatı', description: 'Ignis kervanlarının kızıl baharatı. Ateş şehrinde bol, uzakta pahalıdır.', price: 30 },
   { id: 'bulut-ipegi', name: 'Bulut İpeği', description: 'Abyss rahiplerinin dokuduğu, havadan hafif ipek.', price: 40 },

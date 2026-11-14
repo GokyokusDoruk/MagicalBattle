@@ -17,7 +17,9 @@ export type QuestView = 'available' | 'locked' | 'active' | 'completed';
 export type QuestEvent =
   | { type: 'collect' }
   | { type: 'visit'; locationId: string }
-  | { type: 'battleWon' };
+  | { type: 'battleWon' }
+  | { type: 'mineCleared' }
+  | { type: 'chestOpened' };
 
 export interface QuestCompletion {
   quest: QuestDef;
@@ -123,6 +125,13 @@ export class QuestEngine {
       const rec = this.records.get(q.id)!;
       if (o.type === 'visit' && event.type === 'visit' && event.locationId === o.locationId) rec.progress = 1;
       if (o.type === 'battleWon' && event.type === 'battleWon') rec.progress = Math.min(o.count, rec.progress + 1);
+      if (o.type === 'mine' && event.type === 'mineCleared') rec.progress = Math.min(o.count, rec.progress + 1);
+      if (o.type === 'chest' && event.type === 'chestOpened') rec.progress = Math.min(o.count, rec.progress + 1);
+      // Teslimat: hedef şehre varınca yeterli mal taşıyorsan mal alınır ve görev biter; yetmiyorsa ilerleme olmaz
+      if (o.type === 'deliver' && event.type === 'visit' && event.locationId === o.locationId && this.player.count(o.itemId) >= o.count) {
+        this.player.removeItem(o.itemId, o.count);
+        rec.progress = o.count;
+      }
       if (o.type === 'collect' && event.type === 'collect') {
         const now = this.player.count(o.itemId);
         const gained = Math.max(0, now - (this.seen.get(q.id) ?? now));

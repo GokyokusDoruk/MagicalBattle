@@ -64,7 +64,7 @@ describe('kayıt verisi', () => {
 
 describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
   const extras = {
-    economy: { wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' as const } },
+    economy: { wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, xp: 320, items: { 'tas-cevheri': 4 }, equipped: { robe: 'cirak-cuppesi' as const } },
     quests: { 'ash-ot-toplama': { status: 'active' as const, progress: 2 } },
     collected: ['p-herb-0'],
     skills: ['fire-power-1'],
@@ -74,13 +74,13 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
 
   it('buildSave ekonomi alanlarını taşır ve girdiyi kopyalar', () => {
     const s = buildSave('Aylin', [1], null, extras);
-    expect(s).toMatchObject({ wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' }, collected: ['p-herb-0'], skills: ['fire-power-1'], wands: { 'wand-fire-attack-2-5': 1 }, wandEquipped: 'wand-fire-attack-2-5', choices: { 'c1-isciler': 'good' } });
+    expect(s).toMatchObject({ wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, xp: 320, items: { 'tas-cevheri': 4 }, equipped: { robe: 'cirak-cuppesi' }, collected: ['p-herb-0'], skills: ['fire-power-1'], wands: { 'wand-fire-attack-2-5': 1 }, wandEquipped: 'wand-fire-attack-2-5', choices: { 'c1-isciler': 'good' } });
     expect(s.quests['ash-ot-toplama']).toEqual({ status: 'active', progress: 2 });
-    extras.economy.items['sifali-ot'] = 99;
+    extras.economy.items['tas-cevheri'] = 99;
     extras.collected.push('x');
-    expect(s.items['sifali-ot']).toBe(4);
+    expect(s.items['tas-cevheri']).toBe(4);
     expect(s.collected).toEqual(['p-herb-0']);
-    extras.economy.items['sifali-ot'] = 4;
+    extras.economy.items['tas-cevheri'] = 4;
     extras.collected.pop();
   });
 

@@ -9,6 +9,9 @@ import { MAX_MONEY, emptyWallet, sanitizeWallet, type Currency, type Wallet } fr
 export const MAX_XP = 1_000_000;
 export const MAX_STACK = 999;
 
+/** Task 37'de kaldırılan ganimet eşyalarının eski değeri: eski kayıtlarda kalanlar yarı değerinden Kor'a çevrilir. */
+export const REMOVED_LOOT_VALUE: Readonly<Record<string, number>> = { 'sifali-ot': 8, 'kristal-parcasi': 22, 'ates-tozu': 15, 'kurt-postu': 35 };
+
 export interface EconomySnapshot {
   /** Dört para biriminin bakiyesi (Task 35) */
   wallet: Wallet;
@@ -280,6 +283,13 @@ export class PlayerState {
     Object.assign(this.money, wallet);
     this.xpValue = toInt(snapshot?.xp, MAX_XP);
     this.items.clear();
+    // Kaldırılan eski ganimet eşyaları (ot, kristal, toz, post) kaybolmaz: yarı değerinden Kor olur
+    let refund = 0;
+    for (const [rawId, count] of Object.entries(snapshot?.items ?? {})) {
+      const value = REMOVED_LOOT_VALUE[rawId];
+      if (value) refund += Math.floor(value * 0.5) * toInt(count, MAX_STACK);
+    }
+    if (refund > 0) this.money.kor = Math.min(MAX_MONEY, this.money.kor + refund);
     // Eski ekipman kimlikleri yeni eşyalara dönüşür (aynı eşyaya düşenler toplanır)
     for (const [rawId, count] of Object.entries(snapshot?.items ?? {})) {
       const id = migrateItemId(rawId);

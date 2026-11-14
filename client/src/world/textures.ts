@@ -108,8 +108,6 @@ export function createPlayerTexture(scene: Scene): void {
 }
 
 export const STALL_KEY = 'stall';
-export const HERB_KEY = 'pickup-herb';
-export const CRYSTAL_KEY = 'pickup-crystal';
 export const PILE_KEY = 'ground-pile';
 /** Dünya düşmanı dokusunun anahtarı (elemente göre) */
 export const mineKey = (element: string): string => `mine-${element}`;
@@ -123,7 +121,7 @@ const ENEMY_COLORS: Record<string, [number, number]> = {
   air: [0xe2e8f0, 0xffffff],
 };
 
-/** Tüccar tezgâhı ve toplanabilir eşyaların (ot, kristal) görselleri. */
+/** Tüccar tezgâhı, yerdeki eşya çuvalı, sandık, maden ve düşman görselleri. */
 export function createWorldItemTextures(scene: Scene): void {
   const g = scene.add.graphics();
 
@@ -137,20 +135,6 @@ export function createWorldItemTextures(scene: Scene): void {
   g.fillStyle(0x7fd1ff, 1).fillCircle(20, 24, 3);
   g.fillStyle(0xff8f5a, 1).fillCircle(28, 24, 3);
   g.generateTexture(STALL_KEY, 40, 38);
-  g.clear();
-
-  // Şifalı ot: iki yaprak ve sap
-  g.fillStyle(0x2f7a38, 1).fillRect(9, 8, 2, 12);
-  g.fillStyle(0x58c264, 1).fillCircle(6, 8, 5).fillCircle(14, 6, 5);
-  g.fillStyle(0xa6f0a0, 1).fillCircle(5, 6, 1.5).fillCircle(13, 4, 1.5);
-  g.generateTexture(HERB_KEY, 20, 22);
-  g.clear();
-
-  // Kristal: parlayan elmas
-  g.fillStyle(0x7fe8ff, 0.25).fillCircle(10, 13, 10);
-  g.fillStyle(0x7fe8ff, 1).fillTriangle(10, 2, 3, 13, 10, 24).fillTriangle(10, 2, 17, 13, 10, 24);
-  g.fillStyle(0xd8fbff, 1).fillTriangle(10, 2, 6, 12, 10, 13);
-  g.generateTexture(CRYSTAL_KEY, 20, 26);
   g.clear();
 
   // Yerdeki eşya: bırakılmış bir çuval, üstünde parıltı

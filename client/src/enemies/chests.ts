@@ -68,8 +68,8 @@ export function chestGuards(chest: ChestSpot): EnemySpot[] {
 const chestTier = (t: Tier): Tier => Math.min(4, t + 1) as Tier;
 
 /**
- * Sandığın içi: bol para ve XP, **kesin bir ekipman**, %50 asa, %70 iksir, 1-3 malzeme.
- * `dropRate` ahlak yolundan gelen çarpandır (asa ve iksir şansını artırır).
+ * Sandığın içi: bol para ve XP, **kesin bir ekipman**, %50 asa, kesin 1-3 ticari mal (iksir yok).
+ * `dropRate` ahlak yolundan ve ateş asasından gelen çarpandır (asa şansını artırır).
  */
 export function rollChestLoot(chest: Pick<ChestSpot, 'element' | 'tier'>, playerLevel: number, dropRate: number, rand: () => number): LootResult {
   const stats = enemyStats(chest.element, chest.tier);
@@ -85,7 +85,6 @@ export function rollChestLoot(chest: Pick<ChestSpot, 'element' | 'tier'>, player
   const gearCap = Math.min(MAX_GEAR_LEVEL, Math.max(1, Math.floor(playerLevel)) + 3);
   add(items, equipmentId(pick(GEAR_SLOT_LIST), el, rollRarity(rand, tier), 1 + Math.floor(rand() * gearCap)));
   add(items, ENEMY_KINDS[chest.element].material, 1 + Math.floor(rand() * 3));
-  if (rand() < chance(0.7)) add(items, chest.tier >= 3 ? 'iksir-orta' : 'iksir-kucuk');
   if (rand() < chance(0.5)) {
     const cap = Math.min(MAX_WAND_LEVEL, Math.max(1, Math.floor(playerLevel)) + 3);
     add(wands, makeWand({ element: rand() < 0.6 ? chest.element : pick(ELEMENTS), role: pick(ROLES), rarity: rollRarity(rand, tier), level: 1 + Math.floor(rand() * cap) }).id);

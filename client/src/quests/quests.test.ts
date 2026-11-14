@@ -5,8 +5,9 @@ import { PlayerState } from '../economy/player';
 import { LOCATIONS } from '../world/locations';
 import { SIDE_QUESTS, getQuest, type QuestDef } from './catalog';
 import { QuestEngine } from './engine';
+import { TEST_QUESTS } from './testQuests';
 
-const make = (catalog?: readonly QuestDef[]) => {
+const make = (catalog: readonly QuestDef[] = TEST_QUESTS) => {
   const player = new PlayerState();
   return { player, quests: new QuestEngine(player, catalog) };
 };
@@ -39,10 +40,11 @@ describe('görev kataloğu', () => {
     const givers = new Set(SIDE_QUESTS.map((q) => q.giver));
     expect(givers.size).toBeGreaterThanOrEqual(4);
     expect(givers.has('still-crystal')).toBe(true);
+    for (const city of ['ignis', 'abyss', 'stone-heart', 'still-crystal']) expect(SIDE_QUESTS.filter((q) => q.giver === city).length, city).toBeGreaterThanOrEqual(2);
   });
 
   it('getQuest kimlikle bulur', () => {
-    expect(getQuest('ash-ot-toplama')?.title).toBe('Şifalı Ot Toplama');
+    expect(getQuest('ignis-kor-avi')?.title).toBe('Köz Avı');
     expect(getQuest('yok')).toBeUndefined();
   });
 });
@@ -80,12 +82,12 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
   it('eşya toplayınca ilerler, hedefe varınca ödül KENDİLİĞİNDEN yatar (teslim yok)', () => {
     const { quests, player } = make();
     quests.accept('ash-ot-toplama');
-    player.addItem('sifali-ot', 3);
+    player.addItem('tas-cevheri', 3);
     expect(quests.onEvent({ type: 'collect' })).toEqual([]);
     expect(quests.progress('ash-ot-toplama').value).toBe(3);
     expect(player.balance('kor')).toBe(0);
 
-    player.addItem('sifali-ot', 2);
+    player.addItem('tas-cevheri', 2);
     const done = quests.onEvent({ type: 'collect' });
     expect(done).toHaveLength(1);
     expect(done[0]).toMatchObject({ money: 60, xp: 40 });
@@ -97,27 +99,27 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
   it('görev eşyaları tüketmez: toplanan ot çantada kalır, satılabilir', () => {
     const { quests, player } = make();
     quests.accept('ash-ot-toplama');
-    player.addItem('sifali-ot', 5);
+    player.addItem('tas-cevheri', 5);
     quests.onEvent({ type: 'collect' });
-    expect(player.count('sifali-ot')).toBe(5);
+    expect(player.count('tas-cevheri')).toBe(5);
   });
 
   it('ilerleme geri gitmez: eşyayı satmak biriken ilerlemeyi silmez', () => {
     const { quests, player } = make();
     quests.accept('ash-ot-toplama');
-    player.addItem('sifali-ot', 4);
+    player.addItem('tas-cevheri', 4);
     quests.onEvent({ type: 'collect' });
-    player.removeItem('sifali-ot', 4);
+    player.removeItem('tas-cevheri', 4);
     quests.onEvent({ type: 'collect' });
     expect(quests.progress('ash-ot-toplama').value).toBe(4);
-    player.addItem('sifali-ot', 1); // satıştan sonra toplanan yeni ot sayılır: 4 + 1
+    player.addItem('tas-cevheri', 1); // satıştan sonra toplanan yeni ot sayılır: 4 + 1
     expect(quests.onEvent({ type: 'collect' })).toHaveLength(1);
   });
 
   it('aynı otu satıp tekrar toplamak ilerlemeyi şişirmez: yalnızca gerçek artış sayılır', () => {
     const { quests, player } = make();
     quests.accept('ash-ot-toplama');
-    player.addItem('sifali-ot', 2);
+    player.addItem('tas-cevheri', 2);
     quests.onEvent({ type: 'collect' });
     expect(quests.progress('ash-ot-toplama').value).toBe(2);
     quests.onEvent({ type: 'collect' }); // aynı çanta, ikinci olay: ilerleme artmaz
@@ -127,7 +129,7 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
 
   it('kabul etmeden önce toplanan eşya sayılır: çantada yeterli varsa kabul anında tamamlanır', () => {
     const { quests, player } = make();
-    player.addItem('sifali-ot', 6);
+    player.addItem('tas-cevheri', 6);
     const r = quests.accept('ash-ot-toplama');
     expect(r).toMatchObject({ ok: true, completion: { money: 60 } });
     expect(player.balance('kor')).toBe(60);
@@ -139,8 +141,8 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
     player.addXp(90);
     quests.accept('ash-ignis-yolu');
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });
-    expect(player.count('ates-tozu')).toBe(2);
-    expect(c.items).toEqual([{ id: 'ates-tozu', count: 2 }]);
+    expect(player.count('kor-baharati')).toBe(2);
+    expect(c.items).toEqual([{ id: 'kor-baharati', count: 2 }]);
     expect(c.levelsGained).toBe(1);
     expect(player.level).toBe(2);
   });
@@ -209,7 +211,7 @@ describe('QuestEngine: ilerleme ve otomatik ödül', () => {
 describe('QuestEngine: kayıt', () => {
   it('snapshot/restore ilerlemeyi ve tamamlananları korur, ödülü ikinci kez vermez', () => {
     const a = make();
-    a.player.addItem('sifali-ot', 2);
+    a.player.addItem('tas-cevheri', 2);
     a.quests.accept('ash-ot-toplama');
     a.quests.onEvent({ type: 'collect' });
     a.quests.accept('ash-ignis-yolu');
@@ -240,5 +242,62 @@ describe('QuestEngine: kayıt', () => {
     expect(quests.progress('vine-kristal-avi').value).toBe(0);
     quests.restore(undefined);
     expect(quests.snapshot()).toEqual({});
+  });
+});
+
+describe('yeni hedefler: teslimat, maden, sandık', () => {
+  const deliver: QuestDef = { id: 'd', title: 'D', giver: 'ignis', description: 'x'.repeat(30), objective: { type: 'deliver', itemId: 'kor-baharati', count: 3, locationId: 'abyss' }, reward: { money: 50, xp: 10 } };
+
+  it('teslimat: yeterli malla hedef şehre varınca mal alınır ve görev biter', () => {
+    const { quests, player } = make([deliver]);
+    quests.accept('d');
+    player.addItem('kor-baharati', 4);
+    expect(quests.onEvent({ type: 'visit', locationId: 'ignis' })).toHaveLength(0); // yanlış şehir
+    const done = quests.onEvent({ type: 'visit', locationId: 'abyss' });
+    expect(done).toHaveLength(1);
+    expect(player.count('kor-baharati')).toBe(1); // 3 teslim edildi
+    expect(player.balance('kor')).toBe(50); // ödül görevi veren şehrin (Ignis) biriminde
+  });
+
+  it('teslimat: mal yetmiyorsa varınca bir şey olmaz, sonra malla gelince biter', () => {
+    const { quests, player } = make([deliver]);
+    quests.accept('d');
+    player.addItem('kor-baharati', 2);
+    expect(quests.onEvent({ type: 'visit', locationId: 'abyss' })).toHaveLength(0);
+    expect(player.count('kor-baharati')).toBe(2); // alınmadı
+    expect(quests.progress('d').value).toBe(0);
+    player.addItem('kor-baharati', 1);
+    expect(quests.onEvent({ type: 'visit', locationId: 'abyss' })).toHaveLength(1);
+    expect(player.count('kor-baharati')).toBe(0);
+  });
+
+  it('maden ve sandık görevleri ilgili olayla ilerler, başka olayla ilerlemez', () => {
+    const catalog: QuestDef[] = [
+      { id: 'm', title: 'M', giver: 'stone-heart', description: 'x'.repeat(30), objective: { type: 'mine', count: 2 }, reward: { money: 10, xp: 5 } },
+      { id: 'c', title: 'C', giver: 'abyss', description: 'x'.repeat(30), objective: { type: 'chest', count: 1 }, reward: { money: 10, xp: 5 } },
+    ];
+    const { quests, player } = make(catalog);
+    quests.accept('m');
+    quests.accept('c');
+    expect(quests.onEvent({ type: 'battleWon' })).toHaveLength(0);
+    expect(quests.onEvent({ type: 'mineCleared' })).toHaveLength(0);
+    expect(quests.progress('m')).toEqual({ value: 1, target: 2 });
+    expect(quests.onEvent({ type: 'chestOpened' }).map((c) => c.quest.id)).toEqual(['c']);
+    expect(quests.onEvent({ type: 'mineCleared' }).map((c) => c.quest.id)).toEqual(['m']);
+    expect(player.balance('tunc')).toBe(10);
+    expect(player.balance('tuy')).toBe(10);
+  });
+
+  it('gerçek katalog: teslimat görevlerinde mal ve hedef şehir geçerli, hedef verenden farklı', () => {
+    const delivers = SIDE_QUESTS.filter((q) => q.objective.type === 'deliver');
+    expect(delivers.length).toBeGreaterThanOrEqual(3);
+    for (const q of delivers) {
+      const o = q.objective as Extract<QuestDef['objective'], { type: 'deliver' }>;
+      expect(getItem(o.itemId), q.id).toBeDefined();
+      expect(LOCATIONS.some((l) => l.id === o.locationId && l.kind === 'city'), q.id).toBe(true);
+      expect(o.locationId).not.toBe(q.giver);
+    }
+    expect(SIDE_QUESTS.some((q) => q.objective.type === 'mine')).toBe(true);
+    expect(SIDE_QUESTS.some((q) => q.objective.type === 'chest')).toBe(true);
   });
 });
