@@ -8,8 +8,9 @@ import type { MerchantSpot } from './merchantSpots';
 import type { PickupSpot } from './pickups';
 import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
+import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CRYSTAL_KEY, HERB_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
+import { CHEST_KEY, CRYSTAL_KEY, HERB_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
 const PLAYER_SPEED = 150; // piksel/saniye
@@ -63,6 +64,10 @@ export interface WorldContext {
   mines?: readonly MineSpot[];
   isMineReady?: (id: string) => boolean;
   onMineEnter?: (id: string) => void;
+  /** Korumalı sandıklar (Task 31); açılanlar `isChestOpen` ile gizlenir, yanlarına gelince `onChestEnter`. */
+  chests?: readonly ChestSpot[];
+  isChestOpen?: (id: string) => boolean;
+  onChestEnter?: (id: string) => void;
   /** Oyuncu yeni bir karoya girdi (bölge savaşları için) */
   onTileEnter?: (tileX: number, tileY: number) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
@@ -86,6 +91,8 @@ export class WorldScene extends Phaser.Scene {
   private enemySprites = new Map<string, Phaser.GameObjects.Image>();
   private insideEnemies = new Set<string>();
   private lastTile = '';
+  private chestSprites = new Map<string, Phaser.GameObjects.Image>();
+  private insideChests = new Set<string>();
   private mineSprites = new Map<string, Phaser.GameObjects.Image>();
   private insideMines = new Set<string>();
 
@@ -110,6 +117,7 @@ export class WorldScene extends Phaser.Scene {
     this.createPickups();
     this.createEnemies();
     this.createMines();
+    this.createChests();
 
     const start = this.ctx.startTile ?? map.spawn;
     this.pos = { x: start.x * TILE_SIZE + TILE_SIZE / 2, y: start.y * TILE_SIZE + TILE_SIZE / 2 };
@@ -184,6 +192,7 @@ export class WorldScene extends Phaser.Scene {
     this.checkEnemies();
     this.checkTile();
     this.checkMines();
+    this.checkChests();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
@@ -288,6 +297,31 @@ export class WorldScene extends Phaser.Scene {
     }
     for (const id of near) if (!this.insideMines.has(id)) this.ctx.onMineEnter?.(id);
     this.insideMines = near;
+  }
+
+  /** Korumalı sandıklar: hafifçe parlar, açılınca kaybolur. */
+  private createChests(): void {
+    for (const c of this.ctx.chests ?? []) {
+      const x = c.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = c.tileY * TILE_SIZE + TILE_SIZE / 2;
+      const sprite = this.add.image(x, y, CHEST_KEY).setDepth(4);
+      this.tweens.add({ targets: sprite, scale: 1.08, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.chestSprites.set(c.id, sprite);
+    }
+  }
+
+  private checkChests(): void {
+    const near = new Set<string>();
+    for (const c of this.ctx.chests ?? []) {
+      const open = this.ctx.isChestOpen?.(c.id) ?? false;
+      this.chestSprites.get(c.id)?.setVisible(!open);
+      if (open) continue;
+      const x = c.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = c.tileY * TILE_SIZE + TILE_SIZE / 2;
+      if (Math.hypot(x - this.pos.x, y - this.pos.y) <= TILE_SIZE * 0.9) near.add(c.id);
+    }
+    for (const id of near) if (!this.insideChests.has(id)) this.ctx.onChestEnter?.(id);
+    this.insideChests = near;
   }
 
   /** Yeni bir karoya girilince haber verir. */

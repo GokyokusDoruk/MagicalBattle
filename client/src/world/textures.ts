@@ -70,6 +70,15 @@ export function createTilesetTexture(scene: Scene): void {
   speckles(Tile.Path, 0xc09a6b, 8);
 
   g.generateTexture(TILESET_KEY, S * TILE_COUNT, S);
+  // Korumalı sandık: ahşap gövde, altın kaplama ve kilit
+  g.fillStyle(0x000000, 0.25).fillEllipse(16, 27, 26, 6);
+  g.fillStyle(0x7c4a1e, 1).fillRect(4, 12, 24, 14);
+  g.fillStyle(0x9a5f2a, 1).fillRect(4, 8, 24, 6);
+  g.fillStyle(0xfbbf24, 1).fillRect(4, 13, 24, 2).fillRect(14, 8, 4, 18);
+  g.fillStyle(0x111827, 1).fillRect(15, 15, 2, 4);
+  g.generateTexture(CHEST_KEY, 32, 30);
+  g.clear();
+
   // Madenler: kayalık tepe, element renginde parlayan karanlık giriş ve kazma
   for (const [el, [body, light]] of Object.entries(ENEMY_COLORS)) {
     g.fillStyle(0x4b5563, 1).fillTriangle(2, 36, 20, 4, 38, 36);
@@ -104,6 +113,7 @@ export const CRYSTAL_KEY = 'pickup-crystal';
 export const PILE_KEY = 'ground-pile';
 /** Dünya düşmanı dokusunun anahtarı (elemente göre) */
 export const mineKey = (element: string): string => `mine-${element}`;
+export const CHEST_KEY = 'chest';
 export const enemyKey = (element: string): string => `enemy-${element}`;
 
 const ENEMY_COLORS: Record<string, [number, number]> = {
