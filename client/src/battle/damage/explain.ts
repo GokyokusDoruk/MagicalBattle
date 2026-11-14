@@ -51,6 +51,7 @@ export function explainDamage(b: DamageBreakdown, attackerElement: Element, defe
   if (Math.abs(b.skillMultiplier - 1) > 0.005) {
     rows.push({ label: 'Yetenek ve ekipman', factor: factorText(b.skillMultiplier), value: Math.round(b.afterSkills) });
   }
+  if (b.critical) rows.push({ label: 'KRİTİK vuruş', factor: factorText(b.critMultiplier), value: Math.round(b.afterCrit) });
   if (b.armorReduction > 0.005) {
     rows.push({ label: 'Zırh', factor: `−%${Math.round(b.armorReduction * 100)}`, value: Math.round(b.afterArmor) });
   }

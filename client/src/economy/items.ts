@@ -1,8 +1,8 @@
 import type { Element } from '../battle/damage/elements';
 import { EQUIPMENT, GEAR_SLOT_LIST, LEGACY_BAGS, SLOT_LABELS } from './equipment';
 
-/** Ekipman yuvaları (Task 23): Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı */
-export type GearSlot = 'robe' | 'hat' | 'pants' | 'bag' | 'ring' | 'boots';
+/** Ekipman yuvaları (Task 36): Cüppe, Şapka, Pantalon, Eldiven, Çanta, Yüzük, Bileklik, Kolye, Ayakkabı */
+export type GearSlot = 'robe' | 'hat' | 'pants' | 'gloves' | 'bag' | 'ring' | 'bracelet' | 'necklace' | 'boots';
 
 export const GEAR_SLOTS: readonly GearSlot[] = GEAR_SLOT_LIST;
 
@@ -32,6 +32,10 @@ export interface ItemDef {
   element?: Element;
   /** Ekipmansa nadirlik (1-6) */
   rarity?: 1 | 2 | 3 | 4 | 5 | 6;
+  /** Ekipmansa seviye (1-30); oyuncu bu seviyeye gelmeden kuşanamaz. Eski çantalarda yoktur. */
+  level?: number;
+  /** Yüzük, bileklik ve kolyeyse kritik vuruş şansı (0.05 = %5) */
+  crit?: number;
   /** Zırh parçasıysa (cüppe, şapka, pantalon) toplam zırha katkısı (0-1, hasar azaltma) */
   armor?: number;
   /** Çantaysa kapasiteye kattıkları */
@@ -96,7 +100,7 @@ export function isPotion(item: ItemDef): boolean {
   return item.heal !== undefined;
 }
 
-/** Ekipmanın "değeri": aynı yuvada yeni alınan eşya daha nadirse otomatik kuşanılır. */
+/** Ekipmanın "değeri": aynı yuvada yeni alınan eşya daha nadirse (eşitse daha yüksek seviyeliyse) otomatik kuşanılır. */
 export function gearValue(item: ItemDef): number {
-  return item.rarity ?? 0;
+  return (item.rarity ?? 0) + (item.level ?? 0) / 100;
 }

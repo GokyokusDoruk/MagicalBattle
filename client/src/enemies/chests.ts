@@ -4,7 +4,7 @@ import { mulberry32 } from '../world/rng';
 import { Tile } from '../world/tiles';
 import { ELEMENTS, type Element } from '../battle/damage/elements';
 import { MAX_WAND_LEVEL, ROLES, makeWand } from '../wands/catalog';
-import { GEAR_SLOT_LIST, equipmentId } from '../economy/equipment';
+import { GEAR_SLOT_LIST, MAX_GEAR_LEVEL, equipmentId } from '../economy/equipment';
 import { ENEMY_KINDS, enemyStats, type Tier } from './catalog';
 import { ENEMY_SPOTS, tierAt, type EnemySpot } from './spots';
 import { MINE_SPOTS } from './mines';
@@ -82,7 +82,8 @@ export function rollChestLoot(chest: Pick<ChestSpot, 'element' | 'tier'>, player
   };
   const tier = chestTier(chest.tier);
   const el = rand() < 0.6 ? chest.element : pick(ELEMENTS);
-  add(items, equipmentId(pick(GEAR_SLOT_LIST), el, rollRarity(rand, tier)));
+  const gearCap = Math.min(MAX_GEAR_LEVEL, Math.max(1, Math.floor(playerLevel)) + 3);
+  add(items, equipmentId(pick(GEAR_SLOT_LIST), el, rollRarity(rand, tier), 1 + Math.floor(rand() * gearCap)));
   add(items, ENEMY_KINDS[chest.element].material, 1 + Math.floor(rand() * 3));
   if (rand() < chance(0.7)) add(items, chest.tier >= 3 ? 'iksir-orta' : 'iksir-kucuk');
   if (rand() < chance(0.5)) {

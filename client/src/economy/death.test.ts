@@ -38,14 +38,14 @@ describe('altın kaybı', () => {
     const p = new PlayerState();
     p.addMoney('kor', 1000);
     p.addXp(500);
-    p.addItem('eq-robe-earth-1');
-    p.equip('eq-robe-earth-1');
+    p.addItem('eq-robe-earth-1-1');
+    p.equip('eq-robe-earth-1-1');
     const level = p.level;
     p.spendMoney('kor', moneyLoss(level, p.balance('kor')));
     expect(p.balance('kor')).toBe(1000 - moneyLoss(level, 1000));
     expect(p.xp).toBe(500);
     expect(p.level).toBe(level);
-    expect(p.isEquipped('eq-robe-earth-1')).toBe(true);
+    expect(p.isEquipped('eq-robe-earth-1-1')).toBe(true);
   });
 });
 

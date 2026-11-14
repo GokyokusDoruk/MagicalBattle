@@ -1,5 +1,7 @@
 # Ekipman (144 eşya)
 
+> **Task 36:** ekipman 9 yuva, seviye ve yeni element bonusuyla yenilendi: [ekipman-v3.md](ekipman-v3.md). Aşağıdaki katalog ve element bonusu bölümleri eskidir.
+
 Kod: `client/src/economy/equipment.ts` (katalog ve tablolar), `client/src/economy/gearEffects.ts` (tur başına etki), `client/src/economy/gearStock.ts` (tüccar stoğu), `client/src/ui/itemIcon.ts` (ikonlar), `client/src/ui/bagUi.ts` (ekipman ekranı).
 
 ## Katalog

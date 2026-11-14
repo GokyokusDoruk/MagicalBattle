@@ -260,7 +260,7 @@ describe('runBattle: döngü ve tur akışı', () => {
     const calls: string[] = [];
     const gear = (el: Element) => {
       calls.push(el);
-      return { armor: el === 'fire' ? 0.5 : 0, timeBonusSec: el === 'fire' ? 1 : 0 };
+      return { armor: el === 'fire' ? 0.5 : 0, timeBonusSec: el === 'fire' ? 1 : 0, crit: 0, damageBonus: 0 };
     };
     const limits: number[] = [];
     const run = async (element: Element): Promise<number> => {

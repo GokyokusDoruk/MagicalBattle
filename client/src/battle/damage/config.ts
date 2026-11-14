@@ -12,6 +12,10 @@ export const ELEMENT_DISADVANTAGE = 0.5;
 /** Toplam zırhın sağlayabileceği en yüksek hasar azaltma (0-1) */
 export const ARMOR_CAP = 0.75;
 
+/** Kritik vuruş: şans üst sınırı (ekipman ve yetenekler toplanır) ve hasar çarpanı */
+export const CRIT_CAP = 0.75;
+export const CRIT_MULTIPLIER = 1.5;
+
 /** Tam güç için gereken kaplanan alan oranı (tuvale göre). Daha büyük çizim fazladan güç vermez. */
 export const FULL_POWER_COVERAGE = 0.18;
 /**

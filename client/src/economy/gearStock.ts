@@ -1,8 +1,8 @@
 import { ELEMENTS } from '../battle/damage/elements';
 import { mulberry32 } from '../world/rng';
-import { COMMON_SHARE, RARE_PREMIUM, ROTATION_MS, STOCK_MAX_RARITY, STOCK_SIZE, hash, rotationOf } from '../wands/stock';
+import { COMMON_SHARE, LEVEL_HEADROOM, RARE_PREMIUM, ROTATION_MS, STOCK_MAX_RARITY, STOCK_SIZE, hash, rotationOf } from '../wands/stock';
 import type { Rarity } from '../wands/catalog';
-import { GEAR_SLOT_LIST, equipmentId } from './equipment';
+import { GEAR_SLOT_LIST, MAX_GEAR_LEVEL, equipmentId } from './equipment';
 import { buyItem, type TradeResult } from './shop';
 import type { Currency } from './currency';
 import type { PlayerState } from './player';
@@ -22,14 +22,16 @@ export interface GearStockEntry {
   rare: boolean;
 }
 
-export function generateGearStock(merchantId: string, rotation: number): GearStockEntry[] {
+/** Stoktaki eşyaların seviyesi 1 ile oyuncu seviyesi + 5 arasındadır (biraz üstü de çıkar, hedef olur). */
+export function generateGearStock(merchantId: string, rotation: number, playerLevel = 1): GearStockEntry[] {
+  const cap = Math.min(MAX_GEAR_LEVEL, Math.max(1, Math.floor(playerLevel)) + LEVEL_HEADROOM);
   const rand = mulberry32(hash(`gear:${merchantId}:${rotation}`));
   const rareSlot = Math.floor(rand() * STOCK_SIZE);
   const pick = <T,>(list: readonly T[]): T => list[Math.floor(rand() * list.length)];
   return Array.from({ length: STOCK_SIZE }, (_, slot) => {
     const rare = slot === rareSlot;
     const rarity: Rarity = rare ? STOCK_MAX_RARITY : rand() < COMMON_SHARE ? 1 : 2;
-    const item = getItem(equipmentId(pick(GEAR_SLOT_LIST), pick(ELEMENTS), rarity))!;
+    const item = getItem(equipmentId(pick(GEAR_SLOT_LIST), pick(ELEMENTS), rarity, 1 + Math.floor(rand() * cap)))!;
     return { slot, itemId: item.id, price: Math.round(item.price * (rare ? RARE_PREMIUM : 1)), rare };
   });
 }
@@ -42,13 +44,14 @@ export class GearStock {
   constructor(
     private readonly merchantId: string,
     private readonly now: () => number,
+    private readonly levelOf: () => number = () => 1,
   ) {}
 
   private refresh(): void {
     const r = rotationOf(this.now());
     if (r === this.rotation) return;
     this.rotation = r;
-    this.entriesNow = generateGearStock(this.merchantId, r);
+    this.entriesNow = generateGearStock(this.merchantId, r, this.levelOf());
     this.sold.clear();
   }
 

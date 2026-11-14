@@ -204,7 +204,8 @@ export class MerchantUi {
           <div class="flex min-w-0 items-center gap-2"><span class="shrink-0">${itemIconSvg(item, 40)}</span>
             <div class="min-w-0"><div class="font-bold">${itemNameHtml(item)}${e.rare ? ' <span class="text-[11px] text-sky-300">(nadir, pahalı)</span>' : ''}</div>
               <div class="text-[11px] text-slate-400">${esc(rarityLabel(item))} · ${esc(describeItem(item))}</div>
-              <div class="text-[11px] text-slate-500">${esc(item.description)}</div></div></div>
+              <div class="text-[11px] text-slate-500">${esc(item.description)}</div>
+              ${item.level !== undefined && item.level > player.level ? `<div class="text-[11px] text-red-300">${item.level}. seviyeye gelene kadar kuşanamazsın</div>` : ''}</div></div>
           <button type="button" data-action="buy" data-id="${e.slot}" ${cant ? 'disabled' : ''}
             class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">${e.sold ? 'Satıldı' : `${this.icon} ${price}`}</button></li>`;
       })

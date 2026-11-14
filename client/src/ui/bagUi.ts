@@ -20,7 +20,7 @@ const pct = (v: number): string => `%${Math.round(v * 100)}`;
 
 /**
  * Çanta ekranı (B): kapasite çubukları (asa, eşya, kuşanılabilir), kuşanılan 6 ekipman (ikonlarla), ticari eşyalar ve
- * iksirler, çantada taşınan ekipman. Altın ağırlık yapmaz. Eşyaları atabilir (geri alınamaz, iki tıkla onaylanır).
+ * iksirler, çantada taşınan ekipman. Para ağırlık yapmaz. Eşyaları atabilir (geri alınamaz, iki tıkla onaylanır).
  */
 export class BagUi {
   readonly element: HTMLDivElement;
@@ -82,7 +82,7 @@ export class BagUi {
     }).join('');
   }
 
-  /** Altı ekipman yuvası (ikonlu) ve toplam etkiler. */
+  /** Dokuz ekipman yuvası (ikonlu) ve toplam etkiler. */
   private equippedHtml(): string {
     const { player } = this.deps;
     const slots = GEAR_SLOTS.map((slot) => {
@@ -98,9 +98,9 @@ export class BagUi {
         <button type="button" data-action="unequip" data-slot="${slot}" class="shrink-0 rounded bg-slate-700 px-2 py-1 text-xs">Çıkar</button></div>`;
     }).join('');
     const g = player.gearFor();
-    const summary = `Zırh <b>${pct(g.armor)}</b> · Hız <b>+${pct(player.speedBonus)}</b> · Büyü süresi <b>+${g.timeBonusSec.toFixed(2)} sn</b>`;
+    const summary = `Zırh <b>${pct(g.armor)}</b> · Hız <b>+${pct(player.speedBonus)}</b> · Kritik <b>${pct(g.crit)}</b> · Büyü süresi <b>+${g.timeBonusSec.toFixed(2)} sn</b>`;
     return `<div class="mb-1 grid gap-2 sm:grid-cols-2" data-equipped>${slots}</div>
-      <p class="mb-3 text-[11px] text-slate-400" data-gear-summary>${summary}. Seçtiğin büyünün elementiyle aynı elementteki zırh ve yüzük %50 daha güçlüdür.</p>`;
+      <p class="mb-3 text-[11px] text-slate-400" data-gear-summary>${summary}. Kuşandığın her ekipman, kendi elementinin büyüsünde hasarı artırır (%1 × nadirlik katsayısı: Sıradan 0.25 ... Mistik 1.5).</p>`;
   }
 
   private render(): void {
@@ -147,7 +147,7 @@ export class BagUi {
       <div class="flex max-h-full w-full max-w-lg flex-col gap-3 rounded-xl border border-amber-300/40 bg-slate-950 p-4 text-amber-50 shadow-2xl">
         <div class="flex items-start justify-between gap-2">
           <div><h2 class="text-lg font-bold text-amber-300">Çanta</h2>
-            <p class="text-xs italic text-slate-300" data-message>${esc(this.message || 'Altın ağırlık yapmaz. Giyilen ekipman ve kuşanılı asalar yer kaplamaz.')}</p></div>
+            <p class="text-xs italic text-slate-300" data-message>${esc(this.message || 'Para ağırlık yapmaz. Giyilen ekipman ve kuşanılı asalar yer kaplamaz.')}</p></div>
           <button type="button" data-action="close" class="rounded bg-white/10 px-2 py-1 text-sm hover:bg-white/20" aria-label="Kapat">✕</button>
         </div>
         <div class="rounded bg-black/40 p-2 text-sm" data-health><div class="flex justify-between"><span>❤ Can</span><b class="${player.isHurt ? 'text-amber-300' : 'text-emerald-300'}">${player.hp} / ${player.maxHp}</b></div>

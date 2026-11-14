@@ -281,7 +281,7 @@ const gearStocks = new Map<string, GearStock>();
 const gearStock = (merchantId: string): GearStock => {
   let stock = gearStocks.get(merchantId);
   if (!stock) {
-    stock = new GearStock(merchantId, () => performance.now());
+    stock = new GearStock(merchantId, () => performance.now(), () => hero.level);
     gearStocks.set(merchantId, stock);
   }
   return stock;
