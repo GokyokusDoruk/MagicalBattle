@@ -8,7 +8,7 @@ import { CITY_HALF, type LocationDef } from '../world/locations';
  * Kayıt dosyası biçimi (sürüm 6: asalar seviyeli ve tek kuşanılı; sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
  * aynı alanları doğrular ve eski (v1-v5) kayıtları yükseltir (server/src/save/saveData.ts).
  */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export interface SavePoint {
   cityId: string;
@@ -73,6 +73,7 @@ export function buildSave(
     savePoint,
     gold: extras.economy.gold,
     xp: extras.economy.xp,
+    hp: extras.economy.hp ?? null,
     items: { ...extras.economy.items },
     equipped: { ...extras.economy.equipped },
     quests: Object.fromEntries(Object.entries(extras.quests).map(([id, r]) => [id, { ...r }])),
@@ -96,6 +97,7 @@ export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerNam
     savePoint: raw.savePoint ?? null,
     gold: raw.gold ?? 0,
     xp: raw.xp ?? 0,
+    hp: raw.hp ?? null,
     items: raw.items ?? {},
     equipped: raw.equipped ?? {},
     quests: raw.quests ?? {},

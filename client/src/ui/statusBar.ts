@@ -2,6 +2,9 @@ import { levelProgress } from '../economy/leveling';
 
 export interface StatusView {
   level: number;
+  /** Mevcut can ve azami can */
+  hp: number;
+  maxHp: number;
   gold: number;
   xp: number;
   /** Kaydedilmemiş ilerleme var mı (son kayıt noktasından sonra bir şey değişti) */
@@ -26,6 +29,8 @@ export class StatusBar {
   private readonly levelEl: HTMLElement;
   private readonly goldEl: HTMLElement;
   private readonly fillEl: HTMLElement;
+  private readonly hpEl: HTMLElement;
+  private readonly hpFillEl: HTMLElement;
   private readonly dirtyEl: HTMLElement;
   private readonly questsEl: HTMLElement;
   private readonly skillsBtn: HTMLButtonElement;
@@ -41,6 +46,8 @@ export class StatusBar {
     this.element.innerHTML = `
       <div class="flex items-center justify-between font-bold"><span data-level></span><span data-gold></span></div>
       <div class="mt-1 h-1.5 overflow-hidden rounded bg-white/15"><div data-fill class="h-full bg-sky-400 transition-all duration-300"></div></div>
+      <div class="mt-1 flex items-center justify-between text-[11px]"><span>❤ Can</span><b data-hp></b></div>
+      <div class="h-1.5 overflow-hidden rounded bg-white/15"><div data-hpfill class="h-full bg-rose-400 transition-all duration-300"></div></div>
       <button type="button" data-skills class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">✦ Yetenekler (K)</button>
       <button type="button" data-wands class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🪄 Asalar (W)</button>
       <button type="button" data-bag class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🎒 Çanta (B)</button>
@@ -51,6 +58,8 @@ export class StatusBar {
     this.levelEl = q('[data-level]');
     this.goldEl = q('[data-gold]');
     this.fillEl = q('[data-fill]');
+    this.hpEl = q('[data-hp]');
+    this.hpFillEl = q('[data-hpfill]');
     this.dirtyEl = q('[data-dirty]');
     this.questsEl = q('[data-quests]');
     this.moralEl = q('[data-moral]');
@@ -70,6 +79,9 @@ export class StatusBar {
     this.levelEl.textContent = `Seviye ${view.level}`;
     this.goldEl.textContent = `🪙 ${view.gold}`;
     this.fillEl.style.width = `${p.ratio * 100}%`;
+    this.hpEl.textContent = `${view.hp}/${view.maxHp}`;
+    this.hpEl.classList.toggle('text-amber-300', view.hp < view.maxHp);
+    this.hpFillEl.style.width = `${(view.hp / view.maxHp) * 100}%`;
     this.skillsBtn.textContent = view.skillPoints > 0 ? `✦ Yetenekler (K) · ${view.skillPoints} puan!` : '✦ Yetenekler (K)';
     this.skillsBtn.classList.toggle('text-emerald-300', view.skillPoints > 0);
     this.bagBtn.textContent = `🎒 Çanta (B) · ${view.bagSummary}`;

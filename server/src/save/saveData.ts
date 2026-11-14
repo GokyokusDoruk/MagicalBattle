@@ -4,7 +4,7 @@
  * kabul edilir ve varsayılanlarla yükseltilir.
  */
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 /** Yetenek ağacındaki toplam yetenek sayısı (4 element x 3 dal x 3 kademe + 3 Taşıyıcı) */
 const MAX_SKILLS = 39;
 /** Asalar element, rol, nadirlik ve seviye taşır (4x2x6x30 = 1440 çeşit); çantaya sığanlar sınırlıdır, 200 çeşit yeter */
@@ -30,6 +30,8 @@ export const SAVE_CITY_IDS = ['ignis', 'abyss', 'stone-heart', 'still-crystal'] 
 
 export const MAX_GOLD = 9_999_999;
 export const MAX_XP = 1_000_000;
+/** Kaydedilebilecek en yüksek mevcut can (azami can seviyeyle artar, bunun çok altındadır) */
+export const MAX_HP_SAVED = 100_000;
 export const MAX_STACK = 999;
 const MAX_ENTRIES = 64;
 const MAX_COLLECTED = 200;
@@ -57,6 +59,8 @@ export interface SaveData {
   savePoint: SavePoint | null;
   gold: number;
   xp: number;
+  /** Mevcut can; null = tam dolu */
+  hp: number | null;
   /** Çanta: eşya kimliği → adet */
   items: Record<string, number>;
   /** Kuşanılan ekipman: yer → eşya kimliği */
@@ -197,7 +201,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   if (!isPlainObject(input)) return bad('Kayıt verisi geçersiz.');
   const b = input;
 
-  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== 5 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
+  if (b.version !== 1 && b.version !== 2 && b.version !== 3 && b.version !== 4 && b.version !== 5 && b.version !== 6 && b.version !== SAVE_VERSION) return bad('Desteklenmeyen kayıt sürümü.');
 
   const nameError = validatePlayerName(b.playerName);
   if (nameError) return bad(nameError);
@@ -228,6 +232,8 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
   const gold = b.gold ?? 0;
   const xp = b.xp ?? 0;
   if (!isInt(gold, 0, MAX_GOLD) || !isInt(xp, 0, MAX_XP)) return bad('Altın ya da XP geçersiz.');
+  const hp = b.hp ?? null;
+  if (hp !== null && !isInt(hp, 1, MAX_HP_SAVED)) return bad('Can geçersiz.');
   const items = parseItems(b.items);
   if (!items.ok) return bad(items.error);
   const equipped = parseEquipped(b.equipped);
@@ -254,6 +260,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
       savePoint,
       gold,
       xp,
+      hp,
       items: items.value,
       equipped: equipped.value,
       quests: quests.value,

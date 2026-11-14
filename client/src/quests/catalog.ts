@@ -15,7 +15,7 @@ export interface QuestReward {
 export interface QuestDef {
   id: string;
   title: string;
-  /** Görevi veren tüccarın şehri (Task 26: görevler şehir tüccarlarındadır; han gelince hana taşınır) */
+  /** Görevi veren tüccarın şehri (Task 27: görevler şehir hanlarında verilir) */
   giver: string;
   /** Metin tabanlı görev anlatımı */
   description: string;

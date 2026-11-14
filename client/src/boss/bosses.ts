@@ -1,6 +1,5 @@
 import type { Element } from '../battle/damage/elements';
 import type { BotProfile } from '../battle/flow/bot';
-import { MAX_HP } from '../battle/flow/config';
 import type { FighterInit } from '../battle/flow/engine';
 import type { GearResolver } from '../economy/gearEffects';
 import type { WandResolver } from '../wands/inventory';
@@ -147,13 +146,14 @@ const BY_CHAPTER = new Map(BOSSES.map((b) => [b.chapter, b]));
 
 export const getBoss = (chapter: number): BossDef | undefined => BY_CHAPTER.get(chapter);
 
-/** Savaşta oyuncunun azami canı: seviye başına +10 */
-export const HP_PER_LEVEL = 10;
-export const playerMaxHp = (level: number): number => MAX_HP + HP_PER_LEVEL * (Math.max(1, Math.floor(level)) - 1);
+import { HP_PER_LEVEL, playerMaxHp } from '../economy/health';
+export { HP_PER_LEVEL, playerMaxHp };
 
 export interface PlayerStats {
   name: string;
   level: number;
+  /** Savaşa başlarkenki can (verilmezse dolu). Boss her zaman tam canla başlar. */
+  hp?: number;
   /** Toplam zırhtan gelen hasar azaltma */
   armor: number;
   /** Ekipmandan gelen verilen / alınan hasar çarpanı (1 = etkisiz); yetenek ve asalar `spells`/`wands` ile gelir */
@@ -186,6 +186,7 @@ export function bossFighters(chapter: number, player: PlayerStats, path: FinalPa
       team: 0,
       control: 'human',
       maxHp: playerMaxHp(player.level),
+      hp: player.hp,
       armor: player.armor,
       gear: player.gear,
       dealtMultiplier: player.dealtMultiplier,

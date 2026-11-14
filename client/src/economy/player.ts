@@ -2,7 +2,9 @@ import type { Element } from '../battle/damage/elements';
 import { LEGACY_SLOTS, migrateItemId } from './equipment';
 import { bootsSpeed, bootsSpeedIn, gearEffects, type GearEffects, type GearResolver } from './gearEffects';
 import { GEAR_SLOTS, getItem, type GearSlot } from './items';
+import { playerMaxHp } from './health';
 import { levelForXp } from './leveling';
+
 
 export const MAX_GOLD = 9_999_999;
 export const MAX_XP = 1_000_000;
@@ -13,6 +15,8 @@ export interface EconomySnapshot {
   xp: number;
   items: Record<string, number>;
   equipped: Partial<Record<GearSlot, string>>;
+  /** Mevcut can; null ya da yoksa tam dolu */
+  hp?: number | null;
 }
 
 /** Kapasite kuralları (envanter): kimin sınır koyduğunu PlayerState bilmez, dışarıdan bağlanır. */
@@ -35,6 +39,8 @@ export class PlayerState {
   private xpValue = 0;
   private readonly items = new Map<string, number>();
   private equippedSlots: Partial<Record<GearSlot, string>> = {};
+  /** Mevcut can; null = tam dolu (seviye atlayınca azami can artsa da dolu kalır) */
+  private hpValue: number | null = null;
   private readonly listeners = new Set<() => void>();
   private guards: PlayerGuards | null = null;
   /** Son engellenen ekipman değişikliğinin nedeni (arayüz gösterir) */
@@ -124,12 +130,58 @@ export class PlayerState {
     return true;
   }
 
-  /** XP ekler; kaç seviye atlandığını döndürür. */
+  /** Azami can (seviyeyle artar) */
+  get maxHp(): number {
+    return playerMaxHp(this.level);
+  }
+
+  /** Mevcut can (1 ile azami can arası; ölü sayılmaz, ölünce şifacıda dolar) */
+  get hp(): number {
+    return this.hpValue === null ? this.maxHp : Math.min(this.maxHp, Math.max(1, this.hpValue));
+  }
+
+  get isHurt(): boolean {
+    return this.hp < this.maxHp;
+  }
+
+  /** Canı ayarlar (1..azami). Savaştan çıkarken kalan can buraya yazılır. */
+  setHp(value: number): void {
+    const v = Math.min(this.maxHp, Math.max(1, Math.round(Number.isFinite(value) ? value : this.maxHp)));
+    this.hpValue = v >= this.maxHp ? null : v;
+    this.changed();
+  }
+
+  /** Can yeniler; gerçekten yenilenen miktarı döndürür. */
+  heal(amount: number): number {
+    const before = this.hp;
+    this.setHp(before + Math.max(0, Math.floor(amount)));
+    return this.hp - before;
+  }
+
+  fullHeal(): void {
+    this.hpValue = null;
+    this.changed();
+  }
+
+  /** Can iksiri kullanır: canı yeniler ve iksiri harcar. Can doluysa ya da iksir değilse harcanmaz. */
+  usePotion(id: string): { ok: true; healed: number } | { ok: false; reason: string } {
+    const item = getItem(id);
+    if (!item?.heal) return { ok: false, reason: 'Bu bir can iksiri değil.' };
+    if (this.count(id) < 1) return { ok: false, reason: 'Bu iksirden yok.' };
+    if (!this.isHurt) return { ok: false, reason: 'Canın zaten dolu.' };
+    const healed = this.heal(item.heal);
+    this.removeItem(id, 1);
+    return { ok: true, healed };
+  }
+
+  /** XP ekler; kaç seviye atlandığını döndürür. Seviye atlayınca azami can artar, eksik can aynı kalır. */
   addXp(amount: number): number {
     const n = Math.floor(amount);
     if (!(n > 0)) return 0;
     const before = this.level;
+    const hurt = this.maxHp - this.hp;
     this.xpValue = Math.min(MAX_XP, this.xpValue + n);
+    if (hurt > 0 && this.level > before) this.hpValue = Math.max(1, this.maxHp - hurt);
     this.changed();
     return this.level - before;
   }
@@ -207,6 +259,7 @@ export class PlayerState {
       xp: this.xpValue,
       items: Object.fromEntries(this.items),
       equipped: { ...this.equippedSlots },
+      hp: this.hpValue,
     };
   }
 
@@ -229,6 +282,9 @@ export class PlayerState {
       const item = id ? getItem(id) : undefined;
       if (slot && id && item?.slot === slot && this.count(id) > 0 && !this.equippedSlots[slot]) this.equippedSlots[slot] = id;
     }
+    const savedHp = snapshot?.hp;
+    this.hpValue = typeof savedHp === 'number' && Number.isFinite(savedHp) ? Math.max(1, Math.floor(savedHp)) : null;
+    if (this.hpValue !== null && this.hpValue >= this.maxHp) this.hpValue = null;
     this.changed();
   }
 }

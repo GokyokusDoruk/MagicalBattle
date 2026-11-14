@@ -40,6 +40,7 @@ describe('kayıt verisi', () => {
       savePoint: null,
       gold: 0,
       xp: 0,
+      hp: null,
       items: {},
       equipped: {},
       quests: {},
@@ -100,7 +101,7 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
 
   it('normalizeSave eksik alanları varsayılanla doldurur (eski sunucu v1 dönse bile)', () => {
     const s = normalizeSave({ playerName: 'Aylin', completedChapters: [1] });
-    expect(s).toMatchObject({ version: 6, savePoint: null, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} });
+    expect(s).toMatchObject({ version: 7, hp: null, savePoint: null, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} });
   });
 });
 
@@ -142,7 +143,7 @@ describe('SaveManager', () => {
     const m = new SaveManager({ putSave: async (d) => void written.push(d) }, progressWith(1), 'Aylin');
     expect(await m.saveAt(point)).toBe('saved');
     expect(written).toEqual([
-      { version: 6, playerName: 'Aylin', completedChapters: [1], savePoint: point, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} },
+      { version: 7, playerName: 'Aylin', completedChapters: [1], savePoint: point, gold: 0, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} },
     ]);
   });
 
