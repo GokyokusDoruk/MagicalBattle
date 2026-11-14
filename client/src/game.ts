@@ -62,6 +62,10 @@ import { generateMap } from './world/generateMap';
 import { LOCATIONS, getLocation } from './world/locations';
 import { merchantSpots } from './world/merchantSpots';
 import { QuestTracker } from './world/questMarkers';
+import { QuestLogUi } from './ui/questLogUi';
+import { QuestHud } from './ui/questHud';
+import { mainEntry, pickTracked, sideEntry, type TrackEntry } from './quests/tracking';
+import { SIDE_QUESTS } from './quests/catalog';
 import { TILE_SIZE } from './world/tiles';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -205,7 +209,7 @@ const exitDropUi = new ExitDropUi();
 document.body.appendChild(exitDropUi.element);
 /** Başka bir panel (sahne, tüccar, diyalog ya da diğer çekmeceler) açıkken yeni panel açılmaz */
 const otherOpen = (except: { isOpen: boolean }): boolean =>
-  [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi, groundPileUi, exitDropUi].some((p) => p !== except && p.isOpen);
+  [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi, groundPileUi, exitDropUi, questLog].some((p) => p !== except && p.isOpen);
 const statusBar = new StatusBar(
   () => {
     if (!otherOpen(skillUi)) skillUi.toggle();
@@ -216,12 +220,54 @@ const statusBar = new StatusBar(
   () => {
     if (!otherOpen(bagUi)) bagUi.toggle();
   },
+  () => {
+    if (!otherOpen(questLog)) questLog.toggle();
+  },
 );
 document.body.appendChild(statusBar.element);
 
+// --- Görev günlüğü ve aktif görev göstergesi (Task 41) ---
+/** Oyuncunun son dünya konumu (piksel); yönlendirme oku için */
+const heroPos = { x: 0, y: 0 };
+const TRACK_KEY = 'mb-takip-gorev';
+let trackedId: string | null = null;
+try {
+  trackedId = localStorage.getItem(TRACK_KEY);
+} catch {
+  // tarayıcı depolaması kapalıysa takip yalnızca bu oturumda tutulur
+}
+/** Aktif görevler: önce ana görev(ler), sonra devam eden yan görevler. */
+const trackEntries = (): TrackEntry[] => {
+  const ctx = { playerPx: heroPos.x, playerPy: heroPos.y, mines: MINE_SPOTS, chests: CHEST_SPOTS, chestOpen: (id: string) => collected.has(id) };
+  return [...quests.activeMarkers().map(mainEntry), ...sideQuests.active().map((q) => sideEntry(q, sideQuests.progress(q.id), ctx))];
+};
+const questLog = new QuestLogUi({
+  entries: () => ({
+    active: trackEntries(),
+    completed: SIDE_QUESTS.filter((q) => sideQuests.view(q.id) === 'completed').map((q) => ({ id: q.id, title: q.title })),
+  }),
+  tracked: () => pickTracked(trackEntries(), trackedId)?.id ?? null,
+  onTrack: (id) => {
+    trackedId = id;
+    try {
+      localStorage.setItem(TRACK_KEY, id);
+    } catch {
+      // yoksay
+    }
+    refreshQuestHud();
+  },
+});
+document.body.appendChild(questLog.element);
+const questHud = new QuestHud();
+document.body.appendChild(questHud.element);
+const refreshQuestHud = (): void => {
+  questHud.update(pickTracked(trackEntries(), trackedId), heroPos);
+  questLog.refresh();
+};
+
 /** Son kayıt noktasından sonra değişen bir şey var mı (kayıt yalnızca şehirlerde yapılır). */
 let dirty = false;
-const refreshHud = (): void =>
+const updateStatusBar = (): void =>
   statusBar.update({
     level: hero.level,
     hp: hero.hp,
@@ -235,6 +281,10 @@ const refreshHud = (): void =>
     bagFull: carry.isOverloaded() || carry.room('wands') === 0 || carry.room('goods') === 0,
     moralityLabel: `${morality.effects.label} (${morality.score > 0 ? '+' : ''}${morality.score})`,
   });
+const refreshHud = (): void => {
+  updateStatusBar();
+  refreshQuestHud();
+};
 const setDirty = (value: boolean): void => {
   dirty = value;
   refreshHud();
@@ -333,13 +383,14 @@ document.body.appendChild(dialogueUi.element);
 let chapterBusy = false;
 let fightBusy = false;
 let mineBusy = false;
+let lastQuestTile = '';
 let chestBusy = false;
 const mineBoard = new MineBoard(() => performance.now());
 const enemyBoard = new EnemyBoard(() => performance.now());
 const encounters = new EncounterGuard(() => performance.now());
 const lootRand = mulberry32(Date.now());
 const modalOpen = (): boolean =>
-  chapterBusy || fightBusy || mineBusy || chestBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
+  chapterBusy || fightBusy || mineBusy || chestBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen || questLog.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -597,6 +648,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyK' && !otherOpen(skillUi)) skillUi.toggle();
   if (e.code === 'KeyW' && !otherOpen(wandUi)) wandUi.toggle();
   if (e.code === 'KeyB' && !otherOpen(bagUi)) bagUi.toggle();
+  if (e.code === 'KeyJ' && !otherOpen(questLog)) questLog.toggle();
 });
 
 gates.onChange((cityId, unlocked) => {
@@ -606,6 +658,8 @@ gates.onChange((cityId, unlocked) => {
 
 let pendingTeleport: { x: number; y: number } | null = null;
 const debug = {
+  questLog,
+  trackEntries,
   gates,
   quests,
   progress,
@@ -757,6 +811,14 @@ void import('./world/bootWorld').then((m) =>
     onFrame: (player) => {
       debug.player = player;
       minimap.update(player);
+      // Yönlendirme okunu karo değişince güncelle
+      heroPos.x = player.x;
+      heroPos.y = player.y;
+      const tileKey = `${Math.floor(player.x / TILE_SIZE)},${Math.floor(player.y / TILE_SIZE)}`;
+      if (tileKey !== lastQuestTile) {
+        lastQuestTile = tileKey;
+        refreshQuestHud();
+      }
     },
   }),
 );

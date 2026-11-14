@@ -10,8 +10,9 @@ import { sellWand, wandBuyPrice, wandSellPrice } from '../wands/shop';
 import type { PlayerState } from '../economy/player';
 import { buyItem, buyPrice, sell, sellPrice } from '../economy/shop';
 import type { QuestDef } from '../quests/catalog';
+import { objectiveText, rewardText } from '../quests/tracking';
 import type { QuestCompletion, QuestEngine } from '../quests/engine';
-import { LOCATIONS, getLocation } from '../world/locations';
+import { getLocation } from '../world/locations';
 import { ELEMENT_NAMES } from '../battle/damage/elements';
 import { ELEMENT_COLORS, RARITY_COLORS, RARITY_NAMES, ROLE_NAMES, describeWand, getWand } from '../wands/catalog';
 import type { WandInventory } from '../wands/inventory';
@@ -40,22 +41,6 @@ const POTION_IDS = ['iksir-kucuk', 'iksir-orta', 'iksir-buyuk'] as const;
 type Tab = 'shop' | 'trade' | 'wands' | 'quests' | 'rest' | 'potions' | 'exchange';
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-
-function objectiveText(q: QuestDef): string {
-  const o = q.objective;
-  if (o.type === 'collect') return `${getItem(o.itemId)?.name ?? o.itemId} topla (${o.count})`;
-  if (o.type === 'visit') return `${LOCATIONS.find((l) => l.id === o.locationId)?.name ?? o.locationId} konumuna var`;
-  if (o.type === 'deliver') return `${o.count} ${getItem(o.itemId)?.name ?? o.itemId} al ve ${LOCATIONS.find((l) => l.id === o.locationId)?.name ?? o.locationId} şehrine götür`;
-  if (o.type === 'mine') return o.count === 1 ? 'bir madeni temizle' : `${o.count} madeni temizle`;
-  if (o.type === 'chest') return o.count === 1 ? 'bir korumalı sandık aç' : `${o.count} korumalı sandık aç`;
-  return `${o.count} savaş kazan`;
-}
-
-function rewardText(q: QuestDef): string {
-  const parts = [`${q.reward.money} ${CURRENCY_NAMES[cityCurrency(q.giver)]}`, `${q.reward.xp} XP`];
-  for (const it of q.reward.items ?? []) parts.push(`${it.count} ${getItem(it.id)?.name ?? it.id}`);
-  return parts.join(', ');
-}
 
 /**
  * Tüccar ekranı: "Alışveriş" (ekipman al, ganimet sat, kuşan) ve "Görevler" (yan görevleri kabul et).
