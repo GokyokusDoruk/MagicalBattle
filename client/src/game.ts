@@ -16,7 +16,7 @@ import { GroundLoot } from './world/groundLoot';
 import { locationAt } from './save/cityEntry';
 import { ExitDropUi } from './ui/exitDropUi';
 import { GroundPileUi } from './ui/groundPileUi';
-import { STARTER_WAND_ID } from './wands/catalog';
+import { STARTER_WAND_ID, getWand } from './wands/catalog';
 import { WandInventory } from './wands/inventory';
 import { WandStock } from './wands/stock';
 import { GearStock } from './economy/gearStock';
@@ -28,6 +28,12 @@ import { getBoss } from './boss/bosses';
 import { goldLoss, nearestHealer, respawnLines } from './economy/death';
 import { DialogueUi } from './ui/dialogueUi';
 import { runBossFight, type HealHooks } from './ui/bossFight';
+import { runWorldFight } from './ui/worldFight';
+import { ENEMY_SPOTS, EnemyBoard } from './enemies/spots';
+import { enemyStats } from './enemies/catalog';
+import { rollLoot } from './enemies/loot';
+import { applyLoot } from './enemies/applyLoot';
+import { mulberry32 } from './world/rng';
 import { WandUi } from './ui/wandUi';
 import { SkillTree } from './skills/tree';
 import { Progress } from './story/progress';
@@ -283,8 +289,11 @@ const dialogueUi = new DialogueUi(narrator);
 document.body.appendChild(dialogueUi.element);
 /** Bir bölümün sahnesi, boss savaşı ve seçimleri sürerken true (aralardaki boşlukta da dünya durur) */
 let chapterBusy = false;
+let fightBusy = false;
+const enemyBoard = new EnemyBoard(() => performance.now());
+const lootRand = mulberry32(Date.now());
 const modalOpen = (): boolean =>
-  chapterBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
+  chapterBusy || fightBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -341,6 +350,45 @@ const healHooks: HealHooks = {
     return r.reason;
   },
 };
+
+/**
+ * Dünya düşmanıyla savaş (Task 28): panelde savaş ya da kaç. Zaferde altın, XP ve karışık ganimet; kalan can kalıcıdır.
+ * Yenilince (pes) boss yenilgisiyle aynı ölüm akışı. Çantaya sığmayan ganimet savaşın yapıldığı karoda yerde kalır.
+ */
+async function fightEnemy(id: string): Promise<void> {
+  const spot = ENEMY_SPOTS.find((s) => s.id === id);
+  if (!spot || fightBusy || modalOpen() || !enemyBoard.isActive(id)) return;
+  fightBusy = true;
+  try {
+    const { outcome, hp: hpLeft } = await runWorldFight(
+      spot,
+      { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
+      hero.maxHp,
+    );
+    if (outcome === 'retreat') return;
+    if (outcome === 'lost') {
+      toast.show(`${enemyStats(spot.element, spot.tier).name} seni yendi.`);
+      await handleDeath();
+      return;
+    }
+    if (hpLeft !== null) hero.setHp(hpLeft);
+    enemyBoard.defeat(id);
+    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier, lootRand);
+    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
+    const names = [
+      ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
+      ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
+    ];
+    sfx.play('victory');
+    toast.show(`${enemyStats(spot.element, spot.tier).name} yenildi! +${got.gold} altın, +${got.xp} XP${names.length ? `, ${names.join(', ')}` : ''}`);
+    if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
+    if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
+    setDirty(true);
+    handleCompletions(sideQuests.onEvent({ type: 'battleWon' }));
+  } finally {
+    fightBusy = false;
+  }
+}
 
 /** Sahne bu oturumda izlendi mi (yenilgiden sonra tekrar denerken sahne baştan oynamasın) */
 const scenesSeen = new Set<number>();
@@ -433,6 +481,8 @@ const debug = {
   playChapterChoices,
   playChapter,
   handleDeath,
+  fightEnemy,
+  enemyBoard,
   collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */
@@ -524,6 +574,9 @@ void import('./world/bootWorld').then((m) =>
     onMerchantEnter: (id) => {
       if (!modalOpen()) merchantUi.open(id);
     },
+    enemies: ENEMY_SPOTS,
+    isEnemyActive: (id) => enemyBoard.isActive(id),
+    onEnemyEnter: (id) => void fightEnemy(id),
     pickups: PICKUP_SPOTS,
     isCollected: (id) => collected.has(id),
     onPickup: (spot) => {
