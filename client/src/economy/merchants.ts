@@ -1,9 +1,9 @@
-export type MerchantKind = 'merchant' | 'wandsmith';
+export type MerchantKind = 'merchant' | 'wandsmith' | 'innkeeper';
 
 export interface MerchantDef {
   id: string;
   name: string;
-  /** `merchant`: ekipman, ticari mal, ganimet ve görevler. `wandsmith`: asa alır ve satar. */
+  /** `merchant`: ekipman, ticari mal ve ganimet. `wandsmith`: asa alır ve satar. `innkeeper` (han): bedava can, iksir ve görevler. */
   kind: MerchantKind;
   /** Bulunduğu şehir (world/locations.ts kimliği) */
   locationId: string;
@@ -13,8 +13,8 @@ export interface MerchantDef {
 }
 
 /**
- * Şehir tüccarları (Task 26): her şehirde bir tüccar ve bir asacı bulunur. Köylerde tüccar yoktur. Ekipman, ticari mal
- * ve görev tüccardan; asa alım satımı asacıdan yapılır.
+ * Şehir esnafı (Task 26-27): her şehirde bir tüccar, bir asacı ve bir hancı bulunur. Köylerde esnaf yoktur. Ekipman ve ticari mal
+ * tüccardan, asa alım satımı asacıdan; bedava can, iksir ve görevler hancıdadır.
  */
 export const MERCHANTS: readonly MerchantDef[] = [
   {
@@ -77,6 +77,10 @@ export const MERCHANTS: readonly MerchantDef[] = [
     greeting: 'Su asayı yumuşatır, ustayı sabırlı yapar. Seç, dene.',
     wandPriceFactor: 1.05,
   },
+  { id: 'hanci-ayse', name: 'Hancı Ayşe', kind: 'innkeeper', locationId: 'ignis', greeting: 'Hoş geldin! Ateşin başına otur, yaraların sarılsın. Han bedava, çorba benden.' },
+  { id: 'hanci-yildiz', name: 'Hancı Yıldız', kind: 'innkeeper', locationId: 'abyss', greeting: 'Tapınağın gölgesinde dinlenmek ruhu da yeniler. Odan hazır.' },
+  { id: 'hanci-tolga', name: 'Hancı Tolga', kind: 'innkeeper', locationId: 'stone-heart', greeting: 'Taş duvar, kalın yorgan. Yatağa geç, sabaha dipdiri kalkarsın.' },
+  { id: 'hanci-su', name: 'Hancı Su', kind: 'innkeeper', locationId: 'still-crystal', greeting: 'Durgun suyun sesiyle uyunur. Dinlen, can hep burada dolar.' },
 ];
 
 export function getMerchant(id: string): MerchantDef | undefined {

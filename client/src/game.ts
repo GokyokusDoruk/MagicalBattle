@@ -27,7 +27,7 @@ import { Morality } from './morality/morality';
 import { getBoss } from './boss/bosses';
 import { goldLoss, nearestHealer, respawnLines } from './economy/death';
 import { DialogueUi } from './ui/dialogueUi';
-import { runBossFight } from './ui/bossFight';
+import { runBossFight, type HealHooks } from './ui/bossFight';
 import { WandUi } from './ui/wandUi';
 import { SkillTree } from './skills/tree';
 import { Progress } from './story/progress';
@@ -203,6 +203,8 @@ let dirty = false;
 const refreshHud = (): void =>
   statusBar.update({
     level: hero.level,
+    hp: hero.hp,
+    maxHp: hero.maxHp,
     gold: hero.gold,
     xp: hero.xp,
     dirty: dirty && saves.enabled,
@@ -311,6 +313,7 @@ async function handleDeath(): Promise<void> {
   const spot = nearestHealer(debug.player.x / TILE_SIZE, debug.player.y / TILE_SIZE);
   const lost = goldLoss(hero.level, hero.gold);
   if (lost > 0) hero.spendGold(lost);
+  hero.fullHeal(); // şifacı seni iyileştirir
   setDirty(true);
   sfx.play('lose');
   if (!spot) return;
@@ -318,6 +321,26 @@ async function handleDeath(): Promise<void> {
   const ctx = { score: () => morality.score, flags: new Set<string>(), onEffect: (): void => {} };
   await dialogueUi.run(linesTree('respawn', respawnLines(spot, lost, hero.level)), ctx);
 }
+
+/** Boss öncesi panelde can ve iksir kullanımı */
+const healHooks: HealHooks = {
+  hp: () => hero.hp,
+  maxHp: () => hero.maxHp,
+  potions: () =>
+    hero
+      .inventory()
+      .filter(({ id }) => getItem(id)?.heal)
+      .map(({ id, count }) => ({ id, name: getItem(id)!.name, heal: getItem(id)!.heal!, count })),
+  use: (id) => {
+    const r = hero.usePotion(id);
+    if (r.ok) {
+      sfx.play('shieldUp');
+      setDirty(true);
+      return `+${r.healed} can`;
+    }
+    return r.reason;
+  },
+};
 
 /** Sahne bu oturumda izlendi mi (yenilgiden sonra tekrar denerken sahne baştan oynamasın) */
 const scenesSeen = new Set<number>();
@@ -341,11 +364,13 @@ async function playChapter(chapter: number): Promise<void> {
     if (boss) {
       const ctx = { score: () => morality.score, flags: new Set<string>(), onEffect: (): void => {} };
       await dialogueUi.run(linesTree(`boss-${chapter}`, boss.intro), ctx);
-      const outcome = await runBossFight(
+      const { outcome, hp: hpLeft } = await runBossFight(
         chapter,
-        { name: playerName, level: hero.level, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
+        { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
         morality.finalPath,
+        healHooks,
       );
+      if (outcome === 'won' && hpLeft !== null) hero.setHp(hpLeft); // can kalıcıdır
       if (outcome !== 'won') {
         if (outcome === 'lost') {
           toast.show(`${boss.title} seni yendi.`);

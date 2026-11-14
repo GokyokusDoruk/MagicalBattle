@@ -12,6 +12,8 @@ export interface FighterInit {
   team: 0 | 1;
   control: Control;
   maxHp?: number;
+  /** Başlangıç canı (verilmezse tam dolu); 1 ile maxHp arasına çekilir. Savaşlar arası kalıcı can için. */
+  hp?: number;
   basePower?: number;
   /** Toplam zırhtan gelen hasar azaltma (0-1). `gear` verilirse onun zırhı kullanılır. */
   armor?: number;
@@ -90,7 +92,7 @@ export class BattleEngine {
         persona: init.persona ?? null,
         ai: init.ai ?? null,
         index,
-        hp: maxHp,
+        hp: Math.min(maxHp, Math.max(1, Math.round(init.hp ?? maxHp))),
       };
     });
     if (counts[0] < 1 || counts[1] < 1 || counts[0] > 2 || counts[1] > 2) {

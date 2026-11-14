@@ -129,7 +129,13 @@ export class BagUi {
     };
 
     const goodsHtml = goods
-      .map(({ id, count }) => row(id, count, `${drop(id, false)}${count > 1 ? drop(id, true) : ''}`))
+      .map(({ id, count }) => {
+        const heal = getItem(id)?.heal;
+        const use = heal
+          ? `<button type="button" data-action="use" data-id="${id}" ${player.isHurt ? '' : 'disabled'} class="rounded bg-emerald-300 px-2 py-1 text-xs font-bold text-slate-900 disabled:opacity-40">Kullan</button>`
+          : '';
+        return row(id, count, `${use}${drop(id, false)}${count > 1 ? drop(id, true) : ''}`);
+      })
       .join('');
     const gearHtml = carriedGear
       .map(({ id, count }) => {
@@ -144,6 +150,8 @@ export class BagUi {
             <p class="text-xs italic text-slate-300" data-message>${esc(this.message || 'Altın ağırlık yapmaz. Giyilen ekipman ve kuşanılı asalar yer kaplamaz.')}</p></div>
           <button type="button" data-action="close" class="rounded bg-white/10 px-2 py-1 text-sm hover:bg-white/20" aria-label="Kapat">✕</button>
         </div>
+        <div class="rounded bg-black/40 p-2 text-sm" data-health><div class="flex justify-between"><span>❤ Can</span><b class="${player.isHurt ? 'text-amber-300' : 'text-emerald-300'}">${player.hp} / ${player.maxHp}</b></div>
+          <div class="mt-1 h-1.5 overflow-hidden rounded bg-white/15"><div class="h-full ${player.isHurt ? 'bg-amber-400' : 'bg-emerald-400'}" style="width:${(player.hp / player.maxHp) * 100}%"></div></div></div>
         <div class="grid gap-2 rounded bg-black/40 p-3 sm:grid-cols-3" data-bars>${this.bars()}</div>
         ${this.deps.locationNote?.() ? `<p class="rounded bg-emerald-900/40 px-3 py-1 text-[11px] text-emerald-100" data-location-note>🏙 ${esc(this.deps.locationNote()!)}</p>` : ''}
         <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -153,7 +161,7 @@ export class BagUi {
           ${goodsHtml ? `<ul class="mb-3 flex flex-col gap-2">${goodsHtml}</ul>` : '<p class="mb-3 text-sm text-slate-400">Hiç eşyan yok.</p>'}
           <h3 class="mb-1 text-sm font-bold text-amber-200">Çantadaki ekipman</h3>
           ${gearHtml ? `<ul class="mb-3 flex flex-col gap-2">${gearHtml}</ul>` : '<p class="mb-3 text-sm text-slate-400">Çantanda giyilmeyen ekipman yok.</p>'}
-          <p class="text-xs text-slate-400">Asalar için <b>W</b> tuşu. Can iksirleri, savaşlarda can kalıcı olunca kullanılabilecek.</p>
+          <p class="text-xs text-slate-400">Asalar için <b>W</b> tuşu. Can iksirini istediğin an <b>Kullan</b> ile içebilirsin; can savaşlar arasında kalıcıdır, han'da bedava dolar.</p>
         </div>
       </div>`;
   }
@@ -168,6 +176,15 @@ export class BagUi {
     switch (btn.dataset.action) {
       case 'close':
         return this.close();
+      case 'use': {
+        const r = player.usePotion(id);
+        if (r.ok) {
+          this.message = `${getItem(id)!.name} içtin: +${r.healed} can`;
+          this.deps.onChanged?.();
+        } else this.message = r.reason;
+        this.pendingDrop = null;
+        return this.render();
+      }
       case 'equip': {
         if (player.equip(id)) {
           this.message = `Kuşandın: ${getItem(id)!.name}`;

@@ -9,11 +9,12 @@ export interface MerchantSpot {
 }
 
 /**
- * Şehir merkezinin üstünde, surların içinde dururlar: tüccar sağda, asacı solda (kapıdan merkeze giden yol açık kalır).
+ * Şehir merkezinin üstünde, surların içinde dururlar: tüccar sağda, asacı solda, hancı ortada (üstte) (kapıdan merkeze giden yol açık kalır).
  */
 const OFFSETS: Record<MerchantKind, { x: number; y: number }> = {
   merchant: { x: 3, y: -2 },
   wandsmith: { x: -3, y: -2 },
+  innkeeper: { x: 0, y: -4 },
 };
 
 export function merchantSpots(map: WorldMap): MerchantSpot[] {

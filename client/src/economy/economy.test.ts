@@ -31,10 +31,11 @@ describe('katalog', () => {
     }
   });
 
-  it('tüccarlar şehirlerde: her şehirde bir tüccar ve bir asacı, Ignis tüccarı Kazım', () => {
+  it('tüccarlar şehirlerde: her şehirde bir tüccar, bir asacı ve bir hancı, Ignis tüccarı Kazım', () => {
     for (const city of LOCATIONS.filter((l) => l.kind === 'city')) {
       expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'merchant')).toHaveLength(1);
       expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'wandsmith')).toHaveLength(1);
+      expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'innkeeper')).toHaveLength(1);
     }
     expect(MERCHANTS.some((m) => LOCATIONS.find((l) => l.id === m.locationId)?.kind !== 'city')).toBe(false);
     expect(getMerchant('tuccar-kazim')?.locationId).toBe('ignis');
@@ -171,7 +172,7 @@ describe('PlayerState', () => {
     expect(p.count('eq-hat-earth-1')).toBe(1);
     expect(p.equipped).toEqual({}); // hiçbiri geçerli değil
     p.restore(undefined);
-    expect(p.snapshot()).toEqual({ gold: 0, xp: 0, items: {}, equipped: {} });
+    expect(p.snapshot()).toEqual({ gold: 0, xp: 0, items: {}, equipped: {}, hp: null });
   });
 
   it('eski kayıt: eski zırh kimlikleri yeni eşyalara dönüşür, tılsım yüzük olur; eski çanta aynen kalır', () => {

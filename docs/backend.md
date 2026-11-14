@@ -41,15 +41,16 @@ Hatalar `{ code, error }` biçimindedir (`error` Türkçe, kullanıcıya göster
 
 ## Kayıt dosyası
 
-Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 6; eski (v1-v5) kayıtlar okunurken varsayılan alanlarla otomatik yükseltilir.
+Hesap başına tek kayıt. Oyun, **şehre her girildiğinde** (kayıt noktası) ve yeni oyunun başında yazar. Sürüm 7; eski (v1-v6) kayıtlar okunurken varsayılan alanlarla otomatik yükseltilir.
 
 ```json
 {
-  "version": 6,
+  "version": 7,
   "playerName": "Aylin",
   "completedChapters": [1, 2],
   "savePoint": { "cityId": "ignis", "tileX": 64, "tileY": 64 },
   "gold": 250,
+  "hp": 180,
   "xp": 320,
   "items": { "sifali-ot": 4, "gezgin-cuppesi": 1 },
   "equipped": { "robe": "gezgin-cuppesi" },

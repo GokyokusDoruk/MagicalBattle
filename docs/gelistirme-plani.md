@@ -22,8 +22,8 @@ Not: **Asa birleştirme (5 → 1) kaldırıldı** (Task 22).
 | **23** | **Ekipman sistemi (bu PR):** 6 yuva (Cüppe, Şapka, Pantalon, Çanta, Yüzük, Ayakkabı) × 4 element × 6 nadirlik = 144 eşya, renkli ikonlar, tur başına element bonusu, ayakkabı hızı, yüzük büyü süresi. Eski 12 ekipman ve 5 çantanın yerine geçer | ekipman |
 | **24** | **Şehir bonusu** (ayakkabı hızı, çanta kapasitesi, kendi elementinin şehrinde +%50), şehirden çıkarken eşya bırakma, yerde kalan eşya (10 dk) (**bitti**) | ekipman |
 | **25** | **Tur elementi:** her döngü başında gizlice tek element; hem saldırı hem savunma elementi (**bitti**) | savaş |
-| **26** | **Şehir tüccarları (bu PR):** köy tüccarları kalktı, her şehirde tüccar + asacı, 4 ticari mal, şehre özel fiyat çarpanları, asacı (asa alım satım, ±%10 şehir farkı) | 4, 5 |
-| 27 | **Han** (bedava can), şehir görevleri (görevler tüccardan han'a taşınır), kalıcı can, iksir kullanma, boss mevcut canla | 6 |
+| **26** | **Şehir tüccarları:** köy tüccarları kalktı, her şehirde tüccar + asacı, 4 ticari mal, şehre özel fiyat çarpanları, asacı (asa alım satım, ±%10 şehir farkı) | 4, 5 (**bitti**) |
+| **27** | **Han (bu PR):** her şehirde hancı: bedava can, iksir al/sat/iç, şehir görevleri (tüccardan han'a taşındı); **kalıcı can**, boss mevcut canla savaşır | 6 |
 | 28 | **Dünya düşmanları ve ganimet** (karışık paketler, nadirlik arttıkça düşen şans, karanlık yolda artan oran) | 7 |
 | 29 | **Bölge savaşları** (yeşillik, su, köz, rüzgâr; karo başına %10, savaştan sonra 5 sn koruma) | 2 |
 | 30 | **Madenler** (şehir başına 4 element madeni, 3 düşman, 10 dk bekleme) | 1 |

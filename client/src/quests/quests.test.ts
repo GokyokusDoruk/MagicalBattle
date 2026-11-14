@@ -12,10 +12,10 @@ const make = (catalog?: readonly QuestDef[]) => {
 };
 
 describe('görev kataloğu', () => {
-  it('kimlikler benzersiz, her görev bir şehir tüccarında verilir', () => {
+  it('kimlikler benzersiz, her görev bir şehir hanında verilir', () => {
     expect(new Set(SIDE_QUESTS.map((q) => q.id)).size).toBe(SIDE_QUESTS.length);
     for (const q of SIDE_QUESTS) {
-      expect(MERCHANTS.some((m) => m.kind === 'merchant' && m.locationId === q.giver), q.id).toBe(true);
+      expect(MERCHANTS.some((m) => m.kind === 'innkeeper' && m.locationId === q.giver), q.id).toBe(true);
       expect(q.title.length).toBeGreaterThan(0);
       expect(q.description.length).toBeGreaterThan(20);
     }
