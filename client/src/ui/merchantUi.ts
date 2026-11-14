@@ -3,12 +3,14 @@ import { getItem, isGear } from '../economy/items';
 import type { GearStock } from '../economy/gearStock';
 import { itemIconSvg } from './itemIcon';
 import { describeItem, itemNameHtml, rarityLabel } from './itemText';
-import { getMerchant, type MerchantDef } from '../economy/merchants';
+import { getMerchant, wandPriceFactorOf, type MerchantDef } from '../economy/merchants';
+import { TRADE_GOODS, buyGood, cityGoodMultiplier, isTradeGood, sellGood, tradeBuyPrice, tradeSellPrice } from '../economy/trade';
+import { sellWand, wandBuyPrice, wandSellPrice } from '../wands/shop';
 import type { PlayerState } from '../economy/player';
 import { buyPrice, sell, sellPrice } from '../economy/shop';
 import type { QuestDef } from '../quests/catalog';
 import type { QuestCompletion, QuestEngine } from '../quests/engine';
-import { LOCATIONS } from '../world/locations';
+import { LOCATIONS, getLocation } from '../world/locations';
 import { ELEMENT_NAMES } from '../battle/damage/elements';
 import { ELEMENT_COLORS, RARITY_COLORS, RARITY_NAMES, ROLE_NAMES, describeWand, getWand } from '../wands/catalog';
 import type { WandInventory } from '../wands/inventory';
@@ -32,7 +34,7 @@ export interface MerchantUiDeps {
   priceMultipliers?: () => { buy: number; sell: number };
 }
 
-type Tab = 'shop' | 'wands' | 'quests';
+type Tab = 'shop' | 'trade' | 'wands' | 'quests';
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const pct = (v: number): string => `%${Math.round(v * 100)}`;
@@ -72,6 +74,7 @@ export class MerchantUi {
     // Panel açıkken altın, çanta ve görevler değişirse yeniden çiz
     deps.player.onChange(() => this.isOpen && this.render());
     deps.quests.onChange(() => this.isOpen && this.render());
+    deps.wands.onChange(() => this.isOpen && this.render());
     // Geri sayımı her saniye günceller; stok yenilenince (5 dakikada bir) paneli yeniden çizer
     window.setInterval(() => this.tick(), 1000);
   }
@@ -108,7 +111,7 @@ export class MerchantUi {
     const merchant = getMerchant(merchantId);
     if (!merchant || this.isOpen) return;
     this.merchant = merchant;
-    this.tab = 'shop';
+    this.tab = merchant.kind === 'wandsmith' ? 'wands' : 'shop';
     this.message = merchant.greeting;
     this.element.classList.remove('hidden');
     this.element.classList.add('flex');
@@ -135,15 +138,15 @@ export class MerchantUi {
     this.element.innerHTML = `
       <div class="flex max-h-full w-full max-w-md flex-col gap-3 rounded-xl border border-amber-300/40 bg-slate-950 p-4 text-amber-50 shadow-2xl">
         <div class="flex items-start justify-between gap-2">
-          <div><h2 class="text-lg font-bold text-amber-300">${esc(m.name)}</h2>
+          <div><h2 class="text-lg font-bold text-amber-300">${esc(m.name)} <span class="text-xs font-normal text-slate-400">· ${esc(getLocation(m.locationId).name)}</span></h2>
             <p class="text-xs italic text-slate-300" data-message>${esc(this.message)}</p></div>
           <button type="button" data-action="close" class="rounded bg-white/10 px-2 py-1 text-sm hover:bg-white/20" aria-label="Kapat">✕</button>
         </div>
         <div class="flex items-center justify-between rounded bg-black/40 px-3 py-1 text-sm">
           <span>🪙 <b>${player.gold}</b></span><span>Seviye <b>${player.level}</b></span><span>Zırh <b>${pct(player.armor)}</b></span>
         </div>
-        <div role="tablist" class="flex gap-2">${tabBtn('shop', 'Alışveriş')}${tabBtn('wands', 'Asalar')}${tabBtn('quests', 'Görevler')}</div>
-        <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">${this.tab === 'shop' ? this.shopHtml(m) : this.tab === 'wands' ? this.wandsHtml() : this.questsHtml(m)}</div>
+        ${m.kind === 'wandsmith' ? '' : `<div role="tablist" class="flex gap-2">${tabBtn('shop', 'Alışveriş')}${tabBtn('trade', 'Ticaret')}${tabBtn('quests', 'Görevler')}</div>`}
+        <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">${this.tab === 'shop' ? this.shopHtml(m) : this.tab === 'trade' ? this.tradeHtml(m) : this.tab === 'wands' ? this.wandsHtml() : this.questsHtml(m)}</div>
       </div>`;
   }
 
@@ -168,7 +171,7 @@ export class MerchantUi {
       })
       .join('');
 
-    const bag = player.inventory();
+    const bag = player.inventory().filter(({ id }) => !isTradeGood(id));
     const mine = bag
       .map(({ id, count }) => {
         const item = getItem(id)!;
@@ -190,7 +193,30 @@ export class MerchantUi {
     return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${this.clockText(stock.timeLeftMs())}</b> sonra yenilenir. En çok bir <b>Nadir</b> eşya bulunur (pahalı), diğerleri Sıradan ya da Gelişmiş. Aynı elementteki zırh ve yüzük, o elementin büyüsünde %50 daha güçlüdür.</p>
       <h3 class="mb-1 text-sm font-bold text-amber-200">Satılık</h3><ul class="flex flex-col gap-2">${forSale}</ul>
       <h3 class="mb-1 mt-4 text-sm font-bold text-amber-200">Çantan</h3>
-      ${mine ? `<ul class="flex flex-col gap-2">${mine}</ul>` : '<p class="text-sm text-slate-400">Çantan boş. Yollarda ot ve kumsalda kristal bulabilirsin; tüccar fiyatın yarısını öder.</p>'}`;
+      ${mine ? `<ul class="flex flex-col gap-2">${mine}</ul>` : '<p class="text-sm text-slate-400">Satacak bir şeyin yok. Yollarda ot ve kumsalda kristal bulabilirsin; tüccar fiyatın yarısını öder. Ticari mallar "Ticaret" sekmesinde.</p>'}`;
+  }
+
+  private tradeHtml(m: MerchantDef): string {
+    const { player } = this.deps;
+    const mult = this.deps.priceMultipliers?.() ?? { buy: 1, sell: 1 };
+    const rows = TRADE_GOODS.map((g) => {
+      const item = getItem(g.id)!;
+      const own = player.count(g.id);
+      const cm = cityGoodMultiplier(m.locationId, g.id);
+      const buy = tradeBuyPrice(m.locationId, g.id, mult.buy);
+      const sellEach = tradeSellPrice(m.locationId, g.id, mult.sell);
+      const tag = cm < 1 ? '<span class="text-emerald-300">ucuz</span>' : cm > 1 ? '<span class="text-red-300">pahalı</span>' : '<span class="text-slate-400">normal</span>';
+      const cantBuy = player.gold < buy || player.roomFor(g.id) < 1;
+      return `<li data-good="${g.id}" class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900 p-2">
+        <div class="flex min-w-0 items-center gap-2"><span class="shrink-0">${itemIconSvg(item, 36)}</span>
+          <div class="min-w-0"><div class="font-bold">${esc(item.name)} <span class="text-slate-400">×${own}</span> <span class="text-[11px]">${tag} (×${cm.toFixed(1)})</span></div>
+            <div class="text-[11px] text-slate-500">${esc(item.description)}</div></div></div>
+        <div class="flex gap-1"><button type="button" data-action="buy-good" data-id="${g.id}" ${cantBuy ? 'disabled' : ''} class="rounded bg-amber-300 px-2 py-1 text-xs font-bold text-slate-900 disabled:opacity-40">Al 🪙 ${buy}</button>
+          <button type="button" data-action="sell-good" data-id="${g.id}" ${own < 1 ? 'disabled' : ''} class="rounded bg-slate-700 px-2 py-1 text-xs disabled:opacity-40">Sat 🪙 ${sellEach}</button>
+          ${own > 1 ? `<button type="button" data-action="sell-good-all" data-id="${g.id}" class="rounded bg-slate-700 px-2 py-1 text-xs">Hepsini sat 🪙 ${sellEach * own}</button>` : ''}</div></li>`;
+    }).join('');
+    return `<p class="mb-2 text-xs text-slate-400">Her şehir kendi elementinin malını ucuza satar, uzaktaki elementin malını pahalıya alır. Ucuza al, uzak şehirde sat. Mallar çantada <b>eşya</b> yeri kaplar. Tüccar malı, fiyatının %80'ine alır.</p>
+      <ul class="flex flex-col gap-2">${rows}</ul>`;
   }
 
   private wandsHtml(): string {
@@ -198,13 +224,14 @@ export class MerchantUi {
     const m = this.merchant!;
     const stock = this.deps.wandStock(m.id);
     const mult = this.deps.priceMultipliers?.() ?? { buy: 1, sell: 1 };
+    const factor = wandPriceFactorOf(m);
     const clock = this.clockText(stock.timeLeftMs());
 
     const rows = stock
       .entries()
       .map((e) => {
         const w = getWand(e.wandId)!;
-        const price = Math.max(1, Math.round(e.price * mult.buy));
+        const price = wandBuyPrice(e.price, factor, mult.buy);
         const tooHigh = w.level > player.level;
         const cant = e.sold || player.gold < price || !wands.canAdd(e.wandId, 1);
         return `<li data-stock="${e.slot}" class="flex items-center justify-between gap-2 rounded bg-slate-900 p-2 ${e.sold ? 'opacity-50' : ''}">
@@ -217,8 +244,28 @@ export class MerchantUi {
             class="shrink-0 rounded bg-amber-300 px-3 py-1 text-sm font-bold text-slate-900 disabled:opacity-40">${e.sold ? 'Satıldı' : `🪙 ${price}`}</button></li>`;
       })
       .join('');
-    return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${clock}</b> sonra yenilenir. En çok bir <b>Nadir</b> asa bulunur, diğerleri Sıradan ya da Gelişmiş. Asa, seviyene gelene kadar kullanılamaz.</p>
-      <ul class="flex flex-col gap-2">${rows}</ul>`;
+
+    const mine = wands
+      .owned()
+      .map(({ id, count }) => {
+        const w = getWand(id)!;
+        const equipped = wands.isEquipped(id);
+        const cantSell = equipped && count < 2;
+        return `<li data-own-wand="${id}" class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900 p-2">
+          <div class="min-w-0"><div class="font-bold"><span style="color:${ELEMENT_COLORS[w.element]}">●</span> <span style="color:${RARITY_COLORS[w.rarity]}">${esc(w.name)}</span> <span class="text-slate-300">Sv ${w.level}</span> ${count > 1 ? `<span class="text-slate-400">×${count}</span>` : ''}${equipped ? ' <span class="text-[11px] text-sky-300">(kuşanılı)</span>' : ''}</div>
+            <div class="text-[11px] text-slate-500">${esc(describeWand(w).join(' · '))}</div></div>
+          <button type="button" data-action="sell-wand" data-id="${id}" ${cantSell ? 'disabled' : ''} class="rounded bg-slate-700 px-2 py-1 text-xs disabled:opacity-40">Sat 🪙 ${wandSellPrice(id, factor, mult.sell)}</button></li>`;
+      })
+      .join('');
+
+    const diff =
+      factor === 1
+        ? 'Bu şehirde asa fiyatları normal.'
+        : `Bu şehirde asa fiyatları normalden %${Math.round(Math.abs(factor - 1) * 100)} ${factor > 1 ? 'pahalı' : 'ucuz'}.`;
+    return `<p class="mb-2 text-xs text-slate-400">Stok <b data-clock>${clock}</b> sonra yenilenir. En çok bir <b>Nadir</b> asa bulunur, diğerleri Sıradan ya da Gelişmiş. Asa, seviyene gelene kadar kullanılamaz. ${diff} Asacı, asanın değerinin yarısını öder.</p>
+      <h3 class="mb-1 text-sm font-bold text-amber-200">Satılık</h3><ul class="flex flex-col gap-2">${rows}</ul>
+      <h3 class="mb-1 mt-4 text-sm font-bold text-amber-200">Asaların</h3>
+      ${mine ? `<ul class="flex flex-col gap-2">${mine}</ul>` : '<p class="text-sm text-slate-400">Hiç asan yok.</p>'}`;
   }
 
   private questsHtml(m: MerchantDef): string {
@@ -276,8 +323,28 @@ export class MerchantUi {
         break;
       }
       case 'buy-wand': {
-        const r = this.deps.wandStock(this.merchant.id).buy(Number(id), this.deps.wands, { balance: () => player.gold, spend: (n) => player.spendGold(n) }, mult.buy);
+        const r = this.deps.wandStock(this.merchant.id).buy(Number(id), this.deps.wands, { balance: () => player.gold, spend: (n) => player.spendGold(n) }, wandPriceFactorOf(this.merchant) * mult.buy);
         this.message = r.ok ? `Satın alındı: ${getWand(r.wandId)!.name} (-${r.price} altın)` : r.reason;
+        if (r.ok) this.changed('pick');
+        break;
+      }
+      case 'buy-good': {
+        const r = buyGood(player, this.merchant.locationId, id, 1, mult.buy);
+        this.message = r.ok ? `Satın alındı: ${getItem(id)!.name} (-${r.price} altın)` : r.reason;
+        if (r.ok) this.changed('pick');
+        break;
+      }
+      case 'sell-good':
+      case 'sell-good-all': {
+        const count = action === 'sell-good-all' ? player.count(id) : 1;
+        const r = sellGood(player, this.merchant.locationId, id, count, mult.sell);
+        this.message = r.ok ? `Satıldı: ${getItem(id)!.name} ×${count} (+${r.price} altın)` : r.reason;
+        if (r.ok) this.changed('pick');
+        break;
+      }
+      case 'sell-wand': {
+        const r = sellWand(this.deps.wands, { add: (n) => player.addGold(n) }, id, wandPriceFactorOf(this.merchant), mult.sell);
+        this.message = r.ok ? `Satıldı: ${getWand(id)!.name} (+${r.price} altın)` : r.reason;
         if (r.ok) this.changed('pick');
         break;
       }

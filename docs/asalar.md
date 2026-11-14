@@ -1,6 +1,6 @@
 # Asalar (v2: seviye, tek asa, rol dengesi)
 
-Kod: `client/src/wands/` (`catalog.ts` asa modeli, `inventory.ts` envanter, `stock.ts` tüccar stoğu), `client/src/ui/wandUi.ts` (asa ekranı), `client/src/ui/merchantUi.ts` ("Asalar" sekmesi).
+Kod: `client/src/wands/` (`catalog.ts` asa modeli, `inventory.ts` envanter, `stock.ts` tüccar stoğu), `client/src/ui/wandUi.ts` (asa ekranı), `client/src/wands/shop.ts` (asa satışı), `client/src/ui/merchantUi.ts` (asacı ekranı, bkz. [sehir-tuccarlari.md](sehir-tuccarlari.md)).
 
 ## Asa nedir
 

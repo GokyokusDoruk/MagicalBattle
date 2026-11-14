@@ -15,7 +15,7 @@ export interface QuestReward {
 export interface QuestDef {
   id: string;
   title: string;
-  /** Görevi veren tüccarın köyü */
+  /** Görevi veren tüccarın şehri (Task 26: görevler şehir tüccarlarındadır; han gelince hana taşınır) */
   giver: string;
   /** Metin tabanlı görev anlatımı */
   description: string;
@@ -32,7 +32,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
   {
     id: 'ash-ot-toplama',
     title: 'Şifalı Ot Toplama',
-    giver: 'ash',
+    giver: 'ignis',
     description:
       'Ambargodan beri köyde ilaç yapacak ot kalmadı. Yolların kenarında biten şifalı otlardan beş tane topla, geri dönmene gerek yok, ödülün yoluna düşecek.',
     objective: { type: 'collect', itemId: 'sifali-ot', count: 5 },
@@ -41,7 +41,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
   {
     id: 'ash-ignis-yolu',
     title: "Ignis'in Surlarını Gör",
-    giver: 'ash',
+    giver: 'abyss',
     description:
       "Kervancılar Ignis'in kapılarının açıldığını söylüyor ama kimse inanmıyor. Surların içine gir, gözünle gör ki köy haberi öğrensin.",
     objective: { type: 'visit', locationId: 'ignis' },
@@ -50,7 +50,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
   {
     id: 'vine-kristal-avi',
     title: 'Kristal Avı',
-    giver: 'vine',
+    giver: 'abyss',
     description:
       'Kumsallarda ışık saçan kristal parçaları çıkıyor. Soylular için süs yapacağım, üç tane bulursan iyi para ederim.',
     objective: { type: 'collect', itemId: 'kristal-parcasi', count: 3 },
@@ -59,7 +59,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
   {
     id: 'vine-abyss-haberi',
     title: 'Tapınağın Sessizliği',
-    giver: 'vine',
+    giver: 'ignis',
     description:
       "Abyss Tapınağı'ndan haber alınamıyor. İçeri girebilirsen köyün büyükleri rahatlayacak.",
     objective: { type: 'visit', locationId: 'abyss' },
@@ -69,7 +69,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
   {
     id: 'marsh-ot-sepeti',
     title: 'Sis Otları Sepeti',
-    giver: 'marsh',
+    giver: 'stone-heart',
     description:
       'Bataklığın şifacısı sekiz tane taze ot istiyor. Sisin içinde yol bulmak zor ama otlar yolların kenarında.',
     objective: { type: 'collect', itemId: 'sifali-ot', count: 8 },
@@ -79,7 +79,7 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
   {
     id: 'marsh-kristal-sehri',
     title: 'Kristalin Şehri',
-    giver: 'marsh',
+    giver: 'stone-heart',
     description: "Su altındaki Still Crystal'ın efsanesi anlatılır durur. Sur kapısından geçip bir kez gör, sonra bize de anlat.",
     objective: { type: 'visit', locationId: 'still-crystal' },
     minLevel: 3,

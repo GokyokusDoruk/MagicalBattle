@@ -3,6 +3,7 @@ import { LEGACY_BAGS } from './equipment';
 import { GEAR_SLOTS, ITEMS, getItem, isGear } from './items';
 import { MAX_LEVEL, levelForXp, levelProgress, xpToReach } from './leveling';
 import { MERCHANTS, getMerchant } from './merchants';
+import { LOCATIONS } from '../world/locations';
 import { MAX_GOLD, MAX_STACK, PlayerState } from './player';
 import { buyItem, buyPrice, sell, sellPrice } from './shop';
 
@@ -30,9 +31,13 @@ describe('katalog', () => {
     }
   });
 
-  it('tüccarlar köylerde, Ash tüccarı Kazım', () => {
-    expect(MERCHANTS.length).toBeGreaterThan(0);
-    expect(getMerchant('tuccar-kazim')?.locationId).toBe('ash');
+  it('tüccarlar şehirlerde: her şehirde bir tüccar ve bir asacı, Ignis tüccarı Kazım', () => {
+    for (const city of LOCATIONS.filter((l) => l.kind === 'city')) {
+      expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'merchant')).toHaveLength(1);
+      expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'wandsmith')).toHaveLength(1);
+    }
+    expect(MERCHANTS.some((m) => LOCATIONS.find((l) => l.id === m.locationId)?.kind !== 'city')).toBe(false);
+    expect(getMerchant('tuccar-kazim')?.locationId).toBe('ignis');
     expect(getMerchant('yok')).toBeUndefined();
   });
 });

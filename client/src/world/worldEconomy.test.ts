@@ -3,7 +3,7 @@ import { getItem } from '../economy/items';
 import { MERCHANTS } from '../economy/merchants';
 import { cityAt, locationAt } from '../save/cityEntry';
 import { generateMap, reachableSet, tileAt } from './generateMap';
-import { LOCATIONS, OPEN_HALF, getLocation } from './locations';
+import { CITY_HALF, LOCATIONS, OPEN_HALF, getLocation } from './locations';
 import { merchantSpots } from './merchantSpots';
 import { PICKUP_SPOTS, generatePickups } from './pickups';
 import { Tile, isBlockedTile } from './tiles';
@@ -59,14 +59,14 @@ describe('toplanabilir eşyalar', () => {
 });
 
 describe('tüccar yerleri', () => {
-  it('her tüccar kendi köyünün alanında, yürünebilir karoda', () => {
+  it('her tüccar ve asacı kendi şehrinin surları içinde, yürünebilir karoda', () => {
     const spots = merchantSpots(map);
     expect(spots).toHaveLength(MERCHANTS.length);
     for (const s of spots) {
       const loc = getLocation(s.merchant.locationId);
-      expect(loc.kind).toBe('village');
-      expect(Math.abs(s.tileX - loc.x)).toBeLessThanOrEqual(OPEN_HALF);
-      expect(Math.abs(s.tileY - loc.y)).toBeLessThanOrEqual(OPEN_HALF);
+      expect(loc.kind).toBe('city');
+      expect(Math.abs(s.tileX - loc.x)).toBeLessThan(CITY_HALF);
+      expect(Math.abs(s.tileY - loc.y)).toBeLessThan(CITY_HALF);
       expect(isBlockedTile(tileAt(map, s.tileX, s.tileY)), s.merchant.id).toBe(false);
       expect(locationAt(map.locations, s.tileX, s.tileY)).toBe(loc.id);
     }
@@ -77,7 +77,7 @@ describe('tüccar yerleri', () => {
     for (const s of merchantSpots(map)) expect(reachable.has(s.tileY * map.width + s.tileX), s.merchant.id).toBe(true);
   });
 
-  it('tüccarlar köy merkezindeki yolu kapatmaz (merkezden uzakta)', () => {
+  it('tüccar ile asacı aynı karoda durmaz ve merkezi kapatmaz', () => {
     for (const s of merchantSpots(map)) {
       const loc = getLocation(s.merchant.locationId);
       expect(Math.hypot(s.tileX - loc.x, s.tileY - loc.y)).toBeGreaterThan(2);
