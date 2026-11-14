@@ -84,15 +84,15 @@ describe('katalog: asa kimliği ve özellikleri', () => {
     expect(makeWand({ element: 'fire', role: 'attack', rarity: 1, level: 1 }).timeBonusSec).toBe(0);
   });
 
-  it('element eşleşirse hasar %50 artar; yalnız saldırı aşamasında', () => {
+  it('element eşleşirse hasar %25 artar; yalnız saldırı aşamasında', () => {
     const w = makeWand({ element: 'fire', role: 'attack', rarity: 1, level: 1 });
     const match = wandEffect(w, 'fire', 'attack');
     const other = wandEffect(w, 'water', 'attack');
     expect(match.elementMatch).toBe(true);
     expect(other.elementMatch).toBe(false);
     expect(match.powerMultiplier / other.powerMultiplier).toBeCloseTo(ELEMENT_MATCH, 6);
-    expect(ELEMENT_MATCH).toBe(1.5);
-    expect(match.powerMultiplier).toBeCloseTo(1.25 * 1.5, 6);
+    expect(ELEMENT_MATCH).toBe(1.25);
+    expect(match.powerMultiplier).toBeCloseTo(1.25 * 1.25, 6);
     // savunmada hasar çarpanı yok, alınan hasar savunma gücünün tersi
     const def = wandEffect(w, 'fire', 'defense');
     expect(def.powerMultiplier).toBe(1);
@@ -422,14 +422,14 @@ describe('savaş akışına bağlantı', () => {
     expect(draws.map((d) => d.limitSec)).toEqual([3, 3]);
   });
 
-  it('saldırı asası hasarı %25 artırır; element eşleşirse %50 daha', async () => {
+  it('saldırı asası hasarı %25 artırır; element eşleşirse %25 daha', async () => {
     const plain = (await run(duel())).report.damage;
     const w = id('fire', 'attack', 1, 1); // B = 0: tam ×1.25
     const noMatch = (await run(duel({ wands: withWand(w) }), 'water')).report.damage;
     const match = (await run(duel({ wands: withWand(w) }), 'fire')).report.damage;
     // Ateş saldıran, su savunan (aynı element savunanın su büyüsü ile karşılaşır): oranlara bakılır
     expect(noMatch).toBeGreaterThan(0);
-    expect(match / (await run(duel(), 'fire')).report.damage).toBeCloseTo(1.25 * 1.5, 1);
+    expect(match / (await run(duel(), 'fire')).report.damage).toBeCloseTo(1.25 * 1.25, 1);
     expect(plain).toBeGreaterThan(0);
   });
 

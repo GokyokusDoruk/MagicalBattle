@@ -32,7 +32,7 @@ export function elementRelation(attacker: Element, defender: Element): ElementRe
   return 'neutral';
 }
 
-/** Saldıran üstünse hasar ×1.5, savunan üstünse ×0.5, aksi halde ×1. */
+/** Saldıran üstünse hasar ×1.25, savunan üstünse ×0.75 (±%25), aksi halde ×1. */
 export function elementMultiplier(attacker: Element, defender: Element): number {
   const relation = elementRelation(attacker, defender);
   if (relation === 'advantage') return ELEMENT_ADVANTAGE;

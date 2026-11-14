@@ -34,6 +34,8 @@ export class Carry {
     private readonly skillBonus: () => CarryBonus = () => NO_BONUS,
     /** Bulunulan konumun elementleri (şehir/köy); kendi elementinin çantası burada %50 daha geniştir. Dışarıda boş. */
     private readonly elementsHere: () => readonly Element[] = () => [],
+    /** Kapasite çarpanı: toprak asasının pasifi (+%25) toplam kapasiteyi artırır; tam sayıya aşağı yuvarlanır. */
+    private readonly capacityMultiplier: () => number = () => 1,
   ) {}
 
   /** Kuralları bağlar: eşya ekleme, ekipman değiştirme ve asa ekleme artık kapasiteye bakar. */
@@ -56,7 +58,10 @@ export class Carry {
     if (item && matchesLocation(item.element, elements)) {
       bag = { wands: Math.round(bag.wands * LOCATION_BONUS), goods: Math.round(bag.goods * LOCATION_BONUS), gear: Math.round(bag.gear * LOCATION_BONUS) };
     }
-    return add(add(BASE_CAPACITY, bag), this.skillBonus());
+    const total = add(add(BASE_CAPACITY, bag), this.skillBonus());
+    const k = this.capacityMultiplier();
+    if (k === 1) return total;
+    return { wands: Math.floor(total.wands * k), goods: Math.floor(total.goods * k), gear: Math.floor(total.gear * k) };
   }
 
   /** Şu anki konumdaki kapasite (şehir bonusu dahil). */

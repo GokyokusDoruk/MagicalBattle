@@ -18,6 +18,7 @@ import { ExitDropUi } from './ui/exitDropUi';
 import { GroundPileUi } from './ui/groundPileUi';
 import { STARTER_WAND_ID, getWand } from './wands/catalog';
 import { WandInventory } from './wands/inventory';
+import { RegenAccumulator, activePassive } from './wands/passives';
 import { WandStock } from './wands/stock';
 import { GearStock } from './economy/gearStock';
 import { BagUi } from './ui/bagUi';
@@ -123,7 +124,7 @@ wands.setLevelProvider(() => hero.level);
 /** Bulunulan konum (şehir, köy, arena) ya da açık dünya (null). Kendi elementinin çantası ve ayakkabısı burada %50 güçlüdür. */
 let currentLocationId: string | null = null;
 const elementsHere = () => (currentLocationId ? getLocation(currentLocationId).elements : []);
-const carry = new Carry(hero, wands, () => skillTree.carryBonus, elementsHere);
+const carry = new Carry(hero, wands, () => skillTree.carryBonus, elementsHere, () => 1 + activePassive(wands).carry);
 carry.install();
 const morality = new Morality();
 // Ahlak etkisi: Düzen Bekçisi görev altınını artırır (tüccar fiyatları merchantUi'a bağlı, aşağıda)
@@ -247,6 +248,21 @@ morality.onChange(() => {
   refreshHud();
 });
 refreshHud();
+
+// Su asası pasifi: her saniye azami canın %0.5'i kadar yenilenir (savaş, boss, maden ve sandık sırasında işlemez)
+const regen = new RegenAccumulator();
+let lastRegen = performance.now();
+window.setInterval(() => {
+  const now = performance.now();
+  const dt = Math.min(2, (now - lastRegen) / 1000);
+  lastRegen = now;
+  if (fightBusy || mineBusy || chestBusy || chapterBusy || !hero.isHurt) {
+    regen.reset();
+    return;
+  }
+  const heal = regen.tick(hero.maxHp, activePassive(wands).regenPerSec, dt);
+  if (heal > 0) hero.heal(heal);
+}, 500);
 
 /** Biten yan görevleri bildirir (ödüller zaten envantere yattı). */
 const handleCompletions = (list: QuestCompletion[]): void => {
@@ -417,7 +433,7 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
     }
     if (hpLeft !== null) hero.setHp(hpLeft);
     enemyBoard.defeat(id);
-    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
+    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate) * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
     const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
     const names = [
       ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
@@ -480,7 +496,7 @@ async function openChest(id: string): Promise<void> {
       if (r !== 'won') return;
     }
     collected.add(id);
-    const loot = rollChestLoot(chest, hero.level, morality.effects.dropRateMultiplier, lootRand);
+    const loot = rollChestLoot(chest, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate), lootRand);
     const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
     const names = [
       ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
@@ -661,7 +677,7 @@ void import('./world/bootWorld').then((m) =>
     // Sahne ya da tüccar ekranı açıkken karakter durur
     getAxis: () => (modalOpen() ? STILL : input.getAxis()),
     // Ayakkabı yürüme hızını artırır; kendi elementinin şehrinde (köyde iki elementten biri) %50 daha çok
-    getSpeedMultiplier: () => 1 + hero.speedBonusIn(elementsHere()),
+    getSpeedMultiplier: () => 1 + hero.speedBonusIn(elementsHere()) + activePassive(wands).speed,
     gates,
     quests,
     notify: (message) => toast.show(message),

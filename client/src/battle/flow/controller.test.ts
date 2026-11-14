@@ -235,7 +235,7 @@ describe('runBattle: döngü ve tur akışı', () => {
     }
   });
 
-  it('element çarpanı hasara yansır: üstünlük ×1.5, dezavantaj ×0.5 (aynı döngüde iki yönde)', async () => {
+  it('element çarpanı hasara yansır: üstünlük ×1.25, dezavantaj ×0.75 (aynı döngüde iki yönde)', async () => {
     const run = async (a: Element, d: Element): Promise<[number, number]> => {
       const { io, log } = fakeIO({ element: (ref) => (ref.team === 0 ? a : d), draw: (_r, role) => (role === 'attack' ? good() : invalid()) });
       const e = duel();
@@ -250,10 +250,10 @@ describe('runBattle: döngü ve tur akışı', () => {
     };
     const [neutralA, neutralB] = await run('fire', 'earth'); // ateş-toprak etkisiz
     expect(neutralA).toBeCloseTo(neutralB, 5);
-    // A su, B ateş: A üstün (×1.5), B'nin saldırısı dezavantajlı (×0.5)
+    // A su, B ateş: A üstün (×1.25), B'nin saldırısı dezavantajlı (×0.75)
     const [aTurn, bTurn] = await run('water', 'fire');
-    expect(aTurn / neutralA).toBeCloseTo(1.5, 5);
-    expect(bTurn / neutralA).toBeCloseTo(0.5, 5);
+    expect(aTurn / neutralA).toBeCloseTo(1.25, 5);
+    expect(bTurn / neutralA).toBeCloseTo(0.75, 5);
   });
 
   it('ekipman döngü elementine göre: savunanın zırhı ve yüzük süresi seçilen büyüye göre hesaplanır', async () => {
