@@ -25,6 +25,8 @@ export interface TurnReport {
   hpBefore: number;
   hpAfter: number;
   defeated: boolean;
+  /** Vuruş kritikti (şans ekipmandan ve yeteneklerden gelir): hasar ×1.5 */
+  critical: boolean;
   /** Savunanın yeteneğiyle saldırana yansıyan hasar (0 = yok) */
   reflected: number;
   /** Yansıyan hasar saldıranı yendi mi */
@@ -71,6 +73,8 @@ export interface RunOptions {
   showAttackToDefender?: boolean;
   /** İptal edilirse mevcut tur bitince döngü durur */
   signal?: AbortSignal;
+  /** Rastgelelik kaynağı (kritik vuruş zarı); testler sabit bir kaynak verir. Varsayılan Math.random. */
+  random?: () => number;
 }
 
 /**
@@ -84,6 +88,7 @@ export interface RunOptions {
  */
 export async function runBattle(engine: BattleEngine, io: BattleIO, options: RunOptions = {}): Promise<Winner> {
   const showGhost = options.showAttackToDefender ?? SHOW_ATTACK_TO_DEFENDER;
+  const random = options.random ?? Math.random;
   const refKey = (r: SlotRef): string => `${r.team}:${r.index}`;
   let round = new Map<string, Element>();
   let roundCycle = 0;
@@ -120,7 +125,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const attackWand = attacker.wands(attackerElement, 'attack');
     const defenseWand = defender.wands(defenderElement, 'defense');
     const baseSec = DRAW_TIME_MS / 1000;
-    // Ekipman: aynı elementteki zırh ve yüzük %50 daha güçlü (yüzük çizim süresini uzatır, zırh hasarı azaltır)
+    // Ekipman: zırh hasarı azaltır; yüzük, bileklik ve kolye çizim süresini uzatır ve kritik şansı verir; kendi elementindeki parçalar hasarı artırır
     const attackGear = attacker.gear(attackerElement);
     const defenseGear = defender.gear(defenderElement);
     const attackSec = baseSec + attackWand.timeBonusSec + attackGear.timeBonusSec;
@@ -139,6 +144,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
           defense: null,
           attackFailed: true,
           defenseFailed: false,
+          critical: false,
           breakdown: null,
           damage: 0,
           hpBefore: defender.hp,
@@ -160,13 +166,16 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const attackFx = attacker.spells(attackerElement, 'attack');
     const defenseFx = defender.spells(defenderElement, 'defense');
 
+    // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
+    const critical = random() < attackGear.crit;
     const breakdown = calculateDamage({
       basePower: attacker.basePower * attackWand.powerMultiplier,
       attack,
       defense: defenseFailed ? null : defense.density,
       attackerElement,
       defenderElement,
-      attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier,
+      critical,
+      attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier * (1 + attackGear.damageBonus),
       defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier * defenseWand.takenMultiplier,
       defenderArmor: defenseGear.armor,
       attackerArmorPierce: attackFx.armorPierce,
@@ -191,6 +200,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         defense,
         attackFailed: false,
         defenseFailed,
+        critical,
         breakdown,
         damage: dealt,
         hpBefore: result.hpBefore,

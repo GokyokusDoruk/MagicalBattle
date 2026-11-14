@@ -43,6 +43,15 @@ function shape(slot: GearSlot, p: Palette): string {
         <rect x="9" y="17" width="30" height="24" rx="6" fill="${p.main}" ${stroke}/>
         <path d="M9 23 Q24 33 39 23 L39 21 Q39 17 35 17 L13 17 Q9 17 9 21 Z" fill="${p.dark}" opacity="0.55"/>
         <rect x="21" y="25" width="6" height="7" rx="1.5" fill="${p.light}" ${stroke}/>`;
+    case 'gloves':
+      return `<path d="M14 40 L14 24 L18 24 L18 13 Q18 10 20.5 10 Q23 10 23 13 L23 21 L24.5 21 L24.5 8 Q24.5 5.5 27 5.5 Q29.5 5.5 29.5 8 L29.5 21 L31 21 L31 11 Q31 8.5 33.5 8.5 Q36 8.5 36 11 L36 24 L37.5 24 L37.5 17 Q37.5 14.5 40 14.5 Q42.5 14.5 42.5 17 L42.5 30 Q42.5 38 34 40 Z" fill="${p.main}" ${stroke}/>
+        <rect x="12" y="37" width="26" height="7" rx="2" fill="${p.dark}" ${stroke}/><path d="M20 28 L36 28" stroke="${p.light}" stroke-width="1.4" opacity="0.7"/>`;
+    case 'bracelet':
+      return `<ellipse cx="24" cy="27" rx="15" ry="10" fill="none" stroke="${p.dark}" stroke-width="8"/><ellipse cx="24" cy="27" rx="15" ry="10" fill="none" stroke="${p.main}" stroke-width="5.2"/>
+        <circle cx="24" cy="17.5" r="4.4" fill="${p.light}" ${stroke}/><circle cx="12" cy="31" r="2" fill="${p.light}"/><circle cx="36" cy="31" r="2" fill="${p.light}"/>`;
+    case 'necklace':
+      return `<path d="M8 9 Q24 44 40 9" fill="none" stroke="${p.dark}" stroke-width="3.6" stroke-linecap="round"/><path d="M8 9 Q24 44 40 9" fill="none" stroke="${p.main}" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 2"/>
+        <path d="M24 28 L31 36 L24 45 L17 36 Z" fill="${p.light}" ${stroke}/><path d="M24 28 L24 45 M17 36 L31 36" stroke="${p.main}" stroke-width="1"/>`;
     case 'ring':
       return `<circle cx="24" cy="29" r="11" fill="none" stroke="${p.dark}" stroke-width="7"/><circle cx="24" cy="29" r="11" fill="none" stroke="${p.main}" stroke-width="4.4"/>
         <path d="M24 8 L30 15 L24 22 L18 15 Z" fill="${p.light}" ${stroke}/><path d="M24 8 L24 22 M18 15 L30 15" stroke="${p.main}" stroke-width="1"/>`;
@@ -76,6 +85,20 @@ function decorations(rarity: number): { back: string; front: string } {
   return { back, front };
 }
 
+/** Elementin sembolü (köşe rozeti içinde, 0,0 merkezli ~12x12): ateş alevi, su damlası, toprak dağı, hava girdabı. */
+function elementGlyph(element: Element, color: string): string {
+  switch (element) {
+    case 'fire':
+      return `<path d="M0 -6.2 C3 -2.4 5 0 5 3 A5 5 0 0 1 -5 3 C-5 0.6 -2.6 -1.6 -1.4 -4 C-0.6 -2.6 0 -2 0.6 -1.6 C0.8 -3 0.6 -4.6 0 -6.2 Z" fill="${color}"/>`;
+    case 'water':
+      return `<path d="M0 -6.4 C4 -1.4 5.2 1.4 5.2 3.6 A5.2 5.2 0 0 1 -5.2 3.6 C-5.2 1.4 -4 -1.4 0 -6.4 Z" fill="${color}"/>`;
+    case 'earth':
+      return `<path d="M-6.4 5 L-2 -3 L0.6 1.4 L2.6 -1.8 L6.4 5 Z" fill="${color}"/>`;
+    case 'air':
+      return `<path d="M-6 -2.6 H2.4 A2.2 2.2 0 1 0 0.4 -5.6 M-6 1.4 H5 A2.2 2.2 0 1 1 3 4.6 M-6 5.4 H-0.6" fill="none" stroke="${color}" stroke-width="1.7" stroke-linecap="round"/>`;
+  }
+}
+
 /** Eşyanın ikonu (SVG metni). Ekipman: yuva şekli + element rengi + nadirlik süsü. Diğerleri sade. */
 export function itemIconSvg(item: ItemDef, size = 40): string {
   let body: string;
@@ -85,6 +108,10 @@ export function itemIconSvg(item: ItemDef, size = 40): string {
     const palette = item.element ? ELEMENT_PALETTE[item.element] : NEUTRAL_PALETTE;
     body = shape(item.slot, palette);
     ({ back, front } = decorations(item.rarity ?? 1));
+    // Çerçeve her zaman nadirlik renginde; köşede elementin sembolü
+    const rarityColor = RARITY_COLORS[(item.rarity ?? 1) as 1];
+    front += `<rect x="1.4" y="1.4" width="45.2" height="45.2" rx="8" fill="none" stroke="${rarityColor}" stroke-width="2.8" data-frame="${item.rarity ?? 1}"/>`;
+    if (item.element) front += `<g transform="translate(38 38)" data-element="${item.element}"><circle r="8" fill="#0f172a" fill-opacity="0.88" stroke="${ELEMENT_PALETTE[item.element].main}" stroke-width="1.2"/>${elementGlyph(item.element, ELEMENT_PALETTE[item.element].main)}</g>`;
   } else if (item.heal !== undefined) {
     const potion = item.heal >= 300 ? '#a21caf' : item.heal >= 150 ? '#dc2626' : '#f87171';
     body = `<path d="M20 6 L28 6 L28 16 L36 36 Q38 42 32 42 L16 42 Q10 42 12 36 L20 16 Z" fill="${potion}" stroke="#450a0a" stroke-width="1.6" stroke-linejoin="round"/><rect x="19" y="3" width="10" height="5" rx="1.5" fill="#a16207" stroke="#451a03" stroke-width="1.2"/><path d="M15 33 L33 33" stroke="#fecaca" stroke-width="2" opacity="0.7"/>`;

@@ -1,6 +1,6 @@
 import { ELEMENTS } from '../battle/damage/elements';
 import { MAX_WAND_LEVEL, ROLES, makeWand, type Rarity } from '../wands/catalog';
-import { GEAR_SLOT_LIST, equipmentId } from '../economy/equipment';
+import { GEAR_SLOT_LIST, MAX_GEAR_LEVEL, equipmentId } from '../economy/equipment';
 import { ENEMY_KINDS, enemyStats, type Tier } from './catalog';
 import type { Element } from '../battle/damage/elements';
 
@@ -70,7 +70,8 @@ export function rollLoot(element: Element, tier: Tier, playerLevel: number, drop
   if (rand() < chance(DROP_CHANCE.gear)) {
     // Çoğunlukla düşmanın kendi elementinden
     const el = rand() < 0.6 ? element : pick(ELEMENTS);
-    add(items, equipmentId(pick(GEAR_SLOT_LIST), el, rollRarity(rand, tier)));
+    const gearCap = Math.min(MAX_GEAR_LEVEL, Math.max(1, Math.floor(playerLevel)) + 2);
+    add(items, equipmentId(pick(GEAR_SLOT_LIST), el, rollRarity(rand, tier), 1 + Math.floor(rand() * gearCap)));
   }
   if (rand() < chance(DROP_CHANCE.wand)) {
     const cap = Math.min(MAX_WAND_LEVEL, Math.max(1, Math.floor(playerLevel)) + 2);

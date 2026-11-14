@@ -84,7 +84,7 @@ export class BattleEngine {
         maxHp,
         basePower: init.basePower ?? BASE_POWER,
         armor: init.armor ?? 0,
-        gear: init.gear ?? (() => ({ armor: init.armor ?? 0, timeBonusSec: 0 })),
+        gear: init.gear ?? (() => ({ armor: init.armor ?? 0, timeBonusSec: 0, crit: 0, damageBonus: 0 })),
         dealtMultiplier: init.dealtMultiplier ?? 1,
         takenMultiplier: init.takenMultiplier ?? 1,
         spells: init.spells ?? neutralEffects,

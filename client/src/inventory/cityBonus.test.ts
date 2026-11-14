@@ -44,7 +44,7 @@ describe('konum elementleri', () => {
 
 describe('şehir bonusu: ayakkabı hızı', () => {
   it('kendi elementinin konumunda %50 daha hızlı', () => {
-    const eq = { boots: 'eq-boots-earth-3' }; // +%12
+    const eq = { boots: 'eq-boots-earth-3-1' }; // +%12
     expect(bootsSpeedIn(eq, [])).toBeCloseTo(0.12);
     expect(bootsSpeedIn(eq, ['earth'])).toBeCloseTo(0.12 * LOCATION_BONUS);
     expect(bootsSpeedIn(eq, ['fire'])).toBeCloseTo(0.12);
@@ -59,8 +59,8 @@ describe('şehir bonusu: ayakkabı hızı', () => {
 
   it('PlayerState.speedBonusIn konuma göre', () => {
     const p = new PlayerState();
-    p.addItem('eq-boots-fire-6');
-    p.equip('eq-boots-fire-6');
+    p.addItem('eq-boots-fire-6-1');
+    p.equip('eq-boots-fire-6-1');
     expect(p.speedBonus).toBeCloseTo(0.25);
     expect(p.speedBonusIn(['fire'])).toBeCloseTo(0.375);
     expect(p.speedBonusIn(['water'])).toBeCloseTo(0.25);
@@ -70,8 +70,8 @@ describe('şehir bonusu: ayakkabı hızı', () => {
 describe('şehir bonusu: çanta kapasitesi', () => {
   it('kendi elementinin konumunda çantanın kattığı kapasite %50 artar (tam sayıya yuvarlanır)', () => {
     const { player, carry } = setup();
-    player.addItem('eq-bag-fire-3'); // +8/+70/+5
-    player.equip('eq-bag-fire-3');
+    player.addItem('eq-bag-fire-3-1'); // +8/+70/+5
+    player.equip('eq-bag-fire-3-1');
     expect(carry.capacity()).toEqual({ wands: 11, goods: 90, gear: 7 }); // dışarıda: 3+8, 20+70, 2+5
     expect(carry.capacityIn(['fire'])).toEqual({ wands: 3 + 12, goods: 20 + 105, gear: 2 + 8 });
     expect(carry.capacityIn(['water'])).toEqual({ wands: 11, goods: 90, gear: 7 });
@@ -82,16 +82,16 @@ describe('şehir bonusu: çanta kapasitesi', () => {
     const player = new PlayerState();
     const wands = new WandInventory();
     const carry = new Carry(player, wands, () => ({ wands: 2, goods: 10, gear: 1 }), () => ['earth']);
-    player.addItem('eq-bag-earth-1');
-    player.equip('eq-bag-earth-1'); // 3/20/2 -> 5/30/3 (yuvarlama)
+    player.addItem('eq-bag-earth-1-1');
+    player.equip('eq-bag-earth-1-1'); // 3/20/2 -> 5/30/3 (yuvarlama)
     expect(carry.capacity()).toEqual({ wands: 3 + 5 + 2, goods: 20 + 30 + 10, gear: 2 + 3 + 1 });
     expect(carry.capacityOutside()).toEqual({ wands: 3 + 3 + 2, goods: 20 + 20 + 10, gear: 2 + 2 + 1 });
   });
 
   it('konum değişince kapasite değişir (bağlam)', () => {
     const { state, player, carry } = setup(['air']);
-    player.addItem('eq-bag-air-2');
-    player.equip('eq-bag-air-2'); // 5/40/3
+    player.addItem('eq-bag-air-2-1');
+    player.equip('eq-bag-air-2-1'); // 5/40/3
     const inside = carry.capacity();
     state.elements = [];
     const outside = carry.capacity();
@@ -108,8 +108,8 @@ describe('şehir bonusu: çanta kapasitesi', () => {
 
   it('şehirde bonusla doldurulan çanta dışarıda fazla kalır (taşma)', () => {
     const { state, player, wands, carry } = setup(['fire']);
-    player.addItem('eq-bag-fire-1');
-    player.equip('eq-bag-fire-1'); // şehirde 3+5=8 asa, 20+30=50 eşya
+    player.addItem('eq-bag-fire-1-1');
+    player.equip('eq-bag-fire-1-1'); // şehirde 3+5=8 asa, 20+30=50 eşya
     expect(player.addItem('kurt-postu', 50)).toBe(true);
     expect(wands.add(wand(1))).toBe(true);
     expect(wands.add(wand(2), 7)).toBe(true); // 7 taşınan
@@ -197,8 +197,8 @@ describe('şehirden çıkarken eşya bırakma', () => {
   /** Şehirde ateş çantasıyla doldurulmuş, sonra dışarı çıkmış oyuncu */
   const overloaded = () => {
     const s = setup(['fire']);
-    s.player.addItem('eq-bag-fire-1');
-    s.player.equip('eq-bag-fire-1'); // şehirde 8 asa, 50 eşya, 5 kuşanılabilir
+    s.player.addItem('eq-bag-fire-1-1');
+    s.player.equip('eq-bag-fire-1-1'); // şehirde 8 asa, 50 eşya, 5 kuşanılabilir
     s.player.addItem('kurt-postu', 30); // 35 gold/adet
     s.player.addItem('sifali-ot', 20); // 8 gold/adet
     s.wands.add(wand(1));
@@ -214,7 +214,7 @@ describe('şehirden çıkarken eşya bırakma', () => {
     expect(c.find((x) => x.key === 'item:kurt-postu')).toMatchObject({ category: 'goods', max: 30 });
     expect(c.find((x) => x.key === `wand:${wand(1)}`)).toBeUndefined(); // tek kopya kuşanılı
     expect(c.find((x) => x.key === `wand:${wand(2)}`)).toMatchObject({ category: 'wands', max: 3 });
-    expect(c.find((x) => x.key === 'item:eq-bag-fire-1')).toBeUndefined(); // giyilen çanta
+    expect(c.find((x) => x.key === 'item:eq-bag-fire-1-1')).toBeUndefined(); // giyilen çanta
   });
 
   it('fazlalığı karşılayan seçim çözer, karşılamayan çözmez', () => {
@@ -273,8 +273,8 @@ describe('şehirden çıkarken eşya bırakma', () => {
 
   it('asa bırakma: kuşanılı olmayan asalar yere düşer', () => {
     const s = setup(['fire']);
-    s.player.addItem('eq-bag-fire-1');
-    s.player.equip('eq-bag-fire-1'); // şehirde 8 asa
+    s.player.addItem('eq-bag-fire-1-1');
+    s.player.equip('eq-bag-fire-1-1'); // şehirde 8 asa
     s.wands.add(wand(1)); // kuşanılı
     s.wands.add(wand(2), 7); // taşınan 7
     s.state.elements = []; // dışarıda 6

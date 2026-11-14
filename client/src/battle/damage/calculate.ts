@@ -3,6 +3,7 @@ import type { DensityMap, SpellMetrics } from '../gesture/types';
 import { matchDefense } from '../match/defense';
 import {
   ARMOR_CAP,
+  CRIT_MULTIPLIER,
   FULL_POWER_COVERAGE,
   HEAD_ZONE_FRACTION,
   HEADSHOT_MULTIPLIER,
@@ -33,6 +34,8 @@ export interface DamageInput {
   attackerEffortBonus?: number;
   /** Saldırı çizimine tanınan süre (sn); asa süreyi uzatır. Verilmezse temel süre (3 sn). Aceleyle çizim, tanınan süreye göre ölçülür. */
   attackerDrawTimeSec?: number;
+  /** Bu vuruş kritik mi (zarı çağıran atar): hasar ×1.5 */
+  critical?: boolean;
 }
 
 export interface DamageBreakdown {
@@ -54,6 +57,10 @@ export interface DamageBreakdown {
   /** 5) Skill ve ekipman */
   skillMultiplier: number;
   afterSkills: number;
+  /** Kritik vuruş (×1.5) ve sonrası */
+  critical: boolean;
+  critMultiplier: number;
+  afterCrit: number;
   /** 6) Zırh */
   armorReduction: number;
   afterArmor: number;
@@ -85,7 +92,7 @@ function isHeadRow(row: number): boolean {
  * 2. Savunma: saldırının savunulmayan kısmı
  * 3. Bölge: savunulmayan kısım rakibin başına düştüyse ×1.5
  * 4. Element: üstünlük ×1.5 / dezavantaj ×0.5
- * 5. Skill ve ekipman: verilen ve alınan hasar çarpanları (bölgesel değil, genel)
+ * 5. Skill ve ekipman: verilen ve alınan hasar çarpanları (bölgesel değil, genel); sonra kritik vuruş ×1.5
  * 6. Zırh: oyuncunun toplam zırhı tek bir azaltma yüzdesi (baş/gövde ayrımı yok)
  */
 export function calculateDamage(input: DamageInput): DamageBreakdown {
@@ -116,7 +123,10 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
 
   const armorBeforePierce = Math.min(ARMOR_CAP, clamp01(positive(input.defenderArmor, 0)));
   const armorReduction = armorBeforePierce * (1 - clamp01(positive(input.attackerArmorPierce, 0)));
-  const afterArmor = afterSkills * (1 - armorReduction);
+  const critical = input.critical === true;
+  const critMultiplier = critical ? CRIT_MULTIPLIER : 1;
+  const afterCrit = afterSkills * critMultiplier;
+  const afterArmor = afterCrit * (1 - armorReduction);
 
   return {
     powerFactor: factor,
@@ -131,6 +141,9 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
     afterElement,
     skillMultiplier,
     afterSkills,
+    critical,
+    critMultiplier,
+    afterCrit,
     armorReduction,
     afterArmor,
     finalDamage: Math.max(0, Math.round(afterArmor)),

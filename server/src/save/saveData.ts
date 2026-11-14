@@ -40,7 +40,7 @@ const MAX_ENTRIES = 64;
 const MAX_COLLECTED = 200;
 const ID_PATTERN = /^[a-z0-9-]{1,40}$/;
 /** Ekipman yuvaları (Task 23). `amulet` eski kayıtlarda vardı; istemci yüklerken yüzüğe çevirir. */
-const GEAR_SLOTS = ['robe', 'hat', 'pants', 'bag', 'ring', 'boots', 'amulet'] as const;
+const GEAR_SLOTS = ['robe', 'hat', 'pants', 'gloves', 'bag', 'ring', 'bracelet', 'necklace', 'boots', 'amulet'] as const;
 
 export interface SavePoint {
   cityId: string;

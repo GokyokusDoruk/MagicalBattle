@@ -123,14 +123,14 @@ describe('PlayerState', () => {
 
   it('ekipman kuşanılır, aynı yerdekinin yerine geçer, zırh parçaları toplanır', () => {
     const p = new PlayerState();
-    p.addItem('eq-robe-earth-1');
-    p.addItem('eq-robe-earth-3');
-    p.addItem('eq-hat-earth-2');
-    expect(p.equip('eq-robe-earth-1')).toBe(true);
+    p.addItem('eq-robe-earth-1-1');
+    p.addItem('eq-robe-earth-3-1');
+    p.addItem('eq-hat-earth-2-1');
+    expect(p.equip('eq-robe-earth-1-1')).toBe(true);
     expect(p.armor).toBeCloseTo(0.04);
-    p.equip('eq-robe-earth-3');
-    expect(p.equipped.robe).toBe('eq-robe-earth-3');
-    p.equip('eq-hat-earth-2');
+    p.equip('eq-robe-earth-3-1');
+    expect(p.equipped.robe).toBe('eq-robe-earth-3-1');
+    p.equip('eq-hat-earth-2-1');
     expect(p.armor).toBeCloseTo(0.09 + 0.035);
     p.unequip('robe');
     expect(p.armor).toBeCloseTo(0.035);
@@ -138,7 +138,7 @@ describe('PlayerState', () => {
 
   it('sahip olunmayan ya da ganimet olan eşya kuşanılamaz', () => {
     const p = new PlayerState();
-    expect(p.equip('eq-robe-earth-1')).toBe(false);
+    expect(p.equip('eq-robe-earth-1-1')).toBe(false);
     p.addItem('sifali-ot');
     expect(p.equip('sifali-ot')).toBe(false);
   });
@@ -148,8 +148,8 @@ describe('PlayerState', () => {
     a.addMoney('kor', 250);
     a.addXp(320);
     a.addItem('sifali-ot', 4);
-    a.addItem('eq-robe-fire-4');
-    a.equip('eq-robe-fire-4');
+    a.addItem('eq-robe-fire-4-1');
+    a.equip('eq-robe-fire-4-1');
     const b = new PlayerState();
     b.restore(a.snapshot());
     expect(b.snapshot()).toEqual(a.snapshot());
@@ -162,15 +162,15 @@ describe('PlayerState', () => {
     p.restore({
       gold: -5,
       xp: Number.NaN,
-      items: { 'sifali-ot': 99999, 'sahte-esya': 5, 'kristal-parcasi': -3, 'eq-hat-earth-1': 1.9 },
-      equipped: { robe: 'eq-hat-earth-1', hat: 'eq-hat-air-2', ring: 'eq-ring-fire-1' }, // yanlış yer, sahip değil, sahip değil
+      items: { 'sifali-ot': 99999, 'sahte-esya': 5, 'kristal-parcasi': -3, 'eq-hat-earth-1-1': 1.9 },
+      equipped: { robe: 'eq-hat-earth-1-1', hat: 'eq-hat-air-2-1', ring: 'eq-ring-fire-1-1' }, // yanlış yer, sahip değil, sahip değil
     });
     expect(p.balance('kor')).toBe(0);
     expect(p.xp).toBe(0);
     expect(p.count('sifali-ot')).toBe(MAX_STACK);
     expect(p.count('sahte-esya')).toBe(0);
     expect(p.count('kristal-parcasi')).toBe(0);
-    expect(p.count('eq-hat-earth-1')).toBe(1);
+    expect(p.count('eq-hat-earth-1-1')).toBe(1);
     expect(p.equipped).toEqual({}); // hiçbiri geçerli değil
     p.restore(undefined);
     expect(p.snapshot()).toEqual({ wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, items: {}, equipped: {}, hp: null });
@@ -184,9 +184,9 @@ describe('PlayerState', () => {
       items: { 'cirak-cuppesi': 1, 'yun-sapka': 1, 'tas-tilsim': 1, 'kucuk-canta': 1, 'sifali-ot': 2 },
       equipped: { robe: 'cirak-cuppesi', hat: 'yun-sapka', amulet: 'tas-tilsim', bag: 'kucuk-canta' } as never,
     });
-    expect(p.count('eq-robe-earth-1')).toBe(1);
+    expect(p.count('eq-robe-earth-1-1')).toBe(1);
     expect(p.count('cirak-cuppesi')).toBe(0);
-    expect(p.equipped).toEqual({ robe: 'eq-robe-earth-1', hat: 'eq-hat-earth-1', ring: 'eq-ring-earth-1', bag: 'kucuk-canta' }); // çanta dönüşmez
+    expect(p.equipped).toEqual({ robe: 'eq-robe-earth-1-1', hat: 'eq-hat-earth-1-1', ring: 'eq-ring-earth-1-1', bag: 'kucuk-canta' }); // çanta dönüşmez
     expect(p.count('kucuk-canta')).toBe(1);
     expect(getItem('kucuk-canta')?.carry).toEqual({ wands: 3, goods: 20, gear: 2 });
     expect(getItem('kucuk-canta')?.element).toBeUndefined();
@@ -208,39 +208,39 @@ describe('alışveriş', () => {
   it('satın alma altını düşer, ekipmanı verir ve boş yerse kuşandırır', () => {
     const p = new PlayerState();
     p.addMoney('kor', 100);
-    const r = buyItem(p, 'eq-robe-earth-1', 60);
+    const r = buyItem(p, 'eq-robe-earth-1-1', 60);
     expect(r).toEqual({ ok: true, price: 60 });
     expect(p.balance('kor')).toBe(40);
-    expect(p.count('eq-robe-earth-1')).toBe(1);
-    expect(p.equipped.robe).toBe('eq-robe-earth-1');
+    expect(p.count('eq-robe-earth-1-1')).toBe(1);
+    expect(p.equipped.robe).toBe('eq-robe-earth-1-1');
   });
 
   it('yetersiz altında reddeder ve hiçbir şey değişmez', () => {
     const p = new PlayerState();
     p.addMoney('kor', 59);
-    expect(buyItem(p, 'eq-robe-earth-1', 60)).toMatchObject({ ok: false });
+    expect(buyItem(p, 'eq-robe-earth-1-1', 60)).toMatchObject({ ok: false });
     expect(p.balance('kor')).toBe(59);
-    expect(p.count('eq-robe-earth-1')).toBe(0);
+    expect(p.count('eq-robe-earth-1-1')).toBe(0);
     expect(buyItem(p, 'yok', 1)).toMatchObject({ ok: false });
   });
 
   it('aynı eşyadan birden fazla alınabilir', () => {
     const p = new PlayerState();
     p.addMoney('kor', 500);
-    buyItem(p, 'eq-hat-fire-1', 40);
-    expect(buyItem(p, 'eq-hat-fire-1', 40)).toMatchObject({ ok: true });
-    expect(p.count('eq-hat-fire-1')).toBe(2);
+    buyItem(p, 'eq-hat-fire-1-1', 40);
+    expect(buyItem(p, 'eq-hat-fire-1-1', 40)).toMatchObject({ ok: true });
+    expect(p.count('eq-hat-fire-1-1')).toBe(2);
   });
 
   it('daha nadir ekipman kuşanılır, daha az nadir olan eskisini bırakmaz', () => {
     const p = new PlayerState();
     p.addMoney('kor', 10000);
-    buyItem(p, 'eq-robe-water-3', 1);
-    buyItem(p, 'eq-robe-fire-1', 1); // daha az nadir
-    expect(p.equipped.robe).toBe('eq-robe-water-3');
-    expect(p.count('eq-robe-fire-1')).toBe(1);
-    buyItem(p, 'eq-robe-air-4', 1); // daha nadir
-    expect(p.equipped.robe).toBe('eq-robe-air-4');
+    buyItem(p, 'eq-robe-water-3-1', 1);
+    buyItem(p, 'eq-robe-fire-1-1', 1); // daha az nadir
+    expect(p.equipped.robe).toBe('eq-robe-water-3-1');
+    expect(p.count('eq-robe-fire-1-1')).toBe(1);
+    buyItem(p, 'eq-robe-air-4-1', 1); // daha nadir
+    expect(p.equipped.robe).toBe('eq-robe-air-4-1');
   });
 
   it('ganimet yarı fiyatına satılır, altın gelir, eşya düşer', () => {
@@ -258,19 +258,19 @@ describe('alışveriş', () => {
     p.addItem('sifali-ot', 1);
     expect(sell(p, 'sifali-ot', 2)).toMatchObject({ ok: false });
     p.addMoney('kor', 100);
-    buyItem(p, 'eq-hat-earth-1', 40); // kuşanılır
-    expect(sell(p, 'eq-hat-earth-1')).toMatchObject({ ok: false, reason: expect.stringContaining('çıkar') });
+    buyItem(p, 'eq-hat-earth-1-1', 40); // kuşanılır
+    expect(sell(p, 'eq-hat-earth-1-1')).toMatchObject({ ok: false, reason: expect.stringContaining('çıkar') });
     p.unequip('hat');
-    expect(sell(p, 'eq-hat-earth-1')).toMatchObject({ ok: true, price: 20 });
+    expect(sell(p, 'eq-hat-earth-1-1')).toMatchObject({ ok: true, price: 20 });
   });
 
   it('giyilen eşyadan fazla kopya varsa fazlası satılır', () => {
     const p = new PlayerState();
-    p.addItem('eq-hat-earth-1', 2);
-    p.equip('eq-hat-earth-1');
-    expect(sell(p, 'eq-hat-earth-1', 1)).toMatchObject({ ok: true });
-    expect(p.isEquipped('eq-hat-earth-1')).toBe(true);
-    expect(sell(p, 'eq-hat-earth-1', 1)).toMatchObject({ ok: false });
+    p.addItem('eq-hat-earth-1-1', 2);
+    p.equip('eq-hat-earth-1-1');
+    expect(sell(p, 'eq-hat-earth-1-1', 1)).toMatchObject({ ok: true });
+    expect(p.isEquipped('eq-hat-earth-1-1')).toBe(true);
+    expect(sell(p, 'eq-hat-earth-1-1', 1)).toMatchObject({ ok: false });
   });
 
   it('geçersiz adet ve eşya reddedilir', () => {
@@ -293,6 +293,6 @@ describe('alışveriş', () => {
   });
 
   it('getItem ekipmanı bulur', () => {
-    expect(getItem('eq-ring-air-6')?.timeBonus).toBeGreaterThan(0);
+    expect(getItem('eq-ring-air-6-1')?.timeBonus).toBeGreaterThan(0);
   });
 });

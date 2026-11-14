@@ -13,8 +13,9 @@ export function describeItem(item: ItemDef): string {
     if (item.carry) effect = `+${item.carry.wands} asa, +${item.carry.goods} eşya, +${item.carry.gear} kuşanılabilir`;
     else if (item.armor !== undefined) effect = `+${pct(item.armor)} zırh`;
     else if (item.speed !== undefined) effect = `yürüme hızı +${pct(item.speed)}`;
-    else if (item.timeBonus !== undefined) effect = `büyü süresi +${item.timeBonus.toFixed(2)} sn`;
-    return `${slot}${el} · ${effect}`;
+    else if (item.timeBonus !== undefined) effect = `kritik +${pct(item.crit ?? 0)} · büyü süresi +${item.timeBonus.toFixed(2)} sn`;
+    const lvl = item.level !== undefined ? ` · Sv ${item.level}` : '';
+    return `${slot}${el}${lvl} · ${effect}`;
   }
   if (item.heal) return `Can iksiri · +${item.heal} can`;
   return 'Ticari eşya';

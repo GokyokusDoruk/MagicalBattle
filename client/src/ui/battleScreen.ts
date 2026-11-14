@@ -338,7 +338,7 @@ export class BattleScreen implements BattleIO {
     const tone = effect === 'effective' ? 'bg-red-800/85 text-red-50' : effect === 'medium' ? 'bg-amber-700/85 text-amber-50' : 'bg-slate-700/85 text-slate-100';
     await this.say(
       this.center,
-      `${EFFECT_LABELS[effect]}<br><span class="text-lg">${report.damage > 0 ? `-${report.damage} hasar` : 'hasar yok'}</span>`,
+      `${report.critical ? '💥 KRİTİK! ' : ''}${EFFECT_LABELS[effect]}<br><span class="text-lg">${report.damage > 0 ? `-${report.damage} hasar` : 'hasar yok'}</span>`,
       1500,
       tone,
     );
