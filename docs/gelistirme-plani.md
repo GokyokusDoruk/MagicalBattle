@@ -27,8 +27,8 @@ Not: **Asa birleştirme (5 → 1) kaldırıldı** (Task 22).
 | **28** | **Dünya düşmanları ve ganimet:** haritada 32 düşman (4 element, 4 kademe), dokununca savaş, karışık ganimet paketi, nadirlik arttıkça düşen şans, karanlık yolda artan oran, sığmayan ganimet yerde 10 dk | 7 (**bitti**) |
 | **29** | **Bölge savaşları:** çimen ve kumsalda karo başına %10, zemine göre element (kumsal su, şehir çevresi şehrin elementi, yeşillik toprak), savaştan sonra 5 sn koruma | 2 (**bitti**) |
 | **30** | **Madenler:** şehir başına 4 element madeni, 3 peş peşe savaş, artırılmış ganimet, 10 dk dinlenme | 1 (**bitti**) |
-| **31** | **Korumalı sandıklar (bu PR):** 12 sandık, 2 muhafız, kesin ekipman + asa/iksir, bir kez açılır | 3 |
-| 32 | Çok oyunculu 1v1 arena (Colyseus) | eski 21 |
+| **31** | **Korumalı sandıklar:** 12 sandık, 2 muhafız, kesin ekipman + asa/iksir, bir kez açılır | 3 (**bitti**) |
+| 32 | ~~Çok oyunculu 1v1 arena (Colyseus)~~ **İptal:** oyun tek oyunculu kalacak | eski 21 |
 
 ## Kararlar (devamı)
 
