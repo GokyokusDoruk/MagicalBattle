@@ -101,7 +101,7 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
 
   it('normalizeSave eksik alanları varsayılanla doldurur (eski sunucu v1 dönse bile)', () => {
     const s = normalizeSave({ playerName: 'Aylin', completedChapters: [1] });
-    expect(s).toMatchObject({ version: 8, hp: null, savePoint: null, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} });
+    expect(s).toMatchObject({ version: 9, hp: null, savePoint: null, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} });
   });
 });
 
@@ -143,7 +143,7 @@ describe('SaveManager', () => {
     const m = new SaveManager({ putSave: async (d) => void written.push(d) }, progressWith(1), 'Aylin');
     expect(await m.saveAt(point)).toBe('saved');
     expect(written).toEqual([
-      { version: 8, playerName: 'Aylin', completedChapters: [1], savePoint: point, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} },
+      { version: 9, playerName: 'Aylin', completedChapters: [1], savePoint: point, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} },
     ]);
   });
 
@@ -253,5 +253,14 @@ describe('ApiClient', () => {
   it('getSave kaydı ya da null döndürür', async () => {
     const api = new ApiClient('x', () => json(200, { save: null }));
     expect(await api.getSave()).toBeNull();
+  });
+});
+
+describe('harita büyüdü (sürüm 9)', () => {
+  it('eski sürümlü kayıtta kayıt noktası 20 karo kaydırılır, sürüm 9 aynen kalır', () => {
+    const point = { cityId: 'ignis', tileX: 64, tileY: 62 };
+    expect(normalizeSave({ version: 8, playerName: 'A', completedChapters: [1], savePoint: point } as never).savePoint).toEqual({ cityId: 'ignis', tileX: 84, tileY: 82 });
+    expect(normalizeSave({ version: 9, playerName: 'A', completedChapters: [1], savePoint: point } as never).savePoint).toEqual(point);
+    expect(normalizeSave({ playerName: 'A', completedChapters: [1] }).savePoint).toBeNull();
   });
 });

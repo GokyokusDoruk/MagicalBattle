@@ -82,7 +82,7 @@ function carveRoad(tiles: Tile[][], a: Point, b: Point, cityRects: Rect[]): void
 }
 
 /** Tohuma bağlı, tekrarlanabilir açık dünya haritası üretir. */
-export function generateMap({ seed = 1337, width = 96, height = 96 }: MapOptions = {}): WorldMap {
+export function generateMap({ seed = 1337, width = 136, height = 136 }: MapOptions = {}): WorldMap {
   const spawn = { x: Math.floor(width / 2), y: Math.floor(height / 2) };
   const tiles: Tile[][] = [];
 
@@ -91,11 +91,13 @@ export function generateMap({ seed = 1337, width = 96, height = 96 }: MapOptions
     for (let x = 0; x < width; x++) {
       const water = valueNoise(seed, x / 14, y / 14) * 0.7 + valueNoise(seed + 1, x / 6, y / 6) * 0.3;
       const forest = valueNoise(seed + 2, x / 9, y / 9);
+      const thicket = valueNoise(seed + 3, x / 6.5, y / 6.5);
       const nearSpawn = Math.hypot(x - spawn.x, y - spawn.y) <= SPAWN_CLEAR_RADIUS;
 
       let tile = Tile.Grass;
       if (water < 0.36) tile = Tile.Water;
       else if (forest > 0.66) tile = Tile.Forest;
+      else if (thicket > 0.6) tile = Tile.Thicket;
 
       if (nearSpawn) tile = Tile.Grass;
       if (x < BORDER || y < BORDER || x >= width - BORDER || y >= height - BORDER) tile = Tile.Forest;

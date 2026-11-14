@@ -16,7 +16,7 @@ import { rollRarity, type LootResult } from './loot';
  * Sandık bir kez açılır (kayıtta `collected` içinde tutulur, bir daha çıkmaz).
  */
 
-export const CHEST_COUNT = 12;
+export const CHEST_COUNT = 28;
 export const CHEST_GUARDS = 2;
 
 export interface ChestSpot {

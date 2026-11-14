@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import type { Axis } from '../input/axis';
-import { moveWithCollision } from './collision';
+import { GridMover } from './gridMove';
 import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
 import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
@@ -9,12 +9,9 @@ import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
+import { CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
-const PLAYER_SPEED = 150; // piksel/saniye
-const MAX_DT = 0.05; // düşük FPS'te sıçramayı önler
-const HITBOX = { hw: 9, hh: 6 };
 const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
 const GATE_NOTICE_COOLDOWN_MS = 3000;
 const MARKER_TRIGGER_RANGE = TILE_SIZE * 0.9;
@@ -25,6 +22,8 @@ const ENEMY_RANGE = TILE_SIZE * 0.8;
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
 export interface WorldContext {
   map: WorldMap;
+  /** Yumuşak arazi görseli (world/terrainTexture.ts); harita bununla çizilir */
+  terrain: HTMLCanvasElement;
   getAxis: () => Axis;
   /** Yürüme hızı çarpanı (1 = normal); ayakkabıdan gelir. Verilmezse 1. */
   getSpeedMultiplier?: () => number;
@@ -72,6 +71,8 @@ export interface WorldContext {
 export class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
   private pos = { x: 0, y: 0 };
+  /** Kare kare hareket (Task 39) */
+  private mover!: GridMover;
   private markerSprites = new Map<string, Phaser.GameObjects.Text>();
   private insideMarkers = new Set<string>();
   private lastGateNotice = new Map<string, number>();
@@ -83,7 +84,6 @@ export class WorldScene extends Phaser.Scene {
   private insidePiles = new Set<string>();
   private enemySprites = new Map<string, Phaser.GameObjects.Image>();
   private insideEnemies = new Set<string>();
-  private lastTile = '';
   private chestSprites = new Map<string, Phaser.GameObjects.Image>();
   private insideChests = new Set<string>();
   private mineSprites = new Map<string, Phaser.GameObjects.Image>();
@@ -96,13 +96,13 @@ export class WorldScene extends Phaser.Scene {
   create(): void {
     const { map } = this.ctx;
 
-    createTilesetTexture(this);
     createPlayerTexture(this);
     createWorldItemTextures(this);
 
-    const tilemap = this.make.tilemap({ data: map.tiles, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
-    const tileset = tilemap.addTilesetImage('zemin', TILESET_KEY, TILE_SIZE, TILE_SIZE);
-    tilemap.createLayer(0, tileset!, 0, 0);
+    // Zemin: yumuşak arazi görseli (karolu mantığın üstüne çizilen organik görünüm), doğrusal süzme ile
+    const terrain = this.textures.addCanvas('terrain', this.ctx.terrain)!;
+    terrain.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.add.image(0, 0, 'terrain').setOrigin(0, 0).setDisplaySize(map.width * TILE_SIZE, map.height * TILE_SIZE).setDepth(0);
 
     this.createLocationLabels();
     this.createMarkerSprites();
@@ -112,7 +112,13 @@ export class WorldScene extends Phaser.Scene {
     this.createChests();
 
     const start = this.ctx.startTile ?? map.spawn;
-    this.pos = { x: start.x * TILE_SIZE + TILE_SIZE / 2, y: start.y * TILE_SIZE + TILE_SIZE / 2 };
+    const { map: m0, gates: g0 } = this.ctx;
+    this.mover = new GridMover(
+      { x: start.x, y: start.y },
+      (tx, ty) => isBlockedTile(tileAt(m0, tx, ty)) || isLockedGateAt(m0.gates, g0, tx, ty),
+      (tile) => this.ctx.onTileEnter?.(tile.x, tile.y),
+    );
+    this.pos = this.mover.position();
     // Kayıttan şehrin içinde başlanıyorsa bu yeni bir "giriş" sayılmaz (tekrar kayıt tetiklenmesin)
     this.cityTracker = new CityEntryTracker(cityAt(map.locations, start.x, start.y));
     this.locationTracker = new CityEntryTracker(locationAt(map.locations, start.x, start.y));
@@ -170,7 +176,8 @@ export class WorldScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const teleport = this.ctx.takeTeleport?.();
     if (teleport) {
-      this.pos = { ...teleport };
+      this.mover.teleport({ x: Math.floor(teleport.x / TILE_SIZE), y: Math.floor(teleport.y / TILE_SIZE) });
+      this.pos = this.mover.position();
       this.player.setPosition(this.pos.x, this.pos.y);
     }
     this.movePlayer(delta);
@@ -181,28 +188,18 @@ export class WorldScene extends Phaser.Scene {
     this.syncPiles();
     this.checkMerchants();
     this.checkEnemies();
-    this.checkTile();
     this.checkMines();
     this.checkChests();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
+  /** Kare kare yürür: yön girdisi karo karo adımlara çevrilir, hız çarpanı (ayakkabı, hava asası) adımı kısaltır. */
   private movePlayer(delta: number): void {
-    const { map, gates } = this.ctx;
-    const dt = Math.min(delta / 1000, MAX_DT);
-    const axis = this.ctx.getAxis();
-    if (axis.x === 0 && axis.y === 0) return;
-    const speed = PLAYER_SPEED * Math.max(0.1, this.ctx.getSpeedMultiplier?.() ?? 1);
-
-    this.pos = moveWithCollision(
-      this.pos,
-      { x: axis.x * speed * dt, y: axis.y * speed * dt },
-      HITBOX,
-      TILE_SIZE,
-      (tx, ty) => isBlockedTile(tileAt(map, tx, ty)) || isLockedGateAt(map.gates, gates, tx, ty),
-    );
+    this.mover.update(delta, this.ctx.getAxis(), this.ctx.getSpeedMultiplier?.() ?? 1);
+    this.pos = this.mover.position();
     this.player.setPosition(this.pos.x, this.pos.y);
-    if (axis.x !== 0) this.player.setFlipX(axis.x < 0);
+    if (this.mover.facing === 'left') this.player.setFlipX(true);
+    else if (this.mover.facing === 'right') this.player.setFlipX(false);
   }
 
   /** Kilitli bir kapıya yaklaşınca (sık tekrarlamadan) uyarı verir. */
@@ -300,17 +297,6 @@ export class WorldScene extends Phaser.Scene {
     }
     for (const id of near) if (!this.insideChests.has(id)) this.ctx.onChestEnter?.(id);
     this.insideChests = near;
-  }
-
-  /** Yeni bir karoya girilince haber verir. */
-  private checkTile(): void {
-    const tx = Math.floor(this.pos.x / TILE_SIZE);
-    const ty = Math.floor(this.pos.y / TILE_SIZE);
-    const key = `${tx},${ty}`;
-    if (key === this.lastTile) return;
-    const first = this.lastTile === '';
-    this.lastTile = key;
-    if (!first) this.ctx.onTileEnter?.(tx, ty);
   }
 
   /** Yenilen düşmanı gizler (geri gelince yeniden gösterir); yanına gelince (bir kez, uzaklaşıp dönene kadar) savaşı başlatır. */

@@ -14,10 +14,12 @@ export interface EnemySpot {
   tileY: number;
 }
 
-export const ENEMY_COUNT = 32;
+export const ENEMY_COUNT = 88;
 /** Yenilen düşmanın geri gelme süresi (oyun süresiyle) */
 export const ENEMY_RESPAWN_MS = 4 * 60 * 1000;
 
+/** Düşman kademelerinin dağılımı (10 düşmanda): 2 x kademe 1, 3 x kademe 2, 2 x kademe 3, 3 x kademe 4 */
+const TIER_QUOTA: readonly Tier[] = [1, 2, 3, 4, 2, 4, 1, 3, 2, 4];
 const MIN_SPACING = 6;
 const MIN_FROM_SPAWN = 9;
 const MIN_FROM_LOCATION = 6;
@@ -48,7 +50,10 @@ export function generateEnemySpots(map: WorldMap, seed = 4242): EnemySpot[] {
     if (spots.some((s) => Math.hypot(s.tileX - x, s.tileY - y) < MIN_SPACING)) continue;
     if (map.locations.some((l) => Math.hypot(l.x - x, l.y - y) < MIN_FROM_LOCATION + (l.kind === 'city' ? 6 : 3))) continue;
     const n = spots.length;
-    spots.push({ id: `d-${n}`, element: ELEMENTS[n % ELEMENTS.length], tier: tierAt(map, x, y), tileX: x, tileY: y });
+    // Kademeler kotayla dağıtılır (yakın alan küçük, uzak alan geniş olduğu için rastgele yerleşim hep zor düşman verirdi)
+    const tier = tierAt(map, x, y);
+    if (tier !== TIER_QUOTA[n % TIER_QUOTA.length] && tries < 45000) continue;
+    spots.push({ id: `d-${n}`, element: ELEMENTS[n % ELEMENTS.length], tier, tileX: x, tileY: y });
   }
   return spots;
 }

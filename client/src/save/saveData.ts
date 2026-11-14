@@ -3,13 +3,13 @@ import type { EconomySnapshot } from '../economy/player';
 import type { QuestSnapshot } from '../quests/engine';
 import type { Side } from '../morality/catalog';
 import type { WandSnapshot } from '../wands/inventory';
-import { CITY_HALF, type LocationDef } from '../world/locations';
+import { CITY_HALF, MAP_OFFSET, type LocationDef } from '../world/locations';
 
 /**
  * Kayıt dosyası biçimi (sürüm 8: dört para birimi (cüzdan); sürüm 6: asalar seviyeli ve tek kuşanılı; sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
  * aynı alanları doğrular ve eski (v1-v5) kayıtları yükseltir (server/src/save/saveData.ts).
  */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export interface SavePoint {
   cityId: string;
@@ -95,7 +95,8 @@ export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerNam
     version: SAVE_VERSION,
     playerName: raw.playerName,
     completedChapters: raw.completedChapters,
-    savePoint: raw.savePoint ?? null,
+    // Sürüm 9'dan önceki kayıtlar eski (96x96) haritanın koordinatlarındadır: yeni haritaya kaydır
+    savePoint: raw.savePoint ? (raw.version !== undefined && raw.version < 9 ? { ...raw.savePoint, tileX: raw.savePoint.tileX + MAP_OFFSET, tileY: raw.savePoint.tileY + MAP_OFFSET } : raw.savePoint) : null,
     // Eski kayıtlarda (sürüm 7 ve öncesi) tek altın vardı: Kor'a çevrilir
     wallet: raw.wallet ? sanitizeWallet(raw.wallet) : sanitizeWallet({ kor: (raw as { gold?: number }).gold }),
     xp: raw.xp ?? 0,
