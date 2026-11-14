@@ -58,6 +58,8 @@ export interface WorldContext {
   enemies?: readonly EnemySpot[];
   isEnemyActive?: (id: string) => boolean;
   onEnemyEnter?: (id: string) => void;
+  /** Oyuncu yeni bir karoya girdi (bölge savaşları için) */
+  onTileEnter?: (tileX: number, tileY: number) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
   takeTeleport?: () => { x: number; y: number } | null;
 }
@@ -78,6 +80,7 @@ export class WorldScene extends Phaser.Scene {
   private insidePiles = new Set<string>();
   private enemySprites = new Map<string, Phaser.GameObjects.Image>();
   private insideEnemies = new Set<string>();
+  private lastTile = '';
 
   constructor(private readonly ctx: WorldContext) {
     super('world');
@@ -171,6 +174,7 @@ export class WorldScene extends Phaser.Scene {
     this.checkMerchants();
     this.checkPickups();
     this.checkEnemies();
+    this.checkTile();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
@@ -249,6 +253,17 @@ export class WorldScene extends Phaser.Scene {
       this.tweens.add({ targets: sprite, y: y - 4, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.enemySprites.set(spot.id, sprite);
     }
+  }
+
+  /** Yeni bir karoya girilince haber verir. */
+  private checkTile(): void {
+    const tx = Math.floor(this.pos.x / TILE_SIZE);
+    const ty = Math.floor(this.pos.y / TILE_SIZE);
+    const key = `${tx},${ty}`;
+    if (key === this.lastTile) return;
+    const first = this.lastTile === '';
+    this.lastTile = key;
+    if (!first) this.ctx.onTileEnter?.(tx, ty);
   }
 
   /** Yenilen düşmanı gizler (geri gelince yeniden gösterir); yanına gelince (bir kez, uzaklaşıp dönene kadar) savaşı başlatır. */

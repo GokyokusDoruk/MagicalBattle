@@ -29,7 +29,8 @@ import { goldLoss, nearestHealer, respawnLines } from './economy/death';
 import { DialogueUi } from './ui/dialogueUi';
 import { runBossFight, type HealHooks } from './ui/bossFight';
 import { runWorldFight } from './ui/worldFight';
-import { ENEMY_SPOTS, EnemyBoard } from './enemies/spots';
+import { ENEMY_SPOTS, EnemyBoard, type EnemySpot } from './enemies/spots';
+import { EncounterGuard, zoneEncounter } from './enemies/zones';
 import { enemyStats } from './enemies/catalog';
 import { rollLoot } from './enemies/loot';
 import { applyLoot } from './enemies/applyLoot';
@@ -291,6 +292,7 @@ document.body.appendChild(dialogueUi.element);
 let chapterBusy = false;
 let fightBusy = false;
 const enemyBoard = new EnemyBoard(() => performance.now());
+const encounters = new EncounterGuard(() => performance.now());
 const lootRand = mulberry32(Date.now());
 const modalOpen = (): boolean =>
   chapterBusy || fightBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
@@ -357,7 +359,14 @@ const healHooks: HealHooks = {
  */
 async function fightEnemy(id: string): Promise<void> {
   const spot = ENEMY_SPOTS.find((s) => s.id === id);
-  if (!spot || fightBusy || modalOpen() || !enemyBoard.isActive(id)) return;
+  if (!spot || !enemyBoard.isActive(id)) return;
+  await fightSpot(spot);
+}
+
+/** Verilen düşmanla savaşır (sabit düşman ya da bölge karşılaşması). Savaş bitince 5 saniye karşılaşma olmaz. */
+async function fightSpot(spot: EnemySpot): Promise<void> {
+  const id = spot.id;
+  if (fightBusy || modalOpen()) return;
   fightBusy = true;
   try {
     const { outcome, hp: hpLeft } = await runWorldFight(
@@ -387,6 +396,7 @@ async function fightEnemy(id: string): Promise<void> {
     handleCompletions(sideQuests.onEvent({ type: 'battleWon' }));
   } finally {
     fightBusy = false;
+    encounters.startGrace();
   }
 }
 
@@ -483,6 +493,7 @@ const debug = {
   handleDeath,
   fightEnemy,
   enemyBoard,
+  encounters,
   collected,
   player: { x: 0, y: 0 },
   /** Oyuncuyu karo koordinatına ışınlar */
@@ -577,6 +588,14 @@ void import('./world/bootWorld').then((m) =>
     enemies: ENEMY_SPOTS,
     isEnemyActive: (id) => enemyBoard.isActive(id),
     onEnemyEnter: (id) => void fightEnemy(id),
+    // Bölge savaşı: açık zeminde her yeni karoda %10 şans (savaştan sonra 5 sn koruma)
+    onTileEnter: (tx, ty) => {
+      if (fightBusy || modalOpen() || !encounters.roll(lootRand)) return;
+      const spot = zoneEncounter(map, tx, ty);
+      if (!spot) return;
+      toast.show(`Yolda ${enemyStats(spot.element, spot.tier).name} çıktı!`);
+      void fightSpot(spot);
+    },
     pickups: PICKUP_SPOTS,
     isCollected: (id) => collected.has(id),
     onPickup: (spot) => {
