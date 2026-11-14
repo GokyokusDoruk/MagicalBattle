@@ -70,6 +70,18 @@ export function createTilesetTexture(scene: Scene): void {
   speckles(Tile.Path, 0xc09a6b, 8);
 
   g.generateTexture(TILESET_KEY, S * TILE_COUNT, S);
+  // Madenler: kayalık tepe, element renginde parlayan karanlık giriş ve kazma
+  for (const [el, [body, light]] of Object.entries(ENEMY_COLORS)) {
+    g.fillStyle(0x4b5563, 1).fillTriangle(2, 36, 20, 4, 38, 36);
+    g.fillStyle(0x6b7280, 1).fillTriangle(12, 36, 22, 12, 32, 36);
+    g.fillStyle(0x0b0b10, 1).fillRect(14, 22, 12, 14);
+    g.fillStyle(body, 0.9).fillRect(16, 26, 8, 10);
+    g.fillStyle(light, 1).fillCircle(20, 24, 2.5);
+    g.fillStyle(0x92400e, 1).fillRect(31, 24, 2, 12);
+    g.fillStyle(0xd1d5db, 1).fillRect(28, 23, 8, 2);
+    g.generateTexture(mineKey(el), 40, 38);
+    g.clear();
+  }
   g.destroy();
 }
 
@@ -91,6 +103,7 @@ export const HERB_KEY = 'pickup-herb';
 export const CRYSTAL_KEY = 'pickup-crystal';
 export const PILE_KEY = 'ground-pile';
 /** Dünya düşmanı dokusunun anahtarı (elemente göre) */
+export const mineKey = (element: string): string => `mine-${element}`;
 export const enemyKey = (element: string): string => `enemy-${element}`;
 
 const ENEMY_COLORS: Record<string, [number, number]> = {

@@ -7,8 +7,9 @@ import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
 import type { PickupSpot } from './pickups';
 import type { EnemySpot } from '../enemies/spots';
+import type { MineSpot } from '../enemies/mines';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CRYSTAL_KEY, HERB_KEY, enemyKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
+import { CRYSTAL_KEY, HERB_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
 const PLAYER_SPEED = 150; // piksel/saniye
@@ -58,6 +59,10 @@ export interface WorldContext {
   enemies?: readonly EnemySpot[];
   isEnemyActive?: (id: string) => boolean;
   onEnemyEnter?: (id: string) => void;
+  /** Madenler (Task 30); oyuncu girişe gelince `onMineEnter`. `isMineReady` false ise sönük çizilir. */
+  mines?: readonly MineSpot[];
+  isMineReady?: (id: string) => boolean;
+  onMineEnter?: (id: string) => void;
   /** Oyuncu yeni bir karoya girdi (bölge savaşları için) */
   onTileEnter?: (tileX: number, tileY: number) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
@@ -81,6 +86,8 @@ export class WorldScene extends Phaser.Scene {
   private enemySprites = new Map<string, Phaser.GameObjects.Image>();
   private insideEnemies = new Set<string>();
   private lastTile = '';
+  private mineSprites = new Map<string, Phaser.GameObjects.Image>();
+  private insideMines = new Set<string>();
 
   constructor(private readonly ctx: WorldContext) {
     super('world');
@@ -102,6 +109,7 @@ export class WorldScene extends Phaser.Scene {
     this.createMerchants();
     this.createPickups();
     this.createEnemies();
+    this.createMines();
 
     const start = this.ctx.startTile ?? map.spawn;
     this.pos = { x: start.x * TILE_SIZE + TILE_SIZE / 2, y: start.y * TILE_SIZE + TILE_SIZE / 2 };
@@ -175,6 +183,7 @@ export class WorldScene extends Phaser.Scene {
     this.checkPickups();
     this.checkEnemies();
     this.checkTile();
+    this.checkMines();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
@@ -253,6 +262,32 @@ export class WorldScene extends Phaser.Scene {
       this.tweens.add({ targets: sprite, y: y - 4, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.enemySprites.set(spot.id, sprite);
     }
+  }
+
+  /** Madenler: elementine göre renkli giriş ve isim. */
+  private createMines(): void {
+    for (const m of this.ctx.mines ?? []) {
+      const x = m.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = m.tileY * TILE_SIZE + TILE_SIZE / 2;
+      this.mineSprites.set(m.id, this.add.image(x, y, mineKey(m.element)).setOrigin(0.5, 0.8).setDepth(4));
+      this.add
+        .text(x, y - 34, m.name, { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#fde68a', stroke: '#000000', strokeThickness: 3 })
+        .setOrigin(0.5)
+        .setDepth(5);
+    }
+  }
+
+  /** Dinlenen madenleri soluk gösterir; girişe gelince (bir kez, uzaklaşıp dönene kadar) haber verir. */
+  private checkMines(): void {
+    const near = new Set<string>();
+    for (const m of this.ctx.mines ?? []) {
+      this.mineSprites.get(m.id)?.setAlpha(this.ctx.isMineReady?.(m.id) === false ? 0.45 : 1);
+      const x = m.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = m.tileY * TILE_SIZE + TILE_SIZE / 2;
+      if (Math.hypot(x - this.pos.x, y - this.pos.y) <= TILE_SIZE * 0.9) near.add(m.id);
+    }
+    for (const id of near) if (!this.insideMines.has(id)) this.ctx.onMineEnter?.(id);
+    this.insideMines = near;
   }
 
   /** Yeni bir karoya girilince haber verir. */
