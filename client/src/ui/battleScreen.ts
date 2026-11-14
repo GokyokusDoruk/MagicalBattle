@@ -239,7 +239,7 @@ export class BattleScreen implements BattleIO {
       return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
-    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'defense' ? extras?.fog : undefined);
+    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -247,7 +247,7 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, fog?: number): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, fog?: number, mud?: number): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
@@ -260,6 +260,7 @@ export class BattleScreen implements BattleIO {
       drawTimeMs: limitSec ? Math.round(limitSec * 1000) : undefined,
       scars,
       fog,
+      mud,
       drawSound: () => this.sfx.beginDraw(element),
     });
     // Boss mekaniği (zihin kontrolü): belirli döngüden sonra çizim tuvali bulanıklaşır
@@ -271,6 +272,11 @@ export class BattleScreen implements BattleIO {
       this.closeModal();
       return result;
     });
+  }
+
+  /** Sarsıntı: sersemleyen savaşçının sırası atlanır. */
+  async announceStun(ref: SlotRef): Promise<void> {
+    await this.say(this.center, `💫 ${esc(this.name(ref))} sersemlemiş, sırasını kaçırdı`, 1200, 'bg-amber-800/85 text-amber-50');
   }
 
   /** Şifa Kabarcıkları: can çubuğunun üstünde yeşil kabarcıklar yükselir. */
@@ -324,6 +330,9 @@ export class BattleScreen implements BattleIO {
     if (report.chainStacks) notes.push(`⛓️ Alev Zinciri ×${report.chainStacks}`);
     if (report.scatter) notes.push('✨ Kıvılcımlar savunmayı aştı');
     if (report.shieldBroken) notes.push('🛡️💥 Kalkan kırıldı!');
+    if (report.mudded && !report.defenseFailed) notes.push('🟤 Çamur Yaması');
+    if (report.armorGained) notes.push(`🪨 ${this.name(action.defender)} kalıcı zırh kazandı (+%${Math.round(report.armorGained * 100)})`);
+    if (report.stunned) notes.push(`💫 ${this.name(action.defender)} sersemledi!`);
     if (report.fogged && !report.defenseFailed) notes.push('🌫️ Sis Perdesi');
     if (report.chilled) notes.push(`❄️ ${this.name(action.defender)} yavaşladı`);
     if (report.ignited) notes.push(`🔥 ${this.name(action.defender)} tutuştu!`);

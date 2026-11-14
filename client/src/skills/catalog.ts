@@ -45,10 +45,18 @@ export interface SkillEffect {
   reflect?: number;
   /** Su: rakibin savunma ekranını kaplayan sis bulutu sayısı (botlarda savunmayı zayıflatır) */
   fog?: number;
+  /** Toprak: her toprak savunmasında kalıcı olarak eklenen zırh (0-1); savaş boyunca birikir */
+  armorStack?: number;
+  /** Toprak: saldırı savunmayı %80 ve üstü aşarsa rakibin sıradaki saldırısını atlatma şansı */
+  stunChance?: number;
+  /** Toprak: toprak savunmasında alınan hasarın azalma oranı */
+  guard?: number;
+  /** Toprak: rakibin savunma ekranındaki çamur yaması sayısı (içine çizilemez; botların savunması zayıflar) */
+  mud?: number;
 }
 
 export type EffectKey = keyof SkillEffect;
-export const EFFECT_KEYS: readonly EffectKey[] = ['burnChance', 'burnDamage', 'shieldBreak', 'chainBonus', 'scatter', 'scars', 'chillChance', 'chillSec', 'lifesteal', 'reflect', 'fog'];
+export const EFFECT_KEYS: readonly EffectKey[] = ['burnChance', 'burnDamage', 'shieldBreak', 'chainBonus', 'scatter', 'scars', 'chillChance', 'chillSec', 'lifesteal', 'reflect', 'fog', 'armorStack', 'stunChance', 'guard', 'mud'];
 
 export interface SkillDef {
   id: string;
@@ -78,6 +86,10 @@ export function describeEffect(fx: SkillEffect): string[] {
   if (fx.lifesteal) out.push(`verdiğin hasarın ${pct(fx.lifesteal)} kadarı sana can olarak döner`);
   if (fx.reflect) out.push(`savunmanın tuttuğu hasarın ${pct(fx.reflect)} kadarı saldırana yansır`);
   if (fx.fog) out.push(`rakibin savunma ekranında ${fx.fog} sis bulutu; botların savunması zayıflar`);
+  if (fx.armorStack) out.push(`her toprak savunmasında savaş boyunca kalıcı +${pct(fx.armorStack)} zırh (birikir)`);
+  if (fx.stunChance) out.push(`saldırın savunmayı %80+ aşarsa ${pct(fx.stunChance)} ihtimalle rakibin sıradaki saldırısı atlanır`);
+  if (fx.guard) out.push(`toprak savunmasında alınan hasar -${pct(fx.guard)}`);
+  if (fx.mud) out.push(`rakibin savunma ekranında ${fx.mud} çamur yaması; içine çizilemez, botların savunması zayıflar`);
   return out;
 }
 
@@ -153,6 +165,34 @@ export const SKILLS: readonly SkillDef[] = [
     name: 'Sis Perdesi',
     summary: 'Su saldırısı rakibin savunma ekranını sisle kaplar; botlar sisin içinde zayıf savunur.',
     levels: [{ fog: 1 }, { fog: 2 }, { fog: 3 }],
+  },
+  {
+    id: 'earth-armor',
+    element: 'earth',
+    name: 'Taş Kabuk',
+    summary: 'Her toprak savunmanda kalıcı zırh kazanırsın; zırh savaş bitene kadar birikir ve her büyüye karşı işler.',
+    levels: [{ armorStack: 0.02 }, { armorStack: 0.03 }, { armorStack: 0.04 }],
+  },
+  {
+    id: 'earth-quake',
+    element: 'earth',
+    name: 'Sarsıntı',
+    summary: 'Toprak saldırın savunmayı %80 ve üstü aşarsa rakip sersemleyebilir: sıradaki saldırısını yapamaz.',
+    levels: [{ stunChance: 0.35 }, { stunChance: 0.55 }, { stunChance: 0.8 }],
+  },
+  {
+    id: 'earth-bulwark',
+    element: 'earth',
+    name: 'Dağ Kalkanı',
+    summary: 'Toprak savunman çok daha sağlamdır: alınan hasar belirgin azalır.',
+    levels: [{ guard: 0.1 }, { guard: 0.18 }, { guard: 0.26 }],
+  },
+  {
+    id: 'earth-mud',
+    element: 'earth',
+    name: 'Çamur Yaması',
+    summary: 'Toprak saldırısı rakibin savunma ekranına çamur yamaları döker; içlerine çizilemez, botlar çamurda zayıf savunur.',
+    levels: [{ mud: 1 }, { mud: 2 }, { mud: 3 }],
   },
 ];
 

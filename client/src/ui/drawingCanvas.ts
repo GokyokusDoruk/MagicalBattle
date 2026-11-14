@@ -17,6 +17,8 @@ export interface DrawingCanvasOptions extends SessionOptions {
   scars?: number;
   /** Sis Perdesi: savunma ekranını kaplayan sis bulutu sayısı (altındaki çizim ve hayalet görünmez) */
   fog?: number;
+  /** Çamur Yaması: savunma ekranındaki çamur yaması sayısı (içine çizilemez) */
+  mud?: number;
   /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
   random?: () => number;
 }
@@ -60,6 +62,15 @@ export function placeFog(count: number, random: () => number = Math.random): { x
   return out;
 }
 
+/** Çamur yaması konumları (saf fonksiyon). */
+export function placeMud(count: number, random: () => number = Math.random): { x: number; y: number; r: number }[] {
+  const out: { x: number; y: number; r: number }[] = [];
+  for (let i = 0; i < count; i++) out.push({ x: 50 + random() * (LOGICAL_SIZE - 100), y: 80 + random() * (LOGICAL_SIZE - 130), r: 26 + random() * 12 });
+  return out;
+}
+
+export const inMud = (muds: readonly { x: number; y: number; r: number }[], p: { x: number; y: number }): boolean => muds.some((m) => Math.hypot(p.x - m.x, p.y - m.y) <= m.r);
+
 /** a-b doğru parçası c noktasına `r` mesafeden yakın mı */
 export function segmentNearPoint(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }, r: number): boolean {
   const dx = b.x - a.x;
@@ -89,6 +100,8 @@ export class DrawingCanvas {
   private scars: Scar[] = [];
   private flashUntil = 0;
   private fogs: { x: number; y: number; r: number }[] = [];
+  private muds: { x: number; y: number; r: number }[] = [];
+  private muddy = false;
 
   constructor(private readonly options: DrawingCanvasOptions) {
     this.session = new DrawingSession(options);
@@ -124,6 +137,8 @@ export class DrawingCanvas {
     this.scars = placeScars(Math.max(0, Math.floor(this.options.scars ?? 0)), this.options.random).map((s) => ({ ...s, hit: false }));
     this.flashUntil = 0;
     this.fogs = placeFog(Math.max(0, Math.floor(this.options.fog ?? 0)), this.options.random);
+    this.muds = placeMud(Math.max(0, Math.floor(this.options.mud ?? 0)), this.options.random);
+    this.muddy = false;
     this.fitCanvas();
     this.timer = window.setInterval(() => this.frame(), Math.min(DWELL_SAMPLE_MS, 16));
     this.frame();
@@ -164,7 +179,8 @@ export class DrawingCanvas {
     }
     const p = this.toLogical(e);
     const now = performance.now();
-    this.session.pointerDown(p.x, p.y, now);
+    this.muddy = inMud(this.muds, p);
+    if (!this.muddy) this.session.pointerDown(p.x, p.y, now);
     this.touchScars(p, p, now);
     this.loop = this.options.drawSound?.() ?? null;
     this.lastMove = { x: p.x, y: p.y, at: now };
@@ -185,7 +201,12 @@ export class DrawingCanvas {
     if (e.pointerId !== this.pointerId) return;
     const p = this.toLogical(e);
     const now = performance.now();
-    this.session.pointerMove(p.x, p.y, now);
+    // Çamura girince çizgi kesilir, çıkınca yeni çizgi başlar (çamurun içi çizilmez)
+    const nowMuddy = inMud(this.muds, p);
+    if (nowMuddy && !this.muddy) this.session.pointerUp(now);
+    else if (!nowMuddy && this.muddy) this.session.pointerDown(p.x, p.y, now);
+    else if (!nowMuddy) this.session.pointerMove(p.x, p.y, now);
+    this.muddy = nowMuddy;
     const last = this.lastMove;
     this.touchScars(last ?? p, p, now);
     if (this.loop && last) {
@@ -276,6 +297,24 @@ export class DrawingCanvas {
     ctx.restore();
   }
 
+  /** Çamur yamaları: koyu kahverengi, kenarı pütürlü; içine çizilemez. */
+  private drawMud(scale: number): void {
+    const { ctx } = this;
+    for (const m of this.muds) {
+      ctx.fillStyle = 'rgba(92,64,38,0.95)';
+      ctx.beginPath();
+      ctx.arc(m.x * scale, m.y * scale, m.r * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(133,96,58,0.9)';
+      for (let i = 0; i < 5; i++) {
+        const a = i * 1.26 + m.x;
+        ctx.beginPath();
+        ctx.arc((m.x + Math.cos(a) * m.r * 0.5) * scale, (m.y + Math.sin(a) * m.r * 0.5) * scale, m.r * 0.22 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
   /** Sis bulutları: altındaki çizimi ve hayaleti örter. */
   private drawFog(scale: number): void {
     const { ctx } = this;
@@ -343,6 +382,7 @@ export class DrawingCanvas {
     this.drawScars(scale);
     this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
     this.drawFog(scale);
+    this.drawMud(scale);
     if (now < this.flashUntil) {
       ctx.fillStyle = `rgba(239,68,68,${(0.45 * (this.flashUntil - now)) / 280})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);

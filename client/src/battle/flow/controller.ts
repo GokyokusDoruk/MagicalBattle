@@ -4,7 +4,7 @@ import type { Element } from '../damage/elements';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { DRAW_TIME_MS } from '../gesture/config';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
-import { FOG_BOT_BYPASS, LIMITS, SHIELD_BREAK_STRENGTH } from '../../skills/resolver';
+import { FOG_BOT_BYPASS, LIMITS, MUD_BOT_BYPASS, SHIELD_BREAK_STRENGTH, STUN_HIT_RATIO } from '../../skills/resolver';
 import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
 
 export type Role = 'attack' | 'defense';
@@ -46,6 +46,12 @@ export interface TurnReport {
   chilled?: boolean;
   /** Su: savunma ekranına konan sis bulutu sayısı */
   fogged?: number;
+  /** Toprak: savunan sersemledi (sıradaki saldırısı atlanır) */
+  stunned?: boolean;
+  /** Toprak: savunanın bu turda kazandığı kalıcı zırh */
+  armorGained?: number;
+  /** Toprak: savunma ekranındaki çamur yaması sayısı */
+  mudded?: number;
 }
 
 /** Saldırı çizerken savunanın pasiflerinden gelen ekran engelleri (Yanık İzi) */
@@ -54,6 +60,8 @@ export interface DrawExtras {
   scars?: number;
   /** Savunma ekranını kaplayan sis bulutu sayısı (Sis Perdesi) */
   fog?: number;
+  /** Savunma ekranındaki çamur yaması sayısı (Çamur Yaması) */
+  mud?: number;
 }
 
 /** Yara izine dokunmanın çizim süresinden aldığı */
@@ -92,6 +100,8 @@ export interface BattleIO {
   /** `extras.scars`: bu çizimde (insan için) ekranda gösterilecek yara izi sayısı */
   draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number, extras?: DrawExtras): Promise<DrawingResult>;
   /** Döngü başında yanan savaşçıların yediği yanma hasarı (isteğe bağlı: arayüz oynatır) */
+  /** Sersemlemiş savaşçının saldırı sırası atlandı (isteğe bağlı) */
+  announceStun?(ref: SlotRef, engine: BattleEngine): Promise<void>;
   announceBurn?(events: readonly BurnEvent[], engine: BattleEngine): Promise<void>;
   play(report: TurnReport, engine: BattleEngine): Promise<void>;
   announceEnd(winner: Winner, engine: BattleEngine): Promise<void>;
@@ -146,6 +156,13 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
 
     const attacker = engine.fighter(action.attacker);
     const defender = engine.fighter(action.defender);
+
+    // Sarsıntı: sersemlemiş savaşçı bu sırada saldıramaz
+    if (attacker.stunned) {
+      attacker.stunned = false;
+      await io.announceStun?.(action.attacker, engine);
+      continue;
+    }
 
     // Bu turun elementleri döngü başında seçilmiştir: saldıran kendi elementiyle saldırır, savunan kendi elementiyle savunur
     const attackerElement = round.get(refKey(action.attacker))!;
@@ -216,7 +233,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       continue;
     }
 
-    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attackFx.fog > 0 ? { fog: attackFx.fog } : undefined);
+    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attackFx.fog > 0 || attackFx.mud > 0 ? { fog: attackFx.fog, mud: attackFx.mud } : undefined);
     const defenseFailed = !defense.validity.valid;
 
     // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
@@ -226,7 +243,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const chainStacks = attackFx.chainBonus > 0 ? Math.min(LIMITS.maxChainStacks, chainBefore) : 0;
     const shieldBroken = !defenseFailed && attackFx.shieldBreak > 0 && random() < attackFx.shieldBreak;
     // Sis Perdesi: sisli ekranda bir botun savunması zayıflar (insan sisi kendi gözüyle aşmaya çalışır)
-    const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attackFx.fog * FOG_BOT_BYPASS) : 0;
+    const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attackFx.fog * FOG_BOT_BYPASS + attackFx.mud * MUD_BOT_BYPASS) : 0;
     const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0)) * (1 - fogBypass);
     const input = {
       basePower: attacker.basePower * attackWand.powerMultiplier,
@@ -238,7 +255,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       defenseBypass: bypass,
       attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier * (1 + attackGear.damageBonus) * (1 + chainStacks * attackFx.chainBonus),
       defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier * defenseWand.takenMultiplier,
-      defenderArmor: defenseGear.armor,
+      defenderArmor: defenseGear.armor + defender.armorBonus,
       attackerArmorPierce: attackFx.armorPierce,
       attackerHeadBonus: attackFx.headBonus,
       attackerEffortBonus: attackFx.effortBonus,
@@ -257,6 +274,14 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
 
     // Közleyen Alev: vuruş yaşayan rakibi tutuşturabilir (yanan rakipte yenilenmez, birikmez)
     const ignited = attackFx.burnChance > 0 && !result.defeated && random() < attackFx.burnChance ? engine.ignite(action.defender, attackFx.burnDamage) : false;
+
+    // Taş Kabuk: toprak savunması kalıcı zırh kazandırır (savaş boyunca birikir)
+    const armorGained = defenseFx.armorStack > 0 && !defenseFailed ? Math.min(LIMITS.maxArmorBonus - defender.armorBonus, defenseFx.armorStack) : 0;
+    if (armorGained > 0) defender.armorBonus += armorGained;
+
+    // Sarsıntı: savunmayı %80 ve üstü aşan vuruş rakibin sıradaki saldırısını atlatabilir
+    const stunned = attackFx.stunChance > 0 && !result.defeated && 1 - breakdown.defendedRatio >= STUN_HIT_RATIO && random() < attackFx.stunChance;
+    if (stunned) defender.stunned = true;
 
     // Buz Nefesi: vuruş yaşayan rakibi yavaşlatabilir (birikmez, en uzun olan kalır)
     const chilled = attackFx.chillChance > 0 && !result.defeated && random() < attackFx.chillChance;
@@ -286,6 +311,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         scatter: !defenseFailed && attackFx.scatter > 0,
         chilled,
         fogged: attackFx.fog,
+        stunned,
+        armorGained,
+        mudded: attackFx.mud,
       },
       engine,
     );

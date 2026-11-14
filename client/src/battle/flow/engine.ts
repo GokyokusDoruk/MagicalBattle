@@ -47,6 +47,10 @@ export interface Fighter extends Required<Omit<FighterInit, 'persona' | 'ai' | '
   fireChain: number;
   /** Buz Nefesi: bir sonraki çizimden kesilecek süre (sn); kullanılınca sıfırlanır */
   chill: number;
+  /** Taş Kabuk: savaş boyunca biriken kalıcı zırh (0-1) */
+  armorBonus: number;
+  /** Sarsıntı: sıradaki saldırısı atlanacak */
+  stunned: boolean;
 }
 
 /** Bir döngü başında yanan savaşçının yediği yanma hasarı */
@@ -110,6 +114,8 @@ export class BattleEngine {
         burn: 0,
         fireChain: 0,
         chill: 0,
+        armorBonus: 0,
+        stunned: false,
         wands: init.wands ?? neutralWand,
         persona: init.persona ?? null,
         ai: init.ai ?? null,

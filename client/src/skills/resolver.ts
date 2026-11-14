@@ -12,7 +12,17 @@ export const LIMITS = {
   maxLifesteal: 0.3,
   maxReflect: 0.5,
   maxFog: 3,
+  maxStunChance: 0.9,
+  maxMud: 3,
+  maxArmorStack: 0.05,
+  /** Savaş boyunca biriken Taş Kabuk zırhının üst sınırı */
+  maxArmorBonus: 0.3,
 } as const;
+
+/** Sarsıntı: saldırının savunmayı bu oranda ve üstü aşması gerekir */
+export const STUN_HIT_RATIO = 0.8;
+/** Çamurlu ekranda bir botun savunması yama başına bu oranda zayıflar */
+export const MUD_BOT_BYPASS = 0.08;
 
 /** Sisli savunma ekranında botun savunması bulut başına bu oranda zayıflar (savunmanın o kısmı geçer) */
 export const FOG_BOT_BYPASS = 0.1;
@@ -47,6 +57,10 @@ export interface SpellEffects {
   chillSec: number;
   /** Su: savunma ekranına konan sis bulutu sayısı */
   fog: number;
+  /** Toprak: savunmada kalıcı zırh (bu savunma başına), saldırıda sersemletme şansı ve çamur yaması sayısı */
+  armorStack: number;
+  stunChance: number;
+  mud: number;
   /** Etkiye katkı veren yeteneklerin kimlikleri */
   skills: string[];
 }
@@ -71,6 +85,9 @@ export const neutralEffects = (element: Element, role: SpellRole): SpellEffects 
   chillChance: 0,
   chillSec: 0,
   fog: 0,
+  armorStack: 0,
+  stunChance: 0,
+  mud: 0,
   skills: [],
 });
 
@@ -114,8 +131,12 @@ export function resolveSpell(levels: ReadonlyMap<string, number>, element: Eleme
       fx.chillSec = Math.max(fx.chillSec, e.chillSec ?? 0);
       fx.lifesteal += e.lifesteal ?? 0;
       fx.fog += e.fog ?? 0;
+      fx.stunChance += e.stunChance ?? 0;
+      fx.mud += e.mud ?? 0;
     } else {
       fx.reflect += e.reflect ?? 0;
+      fx.armorStack += e.armorStack ?? 0;
+      fx.takenMultiplier *= 1 - (e.guard ?? 0);
     }
     fx.skills.push(`${skill.id}-${level}`);
   }
@@ -126,5 +147,8 @@ export function resolveSpell(levels: ReadonlyMap<string, number>, element: Eleme
   fx.lifesteal = Math.min(LIMITS.maxLifesteal, fx.lifesteal);
   fx.reflect = Math.min(LIMITS.maxReflect, fx.reflect);
   fx.fog = Math.min(LIMITS.maxFog, Math.round(fx.fog));
+  fx.stunChance = Math.min(LIMITS.maxStunChance, fx.stunChance);
+  fx.mud = Math.min(LIMITS.maxMud, Math.round(fx.mud));
+  fx.armorStack = Math.min(LIMITS.maxArmorStack, fx.armorStack);
   return fx;
 }
