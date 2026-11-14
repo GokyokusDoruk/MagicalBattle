@@ -31,6 +31,8 @@ import { runBossFight, type HealHooks } from './ui/bossFight';
 import { runWorldFight } from './ui/worldFight';
 import { ENEMY_SPOTS, EnemyBoard, type EnemySpot } from './enemies/spots';
 import { EncounterGuard, zoneEncounter } from './enemies/zones';
+import { MINE_DROP_BOOST, MINE_SPOTS, MineBoard, mineEnemies } from './enemies/mines';
+import { confirmMine } from './ui/mineUi';
 import { enemyStats } from './enemies/catalog';
 import { rollLoot } from './enemies/loot';
 import { applyLoot } from './enemies/applyLoot';
@@ -291,11 +293,13 @@ document.body.appendChild(dialogueUi.element);
 /** Bir bölümün sahnesi, boss savaşı ve seçimleri sürerken true (aralardaki boşlukta da dünya durur) */
 let chapterBusy = false;
 let fightBusy = false;
+let mineBusy = false;
+const mineBoard = new MineBoard(() => performance.now());
 const enemyBoard = new EnemyBoard(() => performance.now());
 const encounters = new EncounterGuard(() => performance.now());
 const lootRand = mulberry32(Date.now());
 const modalOpen = (): boolean =>
-  chapterBusy || fightBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
+  chapterBusy || fightBusy || mineBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -364,9 +368,11 @@ async function fightEnemy(id: string): Promise<void> {
 }
 
 /** Verilen düşmanla savaşır (sabit düşman ya da bölge karşılaşması). Savaş bitince 5 saniye karşılaşma olmaz. */
-async function fightSpot(spot: EnemySpot): Promise<void> {
+type FightResult = 'won' | 'lost' | 'retreat' | 'skipped';
+
+async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false): Promise<FightResult> {
   const id = spot.id;
-  if (fightBusy || modalOpen()) return;
+  if (fightBusy || (modalOpen() && !fromMine)) return 'skipped';
   fightBusy = true;
   try {
     const { outcome, hp: hpLeft } = await runWorldFight(
@@ -374,15 +380,15 @@ async function fightSpot(spot: EnemySpot): Promise<void> {
       { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
       hero.maxHp,
     );
-    if (outcome === 'retreat') return;
+    if (outcome === 'retreat') return 'retreat';
     if (outcome === 'lost') {
       toast.show(`${enemyStats(spot.element, spot.tier).name} seni yendi.`);
       await handleDeath();
-      return;
+      return 'lost';
     }
     if (hpLeft !== null) hero.setHp(hpLeft);
     enemyBoard.defeat(id);
-    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier, lootRand);
+    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * dropBoost, lootRand);
     const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
     const names = [
       ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
@@ -394,9 +400,38 @@ async function fightSpot(spot: EnemySpot): Promise<void> {
     if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
     setDirty(true);
     handleCompletions(sideQuests.onEvent({ type: 'battleWon' }));
+    return 'won';
   } finally {
     fightBusy = false;
     encounters.startGrace();
+  }
+}
+
+/**
+ * Maden (Task 30): 3 düşmanla peş peşe savaş; can savaşlar arasında taşınır, ganimet her zaferde düşer (şansı artırılmış).
+ * İlk savaş başlayınca maden 10 dakika dinlenir. Yenilgi ölümdür; "Kaç" madenden çıkarır.
+ */
+async function enterMine(id: string): Promise<void> {
+  const mine = MINE_SPOTS.find((m) => m.id === id);
+  if (!mine || mineBusy || fightBusy || modalOpen()) return;
+  const left = mineBoard.cooldownLeftMs(id);
+  if (left > 0) {
+    toast.show(`${mine.name} dinleniyor: ${Math.ceil(left / 60000)} dk sonra gel.`);
+    return;
+  }
+  mineBusy = true;
+  try {
+    const foes = mineEnemies(map, mine);
+    if (!(await confirmMine(mine, foes, hero.hp, hero.maxHp))) return;
+    mineBoard.start(id);
+    for (let i = 0; i < foes.length; i++) {
+      toast.show(`${mine.name}: savaş ${i + 1}/${foes.length}`);
+      const r = await fightSpot(foes[i], MINE_DROP_BOOST, true);
+      if (r !== 'won') return;
+    }
+    toast.show(`${mine.name} temizlendi! 10 dakika dinlenecek.`);
+  } finally {
+    mineBusy = false;
   }
 }
 
@@ -492,6 +527,8 @@ const debug = {
   playChapter,
   handleDeath,
   fightEnemy,
+  enterMine,
+  mineBoard,
   enemyBoard,
   encounters,
   collected,
@@ -585,6 +622,9 @@ void import('./world/bootWorld').then((m) =>
     onMerchantEnter: (id) => {
       if (!modalOpen()) merchantUi.open(id);
     },
+    mines: MINE_SPOTS,
+    isMineReady: (id) => mineBoard.isReady(id),
+    onMineEnter: (id) => void enterMine(id),
     enemies: ENEMY_SPOTS,
     isEnemyActive: (id) => enemyBoard.isActive(id),
     onEnemyEnter: (id) => void fightEnemy(id),
