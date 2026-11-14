@@ -6,6 +6,7 @@ import { ELEMENT_COLORS } from '../battle/arena/palette';
 import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
 import { Bot } from '../battle/flow/bot';
 import { ElysiaBot } from '../battle/flow/elysia';
+import { EFFECT_LABELS, explainDamage, spellEffect } from '../battle/damage/explain';
 import { runBattle, type BattleIO, type Role, type RoundChoice, type TurnElements, type TurnReport } from '../battle/flow/controller';
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
@@ -45,6 +46,7 @@ export class BattleScreen implements BattleIO {
   private readonly bots = new Map<string, Bot>();
   private readonly banner: HTMLElement;
   private readonly center: HTMLElement;
+  private readonly calc: HTMLElement;
   private readonly modals: HTMLElement;
   private readonly abort = new AbortController();
   /** Bu döngüde herkesin seçtiği element (anahtar: takım:sıra); çizim rengi ve etiketler için */
@@ -82,6 +84,7 @@ export class BattleScreen implements BattleIO {
     this.buildHud();
     this.banner = this.overlay('pointer-events-none absolute inset-x-0 top-24 z-10 flex justify-center px-2');
     this.center = this.overlay('pointer-events-none absolute inset-x-0 top-[38%] z-10 flex justify-center px-2');
+    this.calc = this.overlay('pointer-events-none absolute inset-x-0 top-[20%] z-10 flex justify-center px-2');
     this.modals = this.overlay('absolute inset-0 z-20');
     this.modals.style.pointerEvents = 'none';
   }
@@ -277,17 +280,18 @@ export class BattleScreen implements BattleIO {
 
     const defense = report.defense;
     if (!report.defenseFailed && defense) {
-      await this.arena.showShield(action.defender, action.attacker, defense.strokes as Stroke[]);
+      await this.arena.showShield(action.defender, action.attacker, defense.strokes as Stroke[], report.defenderElement);
     } else {
       void this.say(this.center, `Savunma yapılamadı! <span class="font-normal">(${this.name(action.defender)})</span>`, 1200, 'bg-red-900/80 text-red-100');
     }
-    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement);
+    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement, { onClash: () => void this.showFormula(report) });
     await this.arena.impact(action.defender, action.attacker, {
       damage: report.damage,
       blockedRatio: report.breakdown?.defendedRatio ?? 0,
       head: (report.breakdown?.headShare ?? 0) > 0.5,
       element: report.attackerElement,
     });
+    await this.showEffect(report);
     // Kişilikli botlar (Elysia) hasar yiyince tepki verir
     this.bots.get(key(action.defender))?.onDamaged(report.damage, this.engine.fighter(action.defender).maxHp);
     if (report.reflected > 0) this.bots.get(key(action.attacker))?.onDamaged(report.reflected, this.engine.fighter(action.attacker).maxHp);
@@ -306,6 +310,38 @@ export class BattleScreen implements BattleIO {
       this.arena.defeat(action.attacker);
       await this.say(this.center, `${this.name(action.attacker)} yansımayla yenildi!`, 1400, 'bg-amber-700/80 text-amber-50');
     }
+  }
+
+  /** Çarpışma anında hasarın nasıl hesaplandığını gösterir: "Toprak üstün ×1.5 = 150". Büyünün rengiyle boyanır. */
+  private async showFormula(report: TurnReport): Promise<void> {
+    const b = report.breakdown;
+    if (!b) return;
+    const color = css(ELEMENT_COLORS[report.attackerElement].glow);
+    const rows = explainDamage(b, report.attackerElement, report.defenseFailed)
+      .map(
+        (r) =>
+          `<div class="flex justify-between gap-4"><span${r.element ? ` style="color:${color}"` : ''}>${esc(r.label)}${r.factor ? ` <b>${esc(r.factor)}</b>` : ''}</span><b class="tabular-nums">${r.value}</b></div>`,
+      )
+      .join('');
+    await this.say(
+      this.calc,
+      `<div class="min-w-[13rem] text-left text-sm font-normal"><div class="mb-1 text-center font-bold" style="color:${color}">${ELEMENT_NAMES[report.attackerElement]} büyüsü</div>${rows}<div class="mt-1 flex justify-between border-t border-white/30 pt-1 text-base font-bold"><span>Hasar</span><span class="tabular-nums">${report.damage}</span></div></div>`,
+      2200,
+      'bg-slate-900/85 text-slate-50',
+    );
+  }
+
+  /** Vuruştan sonra büyünün etkisi: savunmayı çoğunlukla geçtiyse etkili, orta hasar verdiyse orta, iyi bloklandıysa etkisiz. */
+  private async showEffect(report: TurnReport): Promise<void> {
+    if (!report.breakdown) return;
+    const effect = spellEffect(report.breakdown, report.defenseFailed);
+    const tone = effect === 'effective' ? 'bg-red-800/85 text-red-50' : effect === 'medium' ? 'bg-amber-700/85 text-amber-50' : 'bg-slate-700/85 text-slate-100';
+    await this.say(
+      this.center,
+      `${EFFECT_LABELS[effect]}<br><span class="text-lg">${report.damage > 0 ? `-${report.damage} hasar` : 'hasar yok'}</span>`,
+      1500,
+      tone,
+    );
   }
 
   async announceEnd(winner: Winner, engine: BattleEngine): Promise<void> {

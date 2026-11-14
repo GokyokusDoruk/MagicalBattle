@@ -27,6 +27,12 @@ export interface ImpactInfo {
   element: Element;
 }
 
+/** castSpell için isteğe bağlı kancalar */
+export interface CastHooks {
+  /** Saldırı ile savunma çarpıştığı an (yavaş çekim başlarken) */
+  onClash?: () => void;
+}
+
 const UP = new THREE.Vector3(0, 1, 0);
 const MAX_DT = 0.1;
 
@@ -92,6 +98,8 @@ export class ArenaView {
   private readonly observer: ResizeObserver;
   private time = 0;
   private lastFrame = 0;
+  /** Oyun zamanı çarpanı (çarpışmada yavaş çekim için 0.2); gerçek zamanlı kamera etkilenmez */
+  private timeScale = 1;
   private disposed = false;
   /** Dikey ekranda yakın çekimler biraz uzaktan çekilir (yazılar ve savaşçı sığsın) */
   private closeScale = 1;
@@ -238,9 +246,11 @@ export class ArenaView {
     this.lastFrame = now;
     this.time += dt;
 
-    this.tweens.update(dt);
-    this.combatants.forEach((c) => c.update(dt));
-    this.particles.update(dt);
+    // Çarpışma anında oyun zamanı yavaşlar (kamera ve ışık gerçek zamanda kalır)
+    const sdt = dt * this.timeScale;
+    this.tweens.update(sdt);
+    this.combatants.forEach((c) => c.update(sdt));
+    this.particles.update(sdt);
     this.crystals.forEach((c, i) => {
       c.rotation.y += dt * 0.8;
       c.position.y = 6.3 + Math.sin(this.time * 1.4 + i) * 0.25;
@@ -261,7 +271,7 @@ export class ArenaView {
    * Saldırı: büyü, çizildiği biçimde havada belirir, sonra rakibe fırlar. Hedefe ulaşınca çözülür;
    * vuruş efektleri için ardından `impact` çağrılır.
    */
-  async castSpell(from: SlotRef, to: SlotRef, strokes: readonly Stroke[], element: Element): Promise<void> {
+  async castSpell(from: SlotRef, to: SlotRef, strokes: readonly Stroke[], element: Element, hooks: CastHooks = {}): Promise<void> {
     const caster = this.combatant(from);
     const casterPos = this.position(from);
     const targetPos = this.position(to);
@@ -313,18 +323,31 @@ export class ArenaView {
         lookAt: p.clone().add(new THREE.Vector3(0, 0.2, 0)),
       });
     });
+    // 4) Çarpışma: savunma varsa iki büyü birbirine girer, yavaş çekimde (1-2 sn) kıvılcımlar saçılır
+    const hasShield = Boolean(this.shield && slotKey(this.shield.owner) === slotKey(to));
+    hooks.onClash?.();
+    this.timeScale = hasShield ? 0.2 : 0.3;
+    const shieldVisual = hasShield ? this.shield!.visual : null;
+    await this.tweens.add(hasShield ? 0.32 : 0.2, (t) => {
+      const pulse = Math.sin(t * Math.PI * 6) * 0.05;
+      visual.group.scale.setScalar(0.5 + t * 0.1 + pulse);
+      shieldVisual?.group.scale.setScalar(0.95 + pulse * 1.6);
+      this.particles.emit(end, { color: colors.glow, count: 4, speed: 3.2, life: 0.7 });
+      if (hasShield) this.particles.emit(end, { color: SHIELD_COLORS.glow, count: 2, speed: 2.4, life: 0.7 });
+    });
+    this.timeScale = 1;
     this.removeSpell(visual);
     caster.endDefend();
   }
 
   /** Savunma: savunanın çizdiği mühür, saldırının önüne kalkan olarak kurulur ve vuruşa kadar durur. */
-  async showShield(owner: SlotRef, attacker: SlotRef, strokes: readonly Stroke[]): Promise<void> {
+  async showShield(owner: SlotRef, attacker: SlotRef, strokes: readonly Stroke[], element?: Element): Promise<void> {
     this.removeShield();
     const ownerPos = this.position(owner);
     const attackerPos = this.position(attacker);
     const toAttacker = attackerPos.clone().sub(ownerPos).setY(0).normalize();
     const paths = strokesToPaths(strokes);
-    const visual = new SpellVisual(paths.length > 0 ? paths : DEFAULT_RING, SHIELD_COLORS.main, SHIELD_COLORS.glow);
+    const visual = new SpellVisual(paths.length > 0 ? paths : DEFAULT_RING, element ? ELEMENT_COLORS[element].main : SHIELD_COLORS.main, element ? ELEMENT_COLORS[element].glow : SHIELD_COLORS.glow);
     visual.group.position.copy(ownerPos).add(toAttacker.clone().multiplyScalar(1.7)).add(new THREE.Vector3(0, 2.0, 0));
     visual.group.scale.setScalar(0.95);
     visual.setOpacity(0);
@@ -344,6 +367,7 @@ export class ArenaView {
 
   /** Vuruş: kıvılcımlar, ışık, savrulma, kamera sarsıntısı ve hasar yazısı. Savunma varsa kalkan karşılar. */
   async impact(target: SlotRef, attacker: SlotRef, info: ImpactInfo): Promise<void> {
+    this.timeScale = 1;
     const victim = this.combatant(target);
     const targetPos = this.position(target);
     const attackerPos = this.position(attacker);
