@@ -5,12 +5,11 @@ import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
 import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
-import type { PickupSpot } from './pickups';
 import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CHEST_KEY, CRYSTAL_KEY, HERB_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
+import { CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
 const PLAYER_SPEED = 150; // piksel/saniye
@@ -20,7 +19,6 @@ const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
 const GATE_NOTICE_COOLDOWN_MS = 3000;
 const MARKER_TRIGGER_RANGE = TILE_SIZE * 0.9;
 const MERCHANT_RANGE = TILE_SIZE * 1.6;
-const PICKUP_RANGE = TILE_SIZE * 0.85;
 const PILE_RANGE = TILE_SIZE * 0.9;
 const ENEMY_RANGE = TILE_SIZE * 0.8;
 
@@ -45,10 +43,6 @@ export interface WorldContext {
   /** Köylerdeki tüccarlar; oyuncu yanlarına gelince `onMerchantEnter` çağrılır */
   merchants?: readonly MerchantSpot[];
   onMerchantEnter?: (merchantId: string) => void;
-  /** Dünyada toplanabilir eşyalar (toplananlar `isCollected` ile elenir) */
-  pickups?: readonly PickupSpot[];
-  isCollected?: (id: string) => boolean;
-  onPickup?: (spot: PickupSpot) => void;
   /** Oyuncu bir konumun (şehir, köy, arena) alanına yeni girdi */
   onLocationEnter?: (locationId: string) => void;
   /** Oyuncunun bulunduğu konum değişti (`null` = açık dünya): şehre girme, şehirden çıkma ve konumlar arası geçiş */
@@ -83,7 +77,6 @@ export class WorldScene extends Phaser.Scene {
   private lastGateNotice = new Map<string, number>();
   private cityTracker = new CityEntryTracker();
   private locationTracker = new CityEntryTracker();
-  private pickupSprites = new Map<string, Phaser.GameObjects.Image>();
   private insideMerchants = new Set<string>();
   private currentLocation: string | null = null;
   private pileSprites = new Map<string, Phaser.GameObjects.Image>();
@@ -114,7 +107,6 @@ export class WorldScene extends Phaser.Scene {
     this.createLocationLabels();
     this.createMarkerSprites();
     this.createMerchants();
-    this.createPickups();
     this.createEnemies();
     this.createMines();
     this.createChests();
@@ -188,7 +180,6 @@ export class WorldScene extends Phaser.Scene {
     this.checkLocationEntry();
     this.syncPiles();
     this.checkMerchants();
-    this.checkPickups();
     this.checkEnemies();
     this.checkTile();
     this.checkMines();
@@ -246,19 +237,6 @@ export class WorldScene extends Phaser.Scene {
         })
         .setOrigin(0.5)
         .setDepth(5);
-    }
-  }
-
-  /** Toplanabilir otlar ve kristaller; henüz toplanmamış olanlar hafifçe sallanır. */
-  private createPickups(): void {
-    for (const spot of this.ctx.pickups ?? []) {
-      if (this.ctx.isCollected?.(spot.id)) continue;
-      const key = spot.itemId === 'kristal-parcasi' ? CRYSTAL_KEY : HERB_KEY;
-      const sprite = this.add
-        .image(spot.tileX * TILE_SIZE + TILE_SIZE / 2, spot.tileY * TILE_SIZE + TILE_SIZE / 2, key)
-        .setDepth(3);
-      this.tweens.add({ targets: sprite, y: sprite.y - 3, duration: 900 + (spot.tileX % 5) * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      this.pickupSprites.set(spot.id, sprite);
     }
   }
 
@@ -400,20 +378,6 @@ export class WorldScene extends Phaser.Scene {
     }
     for (const id of near) if (!this.insideMerchants.has(id)) this.ctx.onMerchantEnter?.(id);
     this.insideMerchants = near;
-  }
-
-  /** Yakındaki toplanabilir eşyayı alır ve haritadan kaldırır. */
-  private checkPickups(): void {
-    for (const spot of this.ctx.pickups ?? []) {
-      const sprite = this.pickupSprites.get(spot.id);
-      if (!sprite) continue;
-      const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
-      const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
-      if (Math.hypot(x - this.pos.x, y - this.pos.y) > PICKUP_RANGE) continue;
-      this.pickupSprites.delete(spot.id);
-      this.tweens.add({ targets: sprite, y: sprite.y - 24, alpha: 0, duration: 350, onComplete: () => sprite.destroy() });
-      this.ctx.onPickup?.(spot);
-    }
   }
 
   /** Surların içine yeni girildiğinde kayıt noktasını tetikler. */

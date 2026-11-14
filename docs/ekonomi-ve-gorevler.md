@@ -1,5 +1,7 @@
 # Tüccar, ekonomi ve yan görevler
 
+> **Task 37:** ganimet ve yan görevler yenilendi, ot/kristal/toz/post kalktı: [ganimet-v2.md](ganimet-v2.md). Aşağıdaki görev tablosu ve toplama noktaları eskidir.
+>
 > **Task 35:** altın kalktı, yerine dört para birimi var (Kor, Çiy, Tunç, Tüy): [para-birimleri.md](para-birimleri.md). Bu belgedeki "altın" sayıları artık görevi veren şehrin biriminde ödenir.
 
 Kod: `client/src/economy/` (para birimleri, XP, eşya, alışveriş), `client/src/quests/` (yan görevler), `client/src/ui/merchantUi.ts` (ekran).

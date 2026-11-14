@@ -59,7 +59,6 @@ import { GateRegistry } from './world/gates';
 import { generateMap } from './world/generateMap';
 import { LOCATIONS, getLocation } from './world/locations';
 import { merchantSpots } from './world/merchantSpots';
-import { PICKUP_SPOTS } from './world/pickups';
 import { QuestTracker } from './world/questMarkers';
 import { TILE_SIZE } from './world/tiles';
 
@@ -266,6 +265,18 @@ const handleCompletions = (list: QuestCompletion[]): void => {
   if (list.length > 0) setDirty(true);
 };
 
+// Çantaya ticari mal girince (ganimet, satın alma) toplama görevleri ilerler
+let collectBusy = false;
+hero.onChange(() => {
+  if (collectBusy) return;
+  collectBusy = true;
+  try {
+    handleCompletions(sideQuests.onEvent({ type: 'collect' }));
+  } finally {
+    collectBusy = false;
+  }
+});
+
 // Tüccarların asa stokları: her tüccarın kendi stoğu, 5 dakikada bir yenilenir (oyun süresiyle)
 const wandStocks = new Map<string, WandStock>();
 const wandStock = (merchantId: string): WandStock => {
@@ -406,7 +417,7 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
     }
     if (hpLeft !== null) hero.setHp(hpLeft);
     enemyBoard.defeat(id);
-    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * dropBoost, lootRand);
+    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
     const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
     const names = [
       ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
@@ -448,6 +459,7 @@ async function enterMine(id: string): Promise<void> {
       if (r !== 'won') return;
     }
     toast.show(`${mine.name} temizlendi! 10 dakika dinlenecek.`);
+    handleCompletions(sideQuests.onEvent({ type: 'mineCleared' }));
   } finally {
     mineBusy = false;
   }
@@ -479,6 +491,7 @@ async function openChest(id: string): Promise<void> {
     if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
     if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
     setDirty(true);
+    handleCompletions(sideQuests.onEvent({ type: 'chestOpened' }));
   } finally {
     chestBusy = false;
   }
@@ -690,20 +703,6 @@ void import('./world/bootWorld').then((m) =>
       const spot = zoneEncounter(map, tx, ty);
       if (!spot) return;
       void fightSpot(spot, 1, false, true);
-    },
-    pickups: PICKUP_SPOTS,
-    isCollected: (id) => collected.has(id),
-    onPickup: (spot) => {
-      if (collected.has(spot.id)) return;
-      if (!hero.addItem(spot.itemId)) {
-        toast.show('Çantan dolu: bu eşyayı alamazsın. Şehirde satıp boşalt (B).');
-        return;
-      }
-      collected.add(spot.id);
-      sfx.play('pick');
-      toast.show(`+1 ${getItem(spot.itemId)?.name ?? spot.itemId}`);
-      setDirty(true);
-      handleCompletions(sideQuests.onEvent({ type: 'collect' }));
     },
     onLocationEnter: (locationId) => handleCompletions(sideQuests.onEvent({ type: 'visit', locationId })),
     onLocationChange: (from, to) => void handleLocationChange(from, to),

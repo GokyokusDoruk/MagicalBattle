@@ -106,19 +106,19 @@ describe('PlayerState', () => {
 
   it('eşya ekler ve çıkarır; bilinmeyen eşya ve yetersiz miktar reddedilir', () => {
     const p = new PlayerState();
-    expect(p.addItem('sifali-ot', 3)).toBe(true);
+    expect(p.addItem('tas-cevheri', 3)).toBe(true);
     expect(p.addItem('yok-boyle-esya')).toBe(false);
-    expect(p.removeItem('sifali-ot', 5)).toBe(false);
-    expect(p.removeItem('sifali-ot', 2)).toBe(true);
-    expect(p.count('sifali-ot')).toBe(1);
-    p.removeItem('sifali-ot');
+    expect(p.removeItem('tas-cevheri', 5)).toBe(false);
+    expect(p.removeItem('tas-cevheri', 2)).toBe(true);
+    expect(p.count('tas-cevheri')).toBe(1);
+    p.removeItem('tas-cevheri');
     expect(p.inventory()).toEqual([]);
   });
 
   it('yığın sınırı aşılmaz', () => {
     const p = new PlayerState();
-    p.addItem('sifali-ot', 5000);
-    expect(p.count('sifali-ot')).toBe(MAX_STACK);
+    p.addItem('tas-cevheri', 5000);
+    expect(p.count('tas-cevheri')).toBe(MAX_STACK);
   });
 
   it('ekipman kuşanılır, aynı yerdekinin yerine geçer, zırh parçaları toplanır', () => {
@@ -139,15 +139,15 @@ describe('PlayerState', () => {
   it('sahip olunmayan ya da ganimet olan eşya kuşanılamaz', () => {
     const p = new PlayerState();
     expect(p.equip('eq-robe-earth-1-1')).toBe(false);
-    p.addItem('sifali-ot');
-    expect(p.equip('sifali-ot')).toBe(false);
+    p.addItem('tas-cevheri');
+    expect(p.equip('tas-cevheri')).toBe(false);
   });
 
   it('snapshot/restore her şeyi geri getirir', () => {
     const a = new PlayerState();
     a.addMoney('kor', 250);
     a.addXp(320);
-    a.addItem('sifali-ot', 4);
+    a.addItem('tas-cevheri', 4);
     a.addItem('eq-robe-fire-4-1');
     a.equip('eq-robe-fire-4-1');
     const b = new PlayerState();
@@ -162,14 +162,14 @@ describe('PlayerState', () => {
     p.restore({
       gold: -5,
       xp: Number.NaN,
-      items: { 'sifali-ot': 99999, 'sahte-esya': 5, 'kristal-parcasi': -3, 'eq-hat-earth-1-1': 1.9 },
+      items: { 'tas-cevheri': 99999, 'sahte-esya': 5, 'derin-inci': -3, 'eq-hat-earth-1-1': 1.9 },
       equipped: { robe: 'eq-hat-earth-1-1', hat: 'eq-hat-air-2-1', ring: 'eq-ring-fire-1-1' }, // yanlış yer, sahip değil, sahip değil
     });
     expect(p.balance('kor')).toBe(0);
     expect(p.xp).toBe(0);
-    expect(p.count('sifali-ot')).toBe(MAX_STACK);
+    expect(p.count('tas-cevheri')).toBe(MAX_STACK);
     expect(p.count('sahte-esya')).toBe(0);
-    expect(p.count('kristal-parcasi')).toBe(0);
+    expect(p.count('derin-inci')).toBe(0);
     expect(p.count('eq-hat-earth-1-1')).toBe(1);
     expect(p.equipped).toEqual({}); // hiçbiri geçerli değil
     p.restore(undefined);
@@ -181,7 +181,7 @@ describe('PlayerState', () => {
     p.restore({
       gold: 10,
       xp: 0,
-      items: { 'cirak-cuppesi': 1, 'yun-sapka': 1, 'tas-tilsim': 1, 'kucuk-canta': 1, 'sifali-ot': 2 },
+      items: { 'cirak-cuppesi': 1, 'yun-sapka': 1, 'tas-tilsim': 1, 'kucuk-canta': 1, 'tas-cevheri': 2 },
       equipped: { robe: 'cirak-cuppesi', hat: 'yun-sapka', amulet: 'tas-tilsim', bag: 'kucuk-canta' } as never,
     });
     expect(p.count('eq-robe-earth-1-1')).toBe(1);
@@ -190,7 +190,7 @@ describe('PlayerState', () => {
     expect(p.count('kucuk-canta')).toBe(1);
     expect(getItem('kucuk-canta')?.carry).toEqual({ wands: 3, goods: 20, gear: 2 });
     expect(getItem('kucuk-canta')?.element).toBeUndefined();
-    expect(p.count('sifali-ot')).toBe(2);
+    expect(p.count('tas-cevheri')).toBe(2);
   });
 
   it('değişince dinleyiciler çağrılır', () => {
@@ -198,7 +198,7 @@ describe('PlayerState', () => {
     let n = 0;
     p.onChange(() => n++);
     p.addMoney('kor', 5);
-    p.addItem('sifali-ot');
+    p.addItem('tas-cevheri');
     p.addXp(5);
     expect(n).toBe(3);
   });
@@ -245,18 +245,18 @@ describe('alışveriş', () => {
 
   it('ganimet yarı fiyatına satılır, altın gelir, eşya düşer', () => {
     const p = new PlayerState();
-    p.addItem('kristal-parcasi', 3);
-    const r = sell(p, 'kristal-parcasi', 2);
-    expect(r).toEqual({ ok: true, price: 22 }); // 11 × 2
-    expect(p.balance('kor')).toBe(22);
-    expect(p.count('kristal-parcasi')).toBe(1);
+    p.addItem('derin-inci', 3);
+    const r = sell(p, 'derin-inci', 2);
+    expect(r).toEqual({ ok: true, price: 70 }); // 35 × 2
+    expect(p.balance('kor')).toBe(70);
+    expect(p.count('derin-inci')).toBe(1);
   });
 
   it('olmayan eşya ve fazla adet satılamaz; giyilen tek kopya önce çıkarılmalı', () => {
     const p = new PlayerState();
-    expect(sell(p, 'sifali-ot')).toMatchObject({ ok: false });
-    p.addItem('sifali-ot', 1);
-    expect(sell(p, 'sifali-ot', 2)).toMatchObject({ ok: false });
+    expect(sell(p, 'tas-cevheri')).toMatchObject({ ok: false });
+    p.addItem('tas-cevheri', 1);
+    expect(sell(p, 'tas-cevheri', 2)).toMatchObject({ ok: false });
     p.addMoney('kor', 100);
     buyItem(p, 'eq-hat-earth-1-1', 40); // kuşanılır
     expect(sell(p, 'eq-hat-earth-1-1')).toMatchObject({ ok: false, reason: expect.stringContaining('çıkar') });
@@ -275,9 +275,9 @@ describe('alışveriş', () => {
 
   it('geçersiz adet ve eşya reddedilir', () => {
     const p = new PlayerState();
-    p.addItem('sifali-ot', 5);
-    expect(sell(p, 'sifali-ot', 0)).toMatchObject({ ok: false });
-    expect(sell(p, 'sifali-ot', -2)).toMatchObject({ ok: false });
+    p.addItem('tas-cevheri', 5);
+    expect(sell(p, 'tas-cevheri', 0)).toMatchObject({ ok: false });
+    expect(sell(p, 'tas-cevheri', -2)).toMatchObject({ ok: false });
     expect(sell(p, 'yok')).toMatchObject({ ok: false });
   });
 
@@ -294,5 +294,15 @@ describe('alışveriş', () => {
 
   it('getItem ekipmanı bulur', () => {
     expect(getItem('eq-ring-air-6-1')?.timeBonus).toBeGreaterThan(0);
+  });
+});
+
+describe('kaldırılan ganimet eşyaları (Task 37)', () => {
+  it('eski kayıttaki ot, kristal, toz ve post yarı değerinden Kor olur ve çantaya girmez', () => {
+    const p = new PlayerState();
+    p.restore({ items: { 'sifali-ot': 10, 'kristal-parcasi': 2, 'ates-tozu': 1, 'kurt-postu': 3 } } as never);
+    expect(p.count('sifali-ot')).toBe(0);
+    expect(p.balance('kor')).toBe(4 * 10 + 11 * 2 + 7 * 1 + 17 * 3);
+    expect(p.inventory()).toEqual([]);
   });
 });

@@ -14,15 +14,15 @@ export const TIERS: readonly Tier[] = [1, 2, 3, 4];
 export interface EnemyKind {
   element: Element;
   name: string;
-  /** Yenince düşebilen ticari ganimet */
+  /** Yenince düşebilen ticari mal (düşmanın elementinin malı) */
   material: string;
 }
 
 export const ENEMY_KINDS: Readonly<Record<Element, EnemyKind>> = {
-  fire: { element: 'fire', name: 'Köz Cini', material: 'ates-tozu' },
-  water: { element: 'water', name: 'Dalga Hayaleti', material: 'kristal-parcasi' },
-  earth: { element: 'earth', name: 'Taş Bekçi', material: 'sifali-ot' },
-  air: { element: 'air', name: 'Fırtına Kurdu', material: 'kurt-postu' },
+  fire: { element: 'fire', name: 'Köz Cini', material: 'kor-baharati' },
+  water: { element: 'water', name: 'Dalga Hayaleti', material: 'derin-inci' },
+  earth: { element: 'earth', name: 'Taş Bekçi', material: 'tas-cevheri' },
+  air: { element: 'air', name: 'Fırtına Kurdu', material: 'bulut-ipegi' },
 };
 
 /** Kademeye göre düşmanın seviyesi (can, güç ve ödül buradan gelir) */

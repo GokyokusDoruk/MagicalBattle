@@ -141,7 +141,7 @@ describe('eski ekipmanın dönüşümü', () => {
       expect(getItem(now), now).toBeDefined();
       expect(migrateItemId(old)).toBe(now);
     }
-    expect(migrateItemId('sifali-ot')).toBe('sifali-ot'); // eski olmayan değişmez
+    expect(migrateItemId('tas-cevheri')).toBe('tas-cevheri'); // eski olmayan değişmez
   });
 
   it('seviyesiz ekipman kimliği (Task 36 öncesi) seviye 1 olur; seviyeli kimlik aynen kalır', () => {

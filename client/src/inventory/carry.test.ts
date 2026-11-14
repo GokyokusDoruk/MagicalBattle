@@ -4,6 +4,7 @@ import { ITEMS, isBag, itemCategory } from '../economy/items';
 import { PlayerState } from '../economy/player';
 import { buyItem, sell as sellItem } from '../economy/shop';
 import { QuestEngine } from '../quests/engine';
+import { TEST_QUESTS } from '../quests/testQuests';
 import { CARRY_SKILLS, getCarrySkill } from '../skills/catalog';
 import { SkillTree } from '../skills/tree';
 import { wandIdOf } from '../wands/catalog';
@@ -89,22 +90,22 @@ describe('kapasite ve kullanım', () => {
 
   it('eşya ve iksir "eşya" kapasitesini doldurur; sınırda ekleme reddedilir, hiçbiri eklenmez', () => {
     const { player, carry } = setup(1);
-    expect(player.addItem('ates-tozu', 20)).toBe(true);
+    expect(player.addItem('kor-baharati', 20)).toBe(true);
     expect(carry.usage().goods).toBe(20);
     expect(carry.room('goods')).toBe(0);
-    expect(player.addItem('ates-tozu', 1)).toBe(false);
+    expect(player.addItem('kor-baharati', 1)).toBe(false);
     expect(player.addItem('iksir-kucuk', 1)).toBe(false); // iksir de eşya yeri kaplar
-    expect(player.count('ates-tozu')).toBe(20);
-    player.removeItem('ates-tozu', 5);
+    expect(player.count('kor-baharati')).toBe(20);
+    player.removeItem('kor-baharati', 5);
     expect(player.addItem('iksir-kucuk', 5)).toBe(true);
     expect(player.addItem('iksir-kucuk', 1)).toBe(false);
   });
 
   it('addItemPartial kapasitenin yettiği kadarını ekler', () => {
     const { player } = setup(1);
-    expect(player.addItemPartial('kurt-postu', 25)).toBe(20);
-    expect(player.count('kurt-postu')).toBe(20);
-    expect(player.addItemPartial('kurt-postu', 5)).toBe(0);
+    expect(player.addItemPartial('bulut-ipegi', 25)).toBe(20);
+    expect(player.count('bulut-ipegi')).toBe(20);
+    expect(player.addItemPartial('bulut-ipegi', 5)).toBe(0);
   });
 
   it('giyilmeyen ekipman "kuşanılabilir" yeri kaplar, giyilen kaplamaz', () => {
@@ -208,11 +209,11 @@ describe('çantalar', () => {
     const { player } = setup(1);
     player.addItem('eq-bag-earth-1-1');
     player.equip('eq-bag-earth-1-1');
-    player.addItem('ates-tozu', 30); // 40 kapasitede
+    player.addItem('kor-baharati', 30); // 40 kapasitede
     expect(player.unequip('bag')).toBe(false);
     expect(player.lastBlockReason).toContain('sığmıyor');
     expect(player.equipped.bag).toBe('eq-bag-earth-1-1');
-    player.removeItem('ates-tozu', 15);
+    player.removeItem('kor-baharati', 15);
     expect(player.unequip('bag')).toBe(true);
     expect(player.equipped.bag).toBeUndefined();
   });
@@ -222,7 +223,7 @@ describe('çantalar', () => {
     player.addItem('eq-bag-earth-3-1');
     player.equip('eq-bag-earth-3-1');
     player.addItem('eq-bag-earth-1-1'); // çantada ekipman
-    player.addItem('ates-tozu', 60);
+    player.addItem('kor-baharati', 60);
     expect(player.equip('eq-bag-earth-1-1')).toBe(false);
     expect(player.equipped.bag).toBe('eq-bag-earth-3-1');
   });
@@ -296,33 +297,33 @@ describe('Taşıyıcı yetenekleri', () => {
 describe('görev ödülü ve kapasite', () => {
   it('çanta doluysa sığmayan ödül eşyası altına çevrilir, kaybolmaz', () => {
     const { player } = setup(5);
-    player.addItem('kurt-postu', 20); // eşya dolu
+    player.addItem('bulut-ipegi', 20); // eşya dolu
     const before = { ...player.wallet };
-    const quests = new QuestEngine(player);
+    const quests = new QuestEngine(player, TEST_QUESTS);
     quests.accept('ash-ignis-yolu'); // ödül: 2 Ateş Tozu
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });
     expect(c.overflowMoney).toBeGreaterThan(0);
-    expect(player.count('ates-tozu')).toBe(0);
+    expect(player.count('kor-baharati')).toBe(0);
     expect(player.balance(c.currency)).toBe(before[c.currency] + c.money + c.overflowMoney);
   });
 
   it('yer varsa ödül eşyası çantaya girer, altına çevrilmez', () => {
     const { player } = setup(5);
-    const quests = new QuestEngine(player);
+    const quests = new QuestEngine(player, TEST_QUESTS);
     quests.accept('ash-ignis-yolu');
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });
     expect(c.overflowMoney).toBe(0);
-    expect(player.count('ates-tozu')).toBe(2);
+    expect(player.count('kor-baharati')).toBe(2);
   });
 });
 
 describe('kayıttan yükleme', () => {
   it('yüklerken kapasite denetlenmez (kayıt dolu olabilir)', () => {
     const { player, carry } = setup(1);
-    player.restore({ gold: 0, xp: 0, items: { 'ates-tozu': 50, 'eq-robe-earth-1-1': 1, 'eq-hat-earth-1-1': 1, 'eq-ring-earth-1-1': 1 }, equipped: {} });
-    expect(player.count('ates-tozu')).toBe(50);
+    player.restore({ gold: 0, xp: 0, items: { 'kor-baharati': 50, 'eq-robe-earth-1-1': 1, 'eq-hat-earth-1-1': 1, 'eq-ring-earth-1-1': 1 }, equipped: {} });
+    expect(player.count('kor-baharati')).toBe(50);
     expect(carry.isOverloaded()).toBe(true);
-    expect(player.addItem('kurt-postu')).toBe(false); // yeni eşya alınamaz
+    expect(player.addItem('bulut-ipegi')).toBe(false); // yeni eşya alınamaz
   });
 
   it('çanta kuşanılı kaydı geri gelir', () => {
