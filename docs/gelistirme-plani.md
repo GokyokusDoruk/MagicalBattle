@@ -28,7 +28,7 @@ Not: **Asa birleştirme (5 → 1) kaldırıldı** (Task 22).
 | **29** | **Bölge savaşları:** çimen ve kumsalda karo başına %10, zemine göre element (kumsal su, şehir çevresi şehrin elementi, yeşillik toprak), savaştan sonra 5 sn koruma | 2 (**bitti**) |
 | **30** | **Madenler (bu PR):** şehir başına 4 element madeni, 3 peş peşe savaş, artırılmış ganimet, 10 dk dinlenme | 1 |
 | 31 | **Korumalı sandıklar** | 3 |
-| 32 | Çok oyunculu 1v1 arena (Colyseus) | eski 21 |
+| 32 | ~~Çok oyunculu 1v1 arena (Colyseus)~~ **İptal:** oyun tek oyunculu kalacak | eski 21 |
 
 ## Kararlar (devamı)
 
