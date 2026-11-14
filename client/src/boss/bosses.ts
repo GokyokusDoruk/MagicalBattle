@@ -92,7 +92,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 4,
     id: 'soylu-sampiyonu',
     title: 'Soylu Şampiyonu',
-    foes: [{ name: 'Soylu Şampiyonu', hp: 540, basePower: 85, armor: 0.35, skill: 0.55, elements: { earth: 2, air: 1 } }],
+    foes: [{ name: 'Soylu Şampiyonu', hp: 510, basePower: 85, armor: 0.3, skill: 0.55, elements: { earth: 2, air: 1 } }],
     intro: [{ speaker: 'Soylu Şampiyonu', text: 'Ailemi tehdit eden sensin. Zırhımı delecek büyü henüz doğmadı.' }],
     reward: { money: 280, xp: 250 },
     targetLevel: 7,

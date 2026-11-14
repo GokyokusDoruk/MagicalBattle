@@ -54,7 +54,7 @@ export const LEVEL_BONUS = 0.008;
 export const ROLE_UP = 1.25;
 export const ROLE_DOWN = 0.75;
 /** Asanın elementi, seçilen büyünün elementiyle aynıysa hasar bu kadar artar (%50) */
-export const ELEMENT_MATCH = 1.5;
+export const ELEMENT_MATCH = 1.25;
 /** Büyü süresi bonusu: B başına saniye (çizim süresi uzar) */
 export const TIME_PER_STRENGTH_SEC = 2;
 

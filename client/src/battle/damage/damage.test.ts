@@ -56,10 +56,10 @@ describe('element döngüsü', () => {
     for (const e of ELEMENTS) expect(elementRelation(e, e)).toBe('neutral');
   });
 
-  it('16 kombinasyonun çarpanları: dört üstünlük 1.5, dört dezavantaj 0.5, kalanı 1', () => {
-    const counts = { 1.5: 0, 0.5: 0, 1: 0 } as Record<number, number>;
+  it('16 kombinasyonun çarpanları: dört üstünlük 1.25, dört dezavantaj 0.75, kalanı 1', () => {
+    const counts = { 1.25: 0, 0.75: 0, 1: 0 } as Record<number, number>;
     for (const a of ELEMENTS) for (const d of ELEMENTS) counts[elementMultiplier(a, d)]++;
-    expect(counts).toEqual({ 1.5: 4, 0.5: 4, 1: 8 });
+    expect(counts).toEqual({ 1.25: 4, 0.75: 4, 1: 8 });
   });
 
   it('her elementin tam bir yendiği ve tam bir kendini yenen elementi var (adil döngü)', () => {
@@ -141,12 +141,12 @@ describe('calculateDamage', () => {
     expect(headCovered.weightedUnblockedRatio).toBeLessThan(noDefense.weightedUnblockedRatio);
   });
 
-  it('element üstünlüğü ×1.5, dezavantaj ×0.5, etkisiz ×1', () => {
+  it('element üstünlüğü ×1.25, dezavantaj ×0.75, etkisiz ×1', () => {
     const neutral = calculateDamage(base({ attackerElement: 'fire', defenderElement: 'earth' }));
     const adv = calculateDamage(base({ attackerElement: 'water', defenderElement: 'fire' }));
     const dis = calculateDamage(base({ attackerElement: 'fire', defenderElement: 'water' }));
-    expect(adv.afterElement / neutral.afterElement).toBeCloseTo(1.5, 5);
-    expect(dis.afterElement / neutral.afterElement).toBeCloseTo(0.5, 5);
+    expect(adv.afterElement / neutral.afterElement).toBeCloseTo(1.25, 5);
+    expect(dis.afterElement / neutral.afterElement).toBeCloseTo(0.75, 5);
     expect(adv.elementRelation).toBe('advantage');
     expect(dis.elementRelation).toBe('disadvantage');
   });
@@ -180,7 +180,7 @@ describe('calculateDamage', () => {
       }),
     );
     expect(r.afterRegion).toBeCloseTo(r.power * r.weightedUnblockedRatio, 6);
-    expect(r.afterElement).toBeCloseTo(r.afterRegion * 1.5, 6);
+    expect(r.afterElement).toBeCloseTo(r.afterRegion * 1.25, 6);
     expect(r.afterSkills).toBeCloseTo(r.afterElement * 1.25 * 0.8, 6);
     expect(r.afterArmor).toBeCloseTo(r.afterSkills * 0.6, 6);
     expect(r.finalDamage).toBe(Math.round(r.afterArmor));

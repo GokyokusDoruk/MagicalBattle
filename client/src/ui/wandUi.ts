@@ -1,4 +1,5 @@
 import { ELEMENT_NAMES } from '../battle/damage/elements';
+import { describePassive } from '../wands/passives';
 import {
   ELEMENT_COLORS,
   ELEMENT_MATCH,
@@ -80,7 +81,8 @@ export class WandUi {
         <ul class="mt-1 list-disc pl-4 text-xs text-slate-200">
           <li>Saldırı hasarı ${pct(w.attackMultiplier)} (${esc(ELEMENT_NAMES[w.element])} büyüsünde ${pct(w.attackMultiplier * ELEMENT_MATCH)})</li>
           <li>Savunma gücü ${pct(w.defenseMultiplier)}</li>
-          <li>Büyü süresi +${w.timeBonusSec.toFixed(2)} sn</li></ul></div>
+          <li>Büyü süresi +${w.timeBonusSec.toFixed(2)} sn</li>
+          <li class="text-emerald-300" data-passive>Pasif: ${esc(describePassive(w.element))}${this.deps.wands.usable(w.id) ? '' : ' (seviyen yetmiyor)'}</li></ul></div>
       <button type="button" data-action="unequip" class="rounded bg-slate-700 px-2 py-1 text-xs">Çıkar</button></div>`;
   }
 
