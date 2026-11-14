@@ -15,6 +15,8 @@ export interface DrawingCanvasOptions extends SessionOptions {
   drawSound?: () => DrawLoop;
   /** Yanık İzi: ekranda beliren yara izi sayısı. Dokunan her iz ekranı kırmızıya boyar ve 0.2 sn süre alır. */
   scars?: number;
+  /** Sis Perdesi: savunma ekranını kaplayan sis bulutu sayısı (altındaki çizim ve hayalet görünmez) */
+  fog?: number;
   /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
   random?: () => number;
 }
@@ -51,6 +53,13 @@ export function placeScars(count: number, random: () => number = Math.random): {
   return out;
 }
 
+/** Sis bulutu konumları: tuvale yayılır (saf fonksiyon). */
+export function placeFog(count: number, random: () => number = Math.random): { x: number; y: number; r: number }[] {
+  const out: { x: number; y: number; r: number }[] = [];
+  for (let i = 0; i < count; i++) out.push({ x: 40 + random() * (LOGICAL_SIZE - 80), y: 70 + random() * (LOGICAL_SIZE - 120), r: 48 + random() * 22 });
+  return out;
+}
+
 /** a-b doğru parçası c noktasına `r` mesafeden yakın mı */
 export function segmentNearPoint(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }, r: number): boolean {
   const dx = b.x - a.x;
@@ -79,6 +88,7 @@ export class DrawingCanvas {
   private lastMove: { x: number; y: number; at: number } | null = null;
   private scars: Scar[] = [];
   private flashUntil = 0;
+  private fogs: { x: number; y: number; r: number }[] = [];
 
   constructor(private readonly options: DrawingCanvasOptions) {
     this.session = new DrawingSession(options);
@@ -113,6 +123,7 @@ export class DrawingCanvas {
     this.session.start(performance.now());
     this.scars = placeScars(Math.max(0, Math.floor(this.options.scars ?? 0)), this.options.random).map((s) => ({ ...s, hit: false }));
     this.flashUntil = 0;
+    this.fogs = placeFog(Math.max(0, Math.floor(this.options.fog ?? 0)), this.options.random);
     this.fitCanvas();
     this.timer = window.setInterval(() => this.frame(), Math.min(DWELL_SAMPLE_MS, 16));
     this.frame();
@@ -265,6 +276,21 @@ export class DrawingCanvas {
     ctx.restore();
   }
 
+  /** Sis bulutları: altındaki çizimi ve hayaleti örter. */
+  private drawFog(scale: number): void {
+    const { ctx } = this;
+    for (const f of this.fogs) {
+      const g = ctx.createRadialGradient(f.x * scale, f.y * scale, f.r * 0.15 * scale, f.x * scale, f.y * scale, f.r * scale);
+      g.addColorStop(0, 'rgba(186,230,253,0.92)');
+      g.addColorStop(0.7, 'rgba(147,197,253,0.7)');
+      g.addColorStop(1, 'rgba(147,197,253,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(f.x * scale, f.y * scale, f.r * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   /** Küçük kırmızı yara izleri: eğik bir kesik ve üstünde iki çapraz çizgi; dokunulan iz solar. */
   private drawScars(scale: number): void {
     const { ctx } = this;
@@ -316,6 +342,7 @@ export class DrawingCanvas {
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
     this.drawScars(scale);
     this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
+    this.drawFog(scale);
     if (now < this.flashUntil) {
       ctx.fillStyle = `rgba(239,68,68,${(0.45 * (this.flashUntil - now)) / 280})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);

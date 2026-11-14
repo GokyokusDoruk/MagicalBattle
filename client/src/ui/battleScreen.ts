@@ -239,7 +239,7 @@ export class BattleScreen implements BattleIO {
       return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
-    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined);
+    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'defense' ? extras?.fog : undefined);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -247,7 +247,7 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, fog?: number): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
@@ -259,6 +259,7 @@ export class BattleScreen implements BattleIO {
       // Asa çizim süresini uzatabilir (varsayılan 3 sn)
       drawTimeMs: limitSec ? Math.round(limitSec * 1000) : undefined,
       scars,
+      fog,
       drawSound: () => this.sfx.beginDraw(element),
     });
     // Boss mekaniği (zihin kontrolü): belirli döngüden sonra çizim tuvali bulanıklaşır
@@ -270,6 +271,22 @@ export class BattleScreen implements BattleIO {
       this.closeModal();
       return result;
     });
+  }
+
+  /** Şifa Kabarcıkları: can çubuğunun üstünde yeşil kabarcıklar yükselir. */
+  private bubbleHeal(ref: SlotRef): void {
+    const card = this.hud.get(key(ref))?.card;
+    if (!card) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'pointer-events-none absolute inset-0 overflow-visible';
+    wrap.innerHTML = Array.from({ length: 6 }, (_, i) => `<span style="position:absolute;left:${10 + i * 15}%;bottom:0;font-size:14px;opacity:0.9;transition:transform 900ms ease-out,opacity 900ms ease-out">🫧</span>`).join('');
+    card.style.position = 'relative';
+    card.appendChild(wrap);
+    requestAnimationFrame(() => wrap.querySelectorAll<HTMLElement>('span').forEach((el, i) => {
+      el.style.transform = `translateY(-${24 + (i % 3) * 8}px)`;
+      el.style.opacity = '0';
+    }));
+    window.setTimeout(() => wrap.remove(), 1000);
   }
 
   /** Döngü başında yanan savaşçılar yanma hasarı yer. */
@@ -307,6 +324,8 @@ export class BattleScreen implements BattleIO {
     if (report.chainStacks) notes.push(`⛓️ Alev Zinciri ×${report.chainStacks}`);
     if (report.scatter) notes.push('✨ Kıvılcımlar savunmayı aştı');
     if (report.shieldBroken) notes.push('🛡️💥 Kalkan kırıldı!');
+    if (report.fogged && !report.defenseFailed) notes.push('🌫️ Sis Perdesi');
+    if (report.chilled) notes.push(`❄️ ${this.name(action.defender)} yavaşladı`);
     if (report.ignited) notes.push(`🔥 ${this.name(action.defender)} tutuştu!`);
     if (notes.length > 0) void this.say(this.calc, notes.join('<br>'), 1500, 'bg-orange-800/85 text-orange-50');
     // Kişilikli botlar (Elysia) hasar yiyince tepki verir
@@ -314,10 +333,11 @@ export class BattleScreen implements BattleIO {
     if (report.reflected > 0) this.bots.get(key(action.attacker))?.onDamaged(report.reflected, this.engine.fighter(action.attacker).maxHp);
     this.updateHud();
     if (report.healed > 0) {
-      void this.say(this.center, `${this.name(action.attacker)} +${report.healed} can çaldı`, 1100, 'bg-emerald-900/80 text-emerald-100');
+      void this.say(this.center, `🫧 ${this.name(action.attacker)} <span class="text-emerald-300">+${report.healed} HP</span>`, 1100, 'bg-emerald-900/80 text-emerald-100');
+      this.bubbleHeal(action.attacker);
     }
     if (report.reflected > 0) {
-      await this.say(this.center, `Yansıma! ${this.name(action.attacker)} -${report.reflected}`, 1200, 'bg-sky-900/80 text-sky-100');
+      await this.say(this.center, `🌊 Yansıyan dalga! ${this.name(action.attacker)} -${report.reflected}`, 1200, 'bg-sky-900/80 text-sky-100');
     }
     if (report.defeated) {
       this.arena.defeat(action.defender);

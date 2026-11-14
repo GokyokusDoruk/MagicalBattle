@@ -31,7 +31,7 @@ describe('katalog', () => {
   });
 
   it('eski yetenek adları kalktı; ateşin yeni adları var', () => {
-    expect(SKILLS.map((s) => s.name)).toEqual(['Közleyen Alev', 'Kalkan Kıran', 'Alev Zinciri', 'Kıvılcım Saçması', 'Yanık İzi']);
+    expect(skillsOf('fire').map((s) => s.name)).toEqual(['Közleyen Alev', 'Kalkan Kıran', 'Alev Zinciri', 'Kıvılcım Saçması', 'Yanık İzi']);
     expect(getSkill('fire-power-1')).toBeUndefined();
   });
 
