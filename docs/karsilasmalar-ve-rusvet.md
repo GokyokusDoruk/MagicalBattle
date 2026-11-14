@@ -10,7 +10,7 @@ Kod: `client/src/enemies/zones.ts` (çalılık karşılaşması), `enemies/bribe
 
 ## Sabit düşmanlar
 
-Haritada 88 sabit düşman durur (Task 39). Üzerine basınca (düşmanın karosuna girince) savaş paneli açılır; yenilince ya da rüşvetle ayrılınca **4 dakika** sonra geri gelir.
+Haritada 88 sabit düşman durur (Task 39). Düşmanın karosuna girince ya da **yan karodan** (üst, alt, sağ, sol; çaprazdan değil) yaklaşınca savaş paneli açılır; yenilince ya da rüşvetle ayrılınca **4 dakika** sonra geri gelir.
 
 ## Rüşvet
 

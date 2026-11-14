@@ -17,7 +17,8 @@ const GATE_NOTICE_COOLDOWN_MS = 3000;
 const MARKER_TRIGGER_RANGE = TILE_SIZE * 0.9;
 const MERCHANT_RANGE = TILE_SIZE * 1.6;
 const PILE_RANGE = TILE_SIZE * 0.9;
-const ENEMY_RANGE = TILE_SIZE * 0.8;
+/** Düşmana yan karodan (üst, alt, sağ, sol) yaklaşınca da savaş başlar; çaprazdan başlamaz */
+const ENEMY_RANGE = TILE_SIZE * 1.1;
 
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
 export interface WorldContext {
