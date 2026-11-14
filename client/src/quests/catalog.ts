@@ -85,6 +85,24 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     minLevel: 3,
     reward: { gold: 220, xp: 140 },
   },
+  {
+    id: 'crystal-dalga-avi',
+    title: 'Dalga Avı',
+    giver: 'still-crystal',
+    description: 'Sahildeki yaratıklar dalgıçlarımızı korkutuyor. Yolda karşına çıkan üç düşmanı yen, ödülün yoluna düşecek.',
+    objective: { type: 'battleWon', count: 3 },
+    minLevel: 3,
+    reward: { gold: 150, xp: 120, items: [{ id: 'iksir-orta', count: 1 }] },
+  },
+  {
+    id: 'crystal-tas-haberi',
+    title: "Stone Heart'a Haber",
+    giver: 'still-crystal',
+    description: "Derin incilerimizi satacak yeni alıcı arıyoruz. Stone Heart Kalesi'ne git, surların içine gir, dönüşte seni zengin eden bir ödül olacak.",
+    objective: { type: 'visit', locationId: 'stone-heart' },
+    minLevel: 2,
+    reward: { gold: 130, xp: 90 },
+  },
 ];
 
 export function getQuest(id: string): QuestDef | undefined {

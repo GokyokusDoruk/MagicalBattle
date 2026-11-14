@@ -36,6 +36,8 @@ XP eğrisi: seviye 2 = 100 XP, 3 = 300, 4 = 600, 5 = 1000... (`50 × (n−1) × 
 | Tapınağın Sessizliği | Vine | Abyss'e gir | 150 altın, 90 XP, Kurt Postu | Seviye 2 |
 | Sis Otları Sepeti | Bataklık | 8 ot topla | 100 altın, 80 XP, 2 Ateş Tozu | Seviye 2 |
 | Kristalin Şehri | Bataklık | Still Crystal'a gir | 220 altın, 140 XP | Seviye 3 |
+| Dalga Avı | Still Crystal (han) | 3 savaş kazan (düşman, bölge, maden, sandık) | 150 altın, 120 XP, Can İksiri | Seviye 3 |
+| Stone Heart'a Haber | Still Crystal (han) | Stone Heart'a gir | 130 altın, 90 XP | Seviye 2 |
 
 Kurallar:
 - **Toplama görevlerinde** kabul anında çantandaki eşya sayılır (önceden topladıkların boşa gitmez). Sonra toplananlar eklenir; **eşyayı satmak ilerlemeyi geri almaz**. Görev eşyaları tüketmez, çantada kalır.
