@@ -17,6 +17,8 @@ export interface DrawingCanvasOptions extends SessionOptions {
   scars?: number;
   /** Sis Perdesi: savunma ekranını kaplayan sis bulutu sayısı (altındaki çizim ve hayalet görünmez) */
   fog?: number;
+  /** Sarsıntılı Rüzgâr: çizim ekranının sarsıntı şiddeti (1-3); tuval titrer, çizmek zorlaşır */
+  shake?: number;
   /** Çamur Yaması: savunma ekranındaki çamur yaması sayısı (içine çizilemez) */
   mud?: number;
   /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
@@ -233,13 +235,26 @@ export class DrawingCanvas {
   private frame(): void {
     const now = performance.now();
     this.session.tick(now);
+    this.applyShake();
     // Kalem durduysa ses kısılır
     if (this.loop && this.lastMove && now - this.lastMove.at > 70) this.loop.update(0);
     this.render(now);
     if (this.session.currentPhase === 'finished') this.end();
   }
 
+  /** Sarsıntı: tuvali her karede rastgele birkaç piksel oynatır (şiddet başına ~2.5 px). */
+  private applyShake(): void {
+    const amp = (this.options.shake ?? 0) * 2.5;
+    if (amp <= 0 || this.session.currentPhase === 'finished') {
+      this.canvas.style.transform = '';
+      return;
+    }
+    const r = this.options.random ?? Math.random;
+    this.canvas.style.transform = `translate(${((r() - 0.5) * 2 * amp).toFixed(1)}px, ${((r() - 0.5) * 2 * amp).toFixed(1)}px)`;
+  }
+
   private end(): void {
+    this.canvas.style.transform = '';
     window.clearInterval(this.timer);
     this.stopSound();
     const result = this.session.finish(performance.now());

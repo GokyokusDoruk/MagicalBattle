@@ -53,10 +53,19 @@ export interface SkillEffect {
   guard?: number;
   /** Toprak: rakibin savunma ekranındaki çamur yaması sayısı (içine çizilemez; botların savunması zayıflar) */
   mud?: number;
+  /** Hava: büyünün çizim süresine eklenen saniye (saldırıda ve savunmada) */
+  timeBonus?: number;
+  /** Hava: kritik vuruş şansına eklenen oran (0-1) */
+  critBonus?: number;
+  /** Hava: savunmanın tuttuğu hasarın saldırana geri savrulma şansı ve oranı */
+  reboundChance?: number;
+  reboundShare?: number;
+  /** Hava (pasif): rakip saldırı çizerken ekran sarsıntısı şiddeti (1-3) */
+  shake?: number;
 }
 
 export type EffectKey = keyof SkillEffect;
-export const EFFECT_KEYS: readonly EffectKey[] = ['burnChance', 'burnDamage', 'shieldBreak', 'chainBonus', 'scatter', 'scars', 'chillChance', 'chillSec', 'lifesteal', 'reflect', 'fog', 'armorStack', 'stunChance', 'guard', 'mud'];
+export const EFFECT_KEYS: readonly EffectKey[] = ['burnChance', 'burnDamage', 'shieldBreak', 'chainBonus', 'scatter', 'scars', 'chillChance', 'chillSec', 'lifesteal', 'reflect', 'fog', 'armorStack', 'stunChance', 'guard', 'mud', 'timeBonus', 'critBonus', 'reboundChance', 'reboundShare', 'shake'];
 
 export interface SkillDef {
   id: string;
@@ -90,6 +99,10 @@ export function describeEffect(fx: SkillEffect): string[] {
   if (fx.stunChance) out.push(`saldırın savunmayı %80+ aşarsa ${pct(fx.stunChance)} ihtimalle rakibin sıradaki saldırısı atlanır`);
   if (fx.guard) out.push(`toprak savunmasında alınan hasar -${pct(fx.guard)}`);
   if (fx.mud) out.push(`rakibin savunma ekranında ${fx.mud} çamur yaması; içine çizilemez, botların savunması zayıflar`);
+  if (fx.timeBonus) out.push(`büyü çizim süresi +${fx.timeBonus} sn`);
+  if (fx.critBonus) out.push(`kritik vuruş şansı +${pct(fx.critBonus)}`);
+  if (fx.reboundChance) out.push(`${pct(fx.reboundChance)} ihtimalle savunmanın tuttuğu hasarın ${pct(fx.reboundShare ?? 0)} kadarı saldırana geri savrulur`);
+  if (fx.shake) out.push(`rakip saldırı çizerken ekranı sarsılır (şiddet ${fx.shake}); botlar ${(fx.shake * 0.15).toFixed(2)} sn kaybeder`);
   return out;
 }
 
@@ -193,6 +206,39 @@ export const SKILLS: readonly SkillDef[] = [
     name: 'Çamur Yaması',
     summary: 'Toprak saldırısı rakibin savunma ekranına çamur yamaları döker; içlerine çizilemez, botlar çamurda zayıf savunur.',
     levels: [{ mud: 1 }, { mud: 2 }, { mud: 3 }],
+  },
+  {
+    id: 'air-gale',
+    element: 'air',
+    name: 'Fırtına Nefesi',
+    summary: 'Hava büyülerini çizmek için daha çok zamanın olur (saldırıda ve savunmada).',
+    levels: [{ timeBonus: 0.3 }, { timeBonus: 0.5 }, { timeBonus: 0.8 }],
+  },
+  {
+    id: 'air-edge',
+    element: 'air',
+    name: 'Keskin Esinti',
+    summary: 'Hava saldırıların kritik vuruş (×1.5) şansı artar.',
+    levels: [{ critBonus: 0.08 }, { critBonus: 0.14 }, { critBonus: 0.2 }],
+  },
+  {
+    id: 'air-rebound',
+    element: 'air',
+    name: 'Geri Esen Rüzgâr',
+    summary: 'Hava savunman, kalkanın tuttuğu büyünün bir kısmını çoğu zaman saldırana geri savurur.',
+    levels: [
+      { reboundChance: 0.5, reboundShare: 0.06 },
+      { reboundChance: 0.65, reboundShare: 0.08 },
+      { reboundChance: 0.8, reboundShare: 0.1 },
+    ],
+  },
+  {
+    id: 'air-tremor',
+    element: 'air',
+    name: 'Sarsıntılı Rüzgâr',
+    summary: 'Pasif: rakip saldırı büyüsü çizerken ekranı sarsılır, çizmesi zorlaşır.',
+    passive: true,
+    levels: [{ shake: 1 }, { shake: 2 }, { shake: 3 }],
   },
 ];
 

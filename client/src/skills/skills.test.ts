@@ -181,7 +181,7 @@ describe('resolveSpell: ateş yetenekleri', () => {
 
   it('yetenek yoksa etkisizdir', () => {
     expect(resolveSpell(none, 'fire', 'attack')).toEqual(neutralEffects('fire', 'attack'));
-    expect(resolvePassives(none)).toEqual({ scars: 0 });
+    expect(resolvePassives(none)).toEqual({ scars: 0, shake: 0 });
   });
 
   it('seviye değerleri doğru okunur (Közleyen Alev 3 = %40, 12 hasar)', () => {
@@ -200,7 +200,7 @@ describe('resolveSpell: ateş yetenekleri', () => {
   });
 
   it('Yanık İzi büyü elementinden bağımsız pasiftir', () => {
-    expect(resolvePassives(new Map([['fire-scars', 2]]))).toEqual({ scars: 2 });
+    expect(resolvePassives(new Map([['fire-scars', 2]]))).toEqual({ scars: 2, shake: 0 });
     const fx = resolveSpell(new Map([['fire-scars', 3]]), 'fire', 'attack');
     expect(fx).toEqual(neutralEffects('fire', 'attack'));
   });
@@ -416,7 +416,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
     ]);
     const plain = await play(fighters(), 1);
     const scarred = await play(engine, 1, { draws, random: () => 0 });
-    expect(draws).toEqual([{ scars: 3 }]);
+    expect(draws).toEqual([{ scars: 3, shake: 0 }]);
     expect(scarred.reports[0].attack.metrics.drawTimeSec).toBeCloseTo(plain.reports[0].attack.metrics.drawTimeSec - 3 * SCAR_PENALTY_SEC, 6);
     expect(scarred.reports[0].damage).toBeLessThan(plain.reports[0].damage);
   });
@@ -430,7 +430,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
     ]);
     const plain = await play(fighters(), 1);
     const safe = await play(engine, 1, { draws, random: () => 0.99 });
-    expect(draws).toEqual([{ scars: 2 }]);
+    expect(draws).toEqual([{ scars: 2, shake: 0 }]);
     expect(safe.reports[0].attack.metrics.drawTimeSec).toBe(plain.reports[0].attack.metrics.drawTimeSec);
 
     const none: DrawExtras[] = [];

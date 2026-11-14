@@ -52,12 +52,16 @@ export interface TurnReport {
   armorGained?: number;
   /** Toprak: savunma ekranındaki çamur yaması sayısı */
   mudded?: number;
+  /** Hava: savunmanın tuttuğu hasardan saldırana geri savrulan (0 = yok) */
+  rebounded?: number;
 }
 
 /** Saldırı çizerken savunanın pasiflerinden gelen ekran engelleri (Yanık İzi) */
 export interface DrawExtras {
   /** Çizim ekranında beliren yara izi sayısı */
   scars?: number;
+  /** Çizim ekranının sarsıntı şiddeti (Sarsıntılı Rüzgâr, 1-3) */
+  shake?: number;
   /** Savunma ekranını kaplayan sis bulutu sayısı (Sis Perdesi) */
   fog?: number;
   /** Savunma ekranındaki çamur yaması sayısı (Çamur Yaması) */
@@ -68,6 +72,10 @@ export interface DrawExtras {
 export const SCAR_PENALTY_SEC = 0.2;
 /** Botlar yara izine rastgele denk gelir: iz başına dokunma ihtimali */
 export const BOT_SCAR_HIT_CHANCE = 0.5;
+/** Sarsıntılı Rüzgâr: bot saldırgan şiddet başına bu kadar çizim süresi kaybeder */
+export const BOT_SHAKE_PENALTY_SEC = 0.15;
+/** Kritik şansının üst sınırı (ekipman + yetenek toplamı) */
+export const CRIT_CAP_TOTAL = 0.75;
 
 /** Bir döngüde bir savaşçının seçtiği element. Hem saldırısı hem savunması bu elementle yapılır. */
 export interface RoundChoice {
@@ -176,14 +184,13 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     // Ekipman: zırh hasarı azaltır; yüzük, bileklik ve kolye çizim süresini uzatır ve kritik şansı verir; kendi elementindeki parçalar hasarı artırır
     const attackGear = attacker.gear(attackerElement);
     const defenseGear = defender.gear(defenderElement);
-    const attackSec = baseSec + attackWand.timeBonusSec + attackGear.timeBonusSec;
-    const defenseSec = baseSec + defenseWand.timeBonusSec + defenseGear.timeBonusSec;
-
-    // Yanık İzi: savunanın pasifi saldırganın çizim ekranına yara izi koyar (insan dokununca süre kaybeder; botlar rastgele denk gelir)
     // Yetenek ağaçlarından büyüye özel etkiler: saldıran büyüsünün elementiyle, savunan savunduğu elementle
     const attackFx = attacker.spells(attackerElement, 'attack');
     const defenseFx = defender.spells(defenderElement, 'defense');
+    const attackSec = baseSec + attackWand.timeBonusSec + attackGear.timeBonusSec + attackFx.timeBonus;
+    const defenseSec = baseSec + defenseWand.timeBonusSec + defenseGear.timeBonusSec + defenseFx.timeBonus;
 
+    // Yanık İzi: savunanın pasifi saldırganın çizim ekranına yara izi koyar (insan dokununca süre kaybeder; botlar rastgele denk gelir)
     // Buz Nefesi: önceki vuruştan kalan yavaşlama bu çizimin süresini kısaltır (bir kez)
     const attackChill = attacker.chill;
     const defenseChill = defender.chill;
@@ -191,7 +198,11 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     defender.chill = 0;
 
     const scars = defender.passives.scars;
-    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), scars > 0 ? { scars } : undefined);
+    const shake = defender.passives.shake;
+    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), scars > 0 || shake > 0 ? { scars, shake } : undefined);
+    if (shake > 0 && attacker.control === 'bot' && attack.validity.valid) {
+      attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - shake * BOT_SHAKE_PENALTY_SEC) } };
+    }
     if (attackChill > 0 && attacker.control === 'bot' && attack.validity.valid) {
       attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - attackChill) } };
     }
@@ -237,7 +248,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const defenseFailed = !defense.validity.valid;
 
     // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
-    const critical = random() < attackGear.crit;
+    const critical = random() < Math.min(CRIT_CAP_TOTAL, attackGear.crit + attackFx.critBonus);
 
     // Ateş yetenekleri: kalkan kırma zarı, saçma ve zincir (zar yalnızca ilgili yetenek varsa atılır)
     const chainStacks = attackFx.chainBonus > 0 ? Math.min(LIMITS.maxChainStacks, chainBefore) : 0;
@@ -269,7 +280,12 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const healed = dealt > 0 ? engine.heal(action.attacker, dealt * attackFx.lifesteal) : 0;
     // Yansıyan Dalga: savunmanın tuttuğu hasar (savunma olmasaydı vereceği - verdiği) kadar saldırana döner
     const blockedDamage = defenseFx.reflect > 0 && !defenseFailed ? Math.max(0, calculateDamage({ ...input, defense: null, defenseBypass: 0 }).finalDamage - breakdown.finalDamage) : 0;
-    const reflected = Math.round(blockedDamage * defenseFx.reflect);
+    // Geri Esen Rüzgâr: şans tutarsa savunmanın tuttuğu hasarın bir kısmı da saldırana savrulur
+    const rebounded =
+      defenseFx.reboundChance > 0 && !defenseFailed && random() < defenseFx.reboundChance
+        ? Math.round(Math.max(0, calculateDamage({ ...input, defense: null, defenseBypass: 0 }).finalDamage - breakdown.finalDamage) * defenseFx.reboundShare)
+        : 0;
+    const reflected = Math.round(blockedDamage * defenseFx.reflect) + rebounded;
     const reflectResult = reflected > 0 ? engine.applyDamage(action.attacker, reflected) : null;
 
     // Közleyen Alev: vuruş yaşayan rakibi tutuşturabilir (yanan rakipte yenilenmez, birikmez)
@@ -314,6 +330,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         stunned,
         armorGained,
         mudded: attackFx.mud,
+        rebounded,
       },
       engine,
     );
