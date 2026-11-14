@@ -100,7 +100,7 @@ describe('su yetenekleri', () => {
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1, { defenderDraws: true });
     const fogged = await play(duel({ spells: tree.resolver }), 1, { defenderDraws: true, defenseExtras: extras });
-    expect(extras).toEqual([{ fog: 3 }]);
+    expect(extras).toEqual([{ fog: 3, mud: 0 }]);
     expect(fogged[0].breakdown!.defenseBypass).toBeCloseTo(3 * FOG_BOT_BYPASS, 6);
     expect(fogged[0].damage).toBeGreaterThan(plain[0].damage);
     const human = await play(duel({ spells: tree.resolver }, { control: 'human' }), 1, { defenderDraws: true });
