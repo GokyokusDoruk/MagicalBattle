@@ -83,7 +83,7 @@ describe('kapasite ve kullanım', () => {
 
   it('altın ağırlık yapmaz', () => {
     const { player, carry } = setup(1);
-    player.addGold(9_999_999);
+    player.addMoney('kor', 9_999_999);
     expect(carry.usage()).toEqual({ wands: 0, goods: 0, gear: 0 });
   });
 
@@ -196,7 +196,7 @@ describe('çantalar', () => {
 
   it('yeni çanta alınca daha iyisi otomatik kuşanılır, eskisi çantada kalır', () => {
     const { player } = setup(1);
-    player.addGold(2000);
+    player.addMoney('kor', 2000);
     expect(buyItem(player, 'eq-bag-earth-1', 100).ok).toBe(true);
     expect(player.equipped.bag).toBe('eq-bag-earth-1');
     expect(buyItem(player, 'eq-bag-earth-2', 220).ok).toBe(true);
@@ -237,12 +237,12 @@ describe('çantalar', () => {
 
   it('dolu çantayla alışveriş reddedilir ve altın harcanmaz', () => {
     const { player } = setup(1);
-    player.addGold(1000);
+    player.addMoney('kor', 1000);
     player.addItem('eq-robe-earth-1');
     player.addItem('eq-hat-earth-1'); // 2/2
     const r = buyItem(player, 'eq-ring-earth-1', 90);
     expect(r.ok).toBe(false);
-    expect(player.gold).toBe(1000);
+    expect(player.balance('kor')).toBe(1000);
   });
 });
 
@@ -297,13 +297,13 @@ describe('görev ödülü ve kapasite', () => {
   it('çanta doluysa sığmayan ödül eşyası altına çevrilir, kaybolmaz', () => {
     const { player } = setup(5);
     player.addItem('kurt-postu', 20); // eşya dolu
-    const goldBefore = player.gold;
+    const before = { ...player.wallet };
     const quests = new QuestEngine(player);
     quests.accept('ash-ignis-yolu'); // ödül: 2 Ateş Tozu
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });
-    expect(c.overflowGold).toBeGreaterThan(0);
+    expect(c.overflowMoney).toBeGreaterThan(0);
     expect(player.count('ates-tozu')).toBe(0);
-    expect(player.gold).toBe(goldBefore + c.gold + c.overflowGold);
+    expect(player.balance(c.currency)).toBe(before[c.currency] + c.money + c.overflowMoney);
   });
 
   it('yer varsa ödül eşyası çantaya girer, altına çevrilmez', () => {
@@ -311,7 +311,7 @@ describe('görev ödülü ve kapasite', () => {
     const quests = new QuestEngine(player);
     quests.accept('ash-ignis-yolu');
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });
-    expect(c.overflowGold).toBe(0);
+    expect(c.overflowMoney).toBe(0);
     expect(player.count('ates-tozu')).toBe(2);
   });
 });

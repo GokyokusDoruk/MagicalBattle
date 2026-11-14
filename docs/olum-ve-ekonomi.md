@@ -1,6 +1,8 @@
 # Ölüm ve ekonomi
 
-Kod: `client/src/economy/death.ts` (altın kaybı, şifacılar, en yakın şifacı), akış `client/src/game.ts` içinde `handleDeath`.
+> **Task 35:** ölünce kaybedilen para, bulunduğun bölgenin para biriminden düşer ([para-birimleri.md](para-birimleri.md)).
+
+Kod: `client/src/economy/death.ts` (para kaybı, şifacılar, en yakın şifacı), akış `client/src/game.ts` içinde `handleDeath`.
 
 ## Ne zaman ölürsün
 

@@ -1,4 +1,6 @@
 import { gearValue, getItem, isGear } from './items';
+import type { Currency } from './currency';
+import { CURRENCY_NAMES } from './currency';
 import type { PlayerState } from './player';
 
 export type TradeResult = { ok: true; price: number } | { ok: false; reason: string };
@@ -17,14 +19,14 @@ export function sellPrice(price: number, multiplier = 1): number {
 }
 
 /**
- * Verilen fiyata bir eşya satın alır: çantada yer olmalı, altın yetmeli (yoksa hiçbir şey değişmez). Aynı eşyadan birden
+ * Verilen fiyata bir eşya satın alır: çantada yer olmalı, para yetmeli (yoksa hiçbir şey değişmez). Aynı eşyadan birden
  * fazla alınabilir. Ekipman, o yuvada hiçbir şey giyilmiyorsa ya da yenisi daha nadirse otomatik kuşanılır.
  */
-export function buyItem(player: PlayerState, itemId: string, price: number): TradeResult {
+export function buyItem(player: PlayerState, itemId: string, price: number, currency: Currency = 'kor'): TradeResult {
   const item = getItem(itemId);
   if (!item) return { ok: false, reason: 'Böyle bir eşya yok.' };
   if (player.roomFor(itemId) < 1) return { ok: false, reason: 'Çantanda bunun için yer yok. Önce bir şey sat ya da at.' };
-  if (!player.spendGold(price)) return { ok: false, reason: 'Yeterli altın yok.' };
+  if (!player.spendMoney(currency, price)) return { ok: false, reason: `Yeterli ${CURRENCY_NAMES[currency]} yok.` };
 
   player.addItem(itemId);
   if (item.slot) {
@@ -38,7 +40,7 @@ export function buyItem(player: PlayerState, itemId: string, price: number): Tra
 /**
  * Çantadan eşya satar. Giyilen kopya satılamaz (önce çıkarılmalı); aynı eşyadan fazla kopya varsa fazlası satılır.
  */
-export function sell(player: PlayerState, itemId: string, count = 1, sellMultiplier = 1): TradeResult {
+export function sell(player: PlayerState, itemId: string, count = 1, sellMultiplier = 1, currency: Currency = 'kor'): TradeResult {
   const item = getItem(itemId);
   const n = Math.floor(count);
   if (!item || !(n > 0)) return { ok: false, reason: 'Geçersiz eşya.' };
@@ -49,6 +51,6 @@ export function sell(player: PlayerState, itemId: string, count = 1, sellMultipl
 
   const total = sellPrice(item.price, sellMultiplier) * n;
   player.removeItem(itemId, n);
-  player.addGold(total);
+  player.addMoney(currency, total);
   return { ok: true, price: total };
 }

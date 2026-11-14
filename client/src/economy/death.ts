@@ -1,26 +1,27 @@
 import type { ChoiceLine } from '../morality/catalog';
 import { LOCATIONS, type LocationDef } from '../world/locations';
+import { CURRENCY_NAMES, type Currency } from './currency';
 
 /**
- * Ölüm ve ekonomi (Task 20): bir boss savaşında yenilip pes edince altının bir kısmı kaybolur ve en yakın
- * köyün şifacısının yanında ayılırsın. Yalnızca altın gider; XP, seviye, eşya, asa ve ekipman korunur.
+ * Ölüm ve ekonomi (Task 20): bir boss savaşında yenilip pes edince bulunduğun bölgenin para biriminden bir kısmı kaybolur ve en yakın
+ * köyün şifacısının yanında ayılırsın. Yalnızca o birimden para gider; XP, seviye, eşya, asa ve ekipman korunur.
  * Sayılar denge için ayarlanabilir.
  */
 
-/** Altın kaybı oranı: 1. seviyede %6, her seviyede +%1, en çok %25 (yüksek seviye daha çok kaybeder) */
+/** Para kaybı oranı: 1. seviyede %6, her seviyede +%1, en çok %25 (yüksek seviye daha çok kaybeder) */
 export const LOSS_BASE = 0.05;
 export const LOSS_PER_LEVEL = 0.01;
 export const LOSS_CAP = 0.25;
 
-export function goldLossFraction(level: number): number {
+export function moneyLossFraction(level: number): number {
   const lvl = Math.max(1, Math.floor(level));
   return Math.min(LOSS_CAP, LOSS_BASE + LOSS_PER_LEVEL * lvl);
 }
 
-/** Kaybedilecek altın (tam sayı, eldeki altını aşmaz, negatif olmaz). */
-export function goldLoss(level: number, gold: number): number {
-  if (!(gold > 0)) return 0;
-  return Math.min(Math.floor(gold), Math.floor(gold * goldLossFraction(level)));
+/** Kaybedilecek para (tam sayı, o birimdeki bakiyeyi aşmaz, negatif olmaz). */
+export function moneyLoss(level: number, balance: number): number {
+  if (!(balance > 0)) return 0;
+  return Math.min(Math.floor(balance), Math.floor(balance * moneyLossFraction(level)));
 }
 
 export interface HealerDef {
@@ -72,12 +73,12 @@ export function nearestHealer(tileX: number, tileY: number, spots: readonly Heal
   return best;
 }
 
-/** Ayılma diyaloğunun satırları: ne olduğu, kaybedilen altın ve şifacının sözü. */
-export function respawnLines(spot: HealerSpot, lost: number, level: number): ChoiceLine[] {
+/** Ayılma diyaloğunun satırları: ne olduğu, kaybedilen para ve şifacının sözü. */
+export function respawnLines(spot: HealerSpot, lost: number, level: number, currency: Currency = 'kor'): ChoiceLine[] {
   const loss =
     lost > 0
-      ? `Yenilgi seni yordu. Baygınken ${lost} altın kaybettin (seviyene göre altınının %${Math.round(goldLossFraction(level) * 100)}'i).`
-      : 'Yenilgi seni yordu, ama kaybedecek altının yoktu.';
+      ? `Yenilgi seni yordu. Baygınken ${lost} ${CURRENCY_NAMES[currency]} kaybettin (seviyene göre bulunduğun bölgenin parasının %${Math.round(moneyLossFraction(level) * 100)}'i).`
+      : 'Yenilgi seni yordu, ama kaybedecek paran yoktu.';
   return [
     { speaker: 'Anlatıcı', text: `Gözlerini ${spot.location.name} köyünde açtın.` },
     { speaker: 'Anlatıcı', text: loss },

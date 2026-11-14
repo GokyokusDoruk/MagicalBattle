@@ -4,6 +4,7 @@ import { COMMON_SHARE, RARE_PREMIUM, ROTATION_MS, STOCK_MAX_RARITY, STOCK_SIZE, 
 import type { Rarity } from '../wands/catalog';
 import { GEAR_SLOT_LIST, equipmentId } from './equipment';
 import { buyItem, type TradeResult } from './shop';
+import type { Currency } from './currency';
 import type { PlayerState } from './player';
 import { getItem } from './items';
 
@@ -68,13 +69,13 @@ export class GearStock {
     return this.rotation;
   }
 
-  buy(slot: number, player: PlayerState, priceMultiplier = 1): TradeResult {
+  buy(slot: number, player: PlayerState, priceMultiplier = 1, currency: Currency = 'kor'): TradeResult {
     this.refresh();
     const entry = this.entriesNow[slot];
     if (!entry) return { ok: false, reason: 'Böyle bir eşya yok.' };
     if (this.sold.has(slot)) return { ok: false, reason: 'Bu eşya satıldı. Stok yenilenince yenileri gelir.' };
     const price = Math.max(1, Math.round(entry.price * priceMultiplier));
-    const r = buyItem(player, entry.itemId, price);
+    const r = buyItem(player, entry.itemId, price, currency);
     if (r.ok) this.sold.add(slot);
     return r;
   }

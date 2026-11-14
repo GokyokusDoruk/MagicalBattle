@@ -34,12 +34,12 @@ const SAVE = {
 };
 
 /** v1 kaydın v6'ya yükseltilmiş hali: yeni alanlar varsayılan */
-const UPGRADED = { ...SAVE, version: 7, gold: 0, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} };
+const UPGRADED = { ...SAVE, version: 8, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} };
 
 /** Güncel (v6) biçim: ekonomi, görevler, toplananlar, yetenekler, asalar ve ahlak seçimleri dolu */
 const SAVE_V2 = {
   ...UPGRADED,
-  gold: 250,
+  wallet: { kor: 250, ciy: 40, tunc: 0, tuy: 7 },
   xp: 320,
   items: { 'sifali-ot': 4, 'bekci-cuppesi': 1, 'kucuk-canta': 1 },
   equipped: { robe: 'bekci-cuppesi', bag: 'kucuk-canta' },
@@ -79,12 +79,21 @@ describe('/save', () => {
     expect((await get(cookie)).json()).toEqual({ save: SAVE_V2 });
   });
 
+  it('eski (v7) kayıttaki altın Kor olarak yükseltilir', async () => {
+    const cookie = await guestCookie('misafir7');
+    const { wallet: _wallet, ...rest } = SAVE_V2;
+    expect((await put(cookie, { ...rest, version: 7, gold: 250 })).statusCode).toBe(200);
+    expect((await get(cookie)).json().save.wallet).toEqual({ kor: 250, ciy: 0, tunc: 0, tuy: 0 });
+  });
+
   it('v2 alanları doğrulanır: hileli altın, bilinmeyen yer, bozuk görev, taşan liste reddedilir', async () => {
     const cookie = await guestCookie('misafir3');
     const bad = [
-      { gold: -1 },
-      { gold: 1e9 },
-      { gold: 1.5 },
+      { wallet: { kor: -1 } },
+      { wallet: { kor: 1e9 } },
+      { wallet: { ciy: 1.5 } },
+      { wallet: { altin: 5 } },
+      { wallet: 'çok' },
       { xp: 'çok' },
       { items: { 'sifali-ot': 0 } },
       { items: { 'sifali-ot': 5000 } },
@@ -133,23 +142,23 @@ describe('/save', () => {
 
   it('eski v2 kayıt (yeteneksiz) kabul edilir ve boş yeteneklerle v3 olur', async () => {
     const cookie = await guestCookie('misafir6');
-    const { skills: _s, wands: _w, wandEquipped: _e, choices: _c, ...v2 } = { ...SAVE_V2, version: 2 };
+    const { wallet: _wl, skills: _s, wands: _w, wandEquipped: _e, choices: _c, ...v2 } = { ...SAVE_V2, version: 2, gold: 250 };
     expect((await put(cookie, v2)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, skills: [], wands: {}, wandEquipped: null, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, skills: [], wands: {}, wandEquipped: null, choices: {} });
   });
 
   it('eski v3 kayıt (asasız) kabul edilir ve boş asalarla v4 olur', async () => {
     const cookie = await guestCookie('misafir8');
-    const { wands: _w, wandEquipped: _e, choices: _c, ...v3 } = { ...SAVE_V2, version: 3 };
+    const { wallet: _wl, wands: _w, wandEquipped: _e, choices: _c, ...v3 } = { ...SAVE_V2, version: 3, gold: 250 };
     expect((await put(cookie, v3)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wands: {}, wandEquipped: null, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, wands: {}, wandEquipped: null, choices: {} });
   });
 
   it('eski v4 kayıt (ahlak seçimsiz) kabul edilir ve boş seçimlerle v5 olur', async () => {
     const cookie = await guestCookie('misafir9');
-    const { choices: _c, ...v4 } = { ...SAVE_V2, version: 4 };
+    const { wallet: _wl, choices: _c, ...v4 } = { ...SAVE_V2, version: 4, gold: 250 };
     expect((await put(cookie, v4)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, choices: {} });
   });
 
   it('eski v5 kayıt (seviyesiz, 8 yuvalı asalar) yükseltilir: kimlikler seviye 1 olur, en nadir asa kuşanılır', async () => {
@@ -163,7 +172,7 @@ describe('/save', () => {
     };
     expect((await put(cookie, v5)).statusCode).toBe(200);
     const { save } = (await get(cookie)).json();
-    expect(save.version).toBe(7);
+    expect(save.version).toBe(8);
     expect(save.wands).toEqual({ 'wand-fire-attack-3-1': 3, 'wand-air-defense-1-1': 7 }); // eski ve yeni aynı asa toplanır
     expect(save.wandEquipped).toBe('wand-fire-attack-3-1'); // sahip olunmayan yuva atılır, en nadir seçilir
     expect(save).not.toHaveProperty('wandsEquipped');
@@ -211,7 +220,7 @@ describe('/save', () => {
 
   it('desteklenmeyen sürüm reddedilir', async () => {
     const cookie = await guestCookie('misafir5');
-    expect((await put(cookie, { ...SAVE, version: 8 })).statusCode).toBe(400);
+    expect((await put(cookie, { ...SAVE, version: 9 })).statusCode).toBe(400);
     expect((await put(cookie, { ...SAVE, version: 0 })).statusCode).toBe(400);
   });
 
@@ -250,7 +259,7 @@ describe('parseSave', () => {
   });
 
   it.each([
-    ['sürüm yanlış', { version: 8 }],
+    ['sürüm yanlış', { version: 9 }],
     ['ad çok kısa', { playerName: 'A' }],
     ['ad çok uzun', { playerName: 'x'.repeat(21) }],
     ['addaki özel karakter', { playerName: '<script>' }],

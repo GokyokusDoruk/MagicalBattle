@@ -196,10 +196,10 @@ describe('ekonomi ve görevlere bağlantı', () => {
 
     const player = new PlayerState();
     const quests = new QuestEngine(player);
-    quests.goldMultiplier = e.questGoldMultiplier;
+    quests.moneyMultiplier = e.questGoldMultiplier;
     quests.accept('ash-ignis-yolu');
     const [c] = quests.onEvent({ type: 'visit', locationId: 'ignis' });
-    expect(c.gold).toBe(Math.round(90 * e.questGoldMultiplier));
+    expect(c.money).toBe(Math.round(90 * e.questGoldMultiplier));
     expect(c.xp).toBe(60);
   });
 

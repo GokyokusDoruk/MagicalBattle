@@ -38,7 +38,7 @@ describe('kayıt verisi', () => {
       playerName: 'Aylin',
       completedChapters: [1, 2],
       savePoint: null,
-      gold: 0,
+      wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 },
       xp: 0,
       hp: null,
       items: {},
@@ -64,7 +64,7 @@ describe('kayıt verisi', () => {
 
 describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
   const extras = {
-    economy: { gold: 250, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' as const } },
+    economy: { wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' as const } },
     quests: { 'ash-ot-toplama': { status: 'active' as const, progress: 2 } },
     collected: ['p-herb-0'],
     skills: ['fire-power-1'],
@@ -74,7 +74,7 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
 
   it('buildSave ekonomi alanlarını taşır ve girdiyi kopyalar', () => {
     const s = buildSave('Aylin', [1], null, extras);
-    expect(s).toMatchObject({ gold: 250, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' }, collected: ['p-herb-0'], skills: ['fire-power-1'], wands: { 'wand-fire-attack-2-5': 1 }, wandEquipped: 'wand-fire-attack-2-5', choices: { 'c1-isciler': 'good' } });
+    expect(s).toMatchObject({ wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, xp: 320, items: { 'sifali-ot': 4 }, equipped: { robe: 'cirak-cuppesi' }, collected: ['p-herb-0'], skills: ['fire-power-1'], wands: { 'wand-fire-attack-2-5': 1 }, wandEquipped: 'wand-fire-attack-2-5', choices: { 'c1-isciler': 'good' } });
     expect(s.quests['ash-ot-toplama']).toEqual({ status: 'active', progress: 2 });
     extras.economy.items['sifali-ot'] = 99;
     extras.collected.push('x');
@@ -91,17 +91,17 @@ describe('kayıt v2: ekonomi, görevler, toplananlar', () => {
       { putSave: async (d) => void written.push(d) },
       progressWith(),
       'Aylin',
-      () => ({ economy: { gold, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandEquipped: null }, choices: {} }),
+      () => ({ economy: { wallet: { kor: gold, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandEquipped: null }, choices: {} }),
     );
     await m.saveAt(null);
     gold = 99;
     await m.saveAt(null);
-    expect(written.map((w) => w.gold)).toEqual([10, 99]);
+    expect(written.map((w) => w.wallet.kor)).toEqual([10, 99]);
   });
 
   it('normalizeSave eksik alanları varsayılanla doldurur (eski sunucu v1 dönse bile)', () => {
     const s = normalizeSave({ playerName: 'Aylin', completedChapters: [1] });
-    expect(s).toMatchObject({ version: 7, hp: null, savePoint: null, gold: 0, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} });
+    expect(s).toMatchObject({ version: 8, hp: null, savePoint: null, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} });
   });
 });
 
@@ -143,7 +143,7 @@ describe('SaveManager', () => {
     const m = new SaveManager({ putSave: async (d) => void written.push(d) }, progressWith(1), 'Aylin');
     expect(await m.saveAt(point)).toBe('saved');
     expect(written).toEqual([
-      { version: 7, playerName: 'Aylin', completedChapters: [1], savePoint: point, gold: 0, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} },
+      { version: 8, playerName: 'Aylin', completedChapters: [1], savePoint: point, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} },
     ]);
   });
 

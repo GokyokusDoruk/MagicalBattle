@@ -25,7 +25,8 @@ import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
 import { Morality } from './morality/morality';
 import { getBoss } from './boss/bosses';
-import { goldLoss, nearestHealer, respawnLines } from './economy/death';
+import { moneyLoss, nearestHealer, respawnLines } from './economy/death';
+import { CURRENCIES, CURRENCY_NAMES, cityCurrency, currencyAt, type Currency } from './economy/currency';
 import { DialogueUi } from './ui/dialogueUi';
 import { runBossFight, type HealHooks } from './ui/bossFight';
 import { runWorldFight } from './ui/worldFight';
@@ -128,7 +129,7 @@ carry.install();
 const morality = new Morality();
 // Ahlak etkisi: Düzen Bekçisi görev altınını artırır (tüccar fiyatları merchantUi'a bağlı, aşağıda)
 const applyMoralEffects = (): void => {
-  sideQuests.goldMultiplier = morality.effects.questGoldMultiplier;
+  sideQuests.moneyMultiplier = morality.effects.questGoldMultiplier;
 };
 const collected = new Set<string>(save?.collected ?? []);
 if (save) {
@@ -171,7 +172,14 @@ const sfx = getSoundEngine();
 const skillUi = new SkillTreeUi({
   tree: skillTree,
   level: () => hero.level,
-  gold: { balance: () => hero.gold, spend: (n) => hero.spendGold(n) },
+  money: {
+    canPay: (each) => CURRENCIES.every((c) => hero.balance(c) >= each),
+    pay: (each) => {
+      if (!CURRENCIES.every((c) => hero.balance(c) >= each)) return false;
+      for (const c of CURRENCIES) hero.spendMoney(c, each);
+      return true;
+    },
+  },
   onChanged: () => setDirty(true),
 });
 document.body.appendChild(skillUi.element);
@@ -217,7 +225,7 @@ const refreshHud = (): void =>
     level: hero.level,
     hp: hero.hp,
     maxHp: hero.maxHp,
-    gold: hero.gold,
+    wallet: hero.wallet,
     xp: hero.xp,
     dirty: dirty && saves.enabled,
     quests: sideQuests.active().map((q) => ({ title: q.title, ...sideQuests.progress(q.id) })),
@@ -244,8 +252,8 @@ refreshHud();
 /** Biten yan görevleri bildirir (ödüller zaten envantere yattı). */
 const handleCompletions = (list: QuestCompletion[]): void => {
   for (const c of list) {
-    const parts = [`+${c.gold} altın`, `+${c.xp} XP`, ...c.items.map((i) => `+${i.count} ${getItem(i.id)?.name ?? i.id}`)];
-    if (c.overflowGold > 0) parts.push(`çanta dolu: sığmayan eşyalar +${c.overflowGold} altına çevrildi`);
+    const parts = [`+${c.money} ${CURRENCY_NAMES[c.currency]}`, `+${c.xp} XP`, ...c.items.map((i) => `+${i.count} ${getItem(i.id)?.name ?? i.id}`)];
+    if (c.overflowMoney > 0) parts.push(`çanta dolu: sığmayan eşyalar +${c.overflowMoney} ${CURRENCY_NAMES[c.currency]} oldu`);
     toast.show(`Görev tamamlandı: ${c.quest.title} (${parts.join(', ')})`);
     sfx.play('revealAdvantage');
     if (c.levelsGained > 0) {
@@ -324,21 +332,26 @@ async function playChapterChoices(chapter: number): Promise<void> {
   if (chapter === 8) await dialogueUi.run(linesTree('final', finalLines(morality.score)), ctx);
 }
 
+/** Oyuncunun şu an bulunduğu bölgenin para birimi (en yakın şehrin birimi). */
+const regionCurrency = (): Currency => currencyAt(map.locations, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
+
 /**
- * Ölüm (boss savaşında yenilip pes etmek): altının seviyeye göre bir kısmı kaybolur, en yakın köyün şifacısının
+ * Ölüm (boss savaşında yenilip pes etmek): bulunduğun bölgenin parasının seviyeye göre bir kısmı kaybolur, en yakın köyün şifacısının
  * yanında ayılırsın. XP, seviye, eşya, asa ve ekipman korunur. (Task 20, docs/olum-ve-ekonomi.md)
  */
 async function handleDeath(): Promise<void> {
   const spot = nearestHealer(debug.player.x / TILE_SIZE, debug.player.y / TILE_SIZE);
-  const lost = goldLoss(hero.level, hero.gold);
-  if (lost > 0) hero.spendGold(lost);
+  // Ceza, bulunduğun bölgenin para biriminden düşer
+  const currency = regionCurrency();
+  const lost = moneyLoss(hero.level, hero.balance(currency));
+  if (lost > 0) hero.spendMoney(currency, lost);
   hero.fullHeal(); // şifacı seni iyileştirir
   setDirty(true);
   sfx.play('lose');
   if (!spot) return;
   pendingTeleport = { x: spot.tileX * TILE_SIZE + TILE_SIZE / 2, y: spot.tileY * TILE_SIZE + TILE_SIZE / 2 };
   const ctx = { score: () => morality.score, flags: new Set<string>(), onEffect: (): void => {} };
-  await dialogueUi.run(linesTree('respawn', respawnLines(spot, lost, hero.level)), ctx);
+  await dialogueUi.run(linesTree('respawn', respawnLines(spot, lost, hero.level, currency)), ctx);
 }
 
 /** Boss öncesi panelde can ve iksir kullanımı */
@@ -394,13 +407,13 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
     if (hpLeft !== null) hero.setHp(hpLeft);
     enemyBoard.defeat(id);
     const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * dropBoost, lootRand);
-    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
+    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
     const names = [
       ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
       ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
     ];
     sfx.play('victory');
-    toast.show(`${enemyStats(spot.element, spot.tier).name} yenildi! +${got.gold} altın, +${got.xp} XP${names.length ? `, ${names.join(', ')}` : ''}`);
+    toast.show(`${enemyStats(spot.element, spot.tier).name} yenildi! +${got.money} ${CURRENCY_NAMES[got.currency]}, +${got.xp} XP${names.length ? `, ${names.join(', ')}` : ''}`);
     if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
     if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
     setDirty(true);
@@ -456,13 +469,13 @@ async function openChest(id: string): Promise<void> {
     }
     collected.add(id);
     const loot = rollChestLoot(chest, hero.level, morality.effects.dropRateMultiplier, lootRand);
-    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
+    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
     const names = [
       ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
       ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
     ];
     sfx.play('victory');
-    toast.show(`Sandık açıldı! +${got.gold} altın, +${got.xp} XP, ${names.join(', ')}`);
+    toast.show(`Sandık açıldı! +${got.money} ${CURRENCY_NAMES[got.currency]}, +${got.xp} XP, ${names.join(', ')}`);
     if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
     if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
     setDirty(true);
@@ -509,9 +522,12 @@ async function playChapter(chapter: number): Promise<void> {
         }
         return;
       }
-      hero.addGold(boss.reward.gold);
+      // Boss ödülü, bölümün şehrinin/köyünün para biriminde
+      const bossLoc = LOCATIONS.find((l) => l.chapter === chapter);
+      const bossCurrency = bossLoc ? cityCurrency(bossLoc.id) : 'kor';
+      hero.addMoney(bossCurrency, boss.reward.money);
       const levels = hero.addXp(boss.reward.xp);
-      toast.show(`${boss.title} yenildi! +${boss.reward.gold} altın, +${boss.reward.xp} XP`);
+      toast.show(`${boss.title} yenildi! +${boss.reward.money} ${CURRENCY_NAMES[bossCurrency]}, +${boss.reward.xp} XP`);
       sfx.play('victory');
       if (levels > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 2800);
       setDirty(true);

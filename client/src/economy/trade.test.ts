@@ -76,47 +76,46 @@ describe('ticari mallar', () => {
 
   it('satın alma: altın düşer, mal eklenir; altın ya da yer yetmezse hiçbir şey değişmez', () => {
     const p = new PlayerState();
-    p.addGold(500);
+    p.addMoney('kor', 500);
     const r = buyGood(p, 'ignis', 'kor-baharati', 3);
     expect(r.ok).toBe(true);
     expect(p.count('kor-baharati')).toBe(3);
-    expect(p.gold).toBe(500 - tradeBuyPrice('ignis', 'kor-baharati') * 3);
+    expect(p.balance('kor')).toBe(500 - tradeBuyPrice('ignis', 'kor-baharati') * 3);
 
     const poor = new PlayerState();
     expect(buyGood(poor, 'ignis', 'kor-baharati', 1).ok).toBe(false);
     expect(poor.count('kor-baharati')).toBe(0);
 
     const rich = new PlayerState();
-    rich.addGold(1_000_000);
+    rich.addMoney('kor', 1_000_000);
     const room = rich.roomFor('kor-baharati');
     expect(buyGood(rich, 'ignis', 'kor-baharati', room + 1).ok).toBe(false);
-    expect(rich.gold).toBe(1_000_000);
+    expect(rich.balance('kor')).toBe(1_000_000);
     expect(buyGood(rich, 'ignis', 'ates-tozu', 1).ok).toBe(false); // ticari mal değil
   });
 
   it('satış: mal düşer, altın artar; olmayan mal satılmaz', () => {
     const p = new PlayerState();
-    p.addGold(500);
-    buyGood(p, 'ignis', 'tas-cevheri', 2);
-    const before = p.gold;
-    const r = sellGood(p, 'still-crystal', 'tas-cevheri', 2);
+    p.addMoney('kor', 500);
+    buyGood(p, 'ignis', 'tas-cevheri', 2); // Ignis'te Kor ile alınır
+    const r = sellGood(p, 'still-crystal', 'tas-cevheri', 2); // Still Crystal'da Çiy ile satılır
     expect(r.ok).toBe(true);
     expect(p.count('tas-cevheri')).toBe(0);
-    expect(p.gold).toBe(before + tradeSellPrice('still-crystal', 'tas-cevheri') * 2);
+    expect(p.balance('ciy')).toBe(tradeSellPrice('still-crystal', 'tas-cevheri') * 2);
     expect(sellGood(p, 'ignis', 'tas-cevheri', 1).ok).toBe(false);
   });
 
   it('ateş şehrinden alınan ateş malı, karşı (toprak) şehirde komşu (su) şehirden daha çok kazandırır', () => {
     const run = (sellCity: string): number => {
       const p = new PlayerState();
-      p.addGold(1000);
+      p.addMoney('kor', 1000);
       buyGood(p, 'ignis', 'kor-baharati', 10);
       sellGood(p, sellCity, 'kor-baharati', 10);
-      return p.gold;
+      // Satış geliri, satılan şehrin biriminde birikir
+      return p.balance(sellCity === 'still-crystal' ? 'ciy' : 'tunc');
     };
     const near = run('still-crystal'); // su: ateşe komşu
     const far = run('stone-heart'); // toprak: ateşin karşısı
     expect(far).toBeGreaterThan(near);
-    expect(far).toBeGreaterThan(1000);
   });
 });

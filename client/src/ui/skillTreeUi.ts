@@ -7,8 +7,8 @@ export interface SkillTreeUiDeps {
   tree: SkillTree;
   /** Karakter seviyesi (başlıkta gösterilir) */
   level: () => number;
-  /** Sıfırlama bedeli için altın; verilmezse sıfırlama bedavadır */
-  gold?: { balance: () => number; spend: (amount: number) => boolean };
+  /** Sıfırlama bedeli: dört para biriminden her biri `each` kadar öder; verilmezse sıfırlama bedavadır */
+  money?: { canPay: (each: number) => boolean; pay: (each: number) => boolean };
   /** Yetenek alındı ya da ağaç sıfırlandı (kaydedilmemiş değişiklik) */
   onChanged?: () => void;
 }
@@ -81,9 +81,9 @@ export class SkillTreeUi {
 
     const level = this.deps.level();
     const hasSkills = tree.owned.size > 0;
-    // Altın bağlı değilse (deneme ekranı) sıfırlama bedavadır
-    const resetCost = this.deps.gold ? tree.resetCost : 0;
-    const canPay = !this.deps.gold || this.deps.gold.balance() >= resetCost;
+    // Para bağlı değilse (deneme ekranı) sıfırlama bedavadır
+    const resetCost = this.deps.money ? tree.resetCostEach : 0;
+    const canPay = !this.deps.money || this.deps.money.canPay(resetCost);
 
     this.element.innerHTML = `
       <div class="flex max-h-full w-full max-w-3xl flex-col gap-3 rounded-xl border border-amber-300/40 bg-slate-950 p-4 text-amber-50 shadow-2xl">
@@ -95,7 +95,7 @@ export class SkillTreeUi {
         <div class="flex flex-wrap items-center justify-between gap-2 rounded bg-black/40 px-3 py-1 text-sm">
           <span>Seviye <b>${level}</b></span>
           <span data-points>Boş puan <b class="${tree.pointsFree > 0 ? 'text-emerald-300' : ''}">${tree.pointsFree}</b> / ${tree.pointsTotal}</span>
-          <button type="button" data-action="reset" ${!hasSkills || !canPay ? 'disabled' : ''} class="rounded bg-slate-700 px-2 py-1 text-xs disabled:opacity-40">Sıfırla${resetCost > 0 ? ` (🪙 ${resetCost})` : ''}</button>
+          <button type="button" data-action="reset" ${!hasSkills || !canPay ? 'disabled' : ''} class="rounded bg-slate-700 px-2 py-1 text-xs disabled:opacity-40">Sıfırla${resetCost > 0 ? ` (her birimden ${resetCost})` : ''}</button>
         </div>
         <div role="tablist" class="flex gap-2">${tabs}${carryTab}</div>
         <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -189,11 +189,11 @@ export class SkillTreeUi {
         return this.render();
       }
       case 'reset': {
-        const { tree, gold } = this.deps;
+        const { tree, money } = this.deps;
         if (tree.owned.size === 0) return;
-        const cost = gold ? tree.resetCost : 0;
-        if (gold && cost > 0 && !gold.spend(cost)) {
-          this.message = 'Sıfırlamak için yeterli altının yok.';
+        const cost = money ? tree.resetCostEach : 0;
+        if (money && cost > 0 && !money.pay(cost)) {
+          this.message = `Sıfırlamak için dört birimden her birinde ${cost} paran olmalı.`;
           return this.render();
         }
         tree.reset();

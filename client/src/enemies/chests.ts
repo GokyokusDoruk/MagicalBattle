@@ -68,7 +68,7 @@ export function chestGuards(chest: ChestSpot): EnemySpot[] {
 const chestTier = (t: Tier): Tier => Math.min(4, t + 1) as Tier;
 
 /**
- * Sandığın içi: bol altın ve XP, **kesin bir ekipman**, %50 asa, %70 iksir, 1-3 malzeme.
+ * Sandığın içi: bol para ve XP, **kesin bir ekipman**, %50 asa, %70 iksir, 1-3 malzeme.
  * `dropRate` ahlak yolundan gelen çarpandır (asa ve iksir şansını artırır).
  */
 export function rollChestLoot(chest: Pick<ChestSpot, 'element' | 'tier'>, playerLevel: number, dropRate: number, rand: () => number): LootResult {
@@ -89,5 +89,5 @@ export function rollChestLoot(chest: Pick<ChestSpot, 'element' | 'tier'>, player
     const cap = Math.min(MAX_WAND_LEVEL, Math.max(1, Math.floor(playerLevel)) + 3);
     add(wands, makeWand({ element: rand() < 0.6 ? chest.element : pick(ELEMENTS), role: pick(ROLES), rarity: rollRarity(rand, tier), level: 1 + Math.floor(rand() * cap) }).id);
   }
-  return { gold: stats.gold * 3, xp: stats.xp * 2, items, wands };
+  return { money: stats.money * 3, xp: stats.xp * 2, items, wands };
 }

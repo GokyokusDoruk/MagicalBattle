@@ -295,7 +295,7 @@ describe('tüccarın ekipman stoğu', () => {
   const setup = () => {
     const clock = { t: 0 };
     const player = new PlayerState();
-    player.addGold(100_000);
+    player.addMoney('kor', 100_000);
     return { clock, player, stock: new GearStock('tuccar-kazim', () => clock.t) };
   };
 
@@ -305,7 +305,7 @@ describe('tüccarın ekipman stoğu', () => {
     const r = stock.buy(0, player);
     expect(r).toEqual({ ok: true, price: e.price });
     expect(player.count(e.itemId)).toBe(1);
-    expect(player.gold).toBe(100_000 - e.price);
+    expect(player.balance('kor')).toBe(100_000 - e.price);
     expect(stock.entries()[0].sold).toBe(true);
     expect(stock.buy(0, player)).toMatchObject({ ok: false });
   });
@@ -332,14 +332,14 @@ describe('tüccarın ekipman stoğu', () => {
 
   it('altın yetmezse, çanta doluysa ya da olmayan sıra için hiçbir şey değişmez', () => {
     const { player, stock } = setup();
-    player.spendGold(100_000);
+    player.spendMoney('kor', 100_000);
     expect(stock.buy(1, player)).toMatchObject({ ok: false });
     expect(stock.buy(9, player)).toMatchObject({ ok: false });
     expect(player.inventory()).toEqual([]);
-    player.addGold(100_000);
+    player.addMoney('kor', 100_000);
     player.setGuards({ room: () => 0, canChangeGear: () => null });
     expect(stock.buy(1, player)).toMatchObject({ ok: false });
-    expect(player.gold).toBe(100_000);
+    expect(player.balance('kor')).toBe(100_000);
   });
 
   it('fiyat çarpanı (ahlak) uygulanır', () => {

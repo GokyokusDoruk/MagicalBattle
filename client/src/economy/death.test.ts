@@ -1,48 +1,48 @@
 import { describe, expect, it } from 'vitest';
 import { LOCATIONS } from '../world/locations';
 import { PlayerState } from './player';
-import { HEALERS, LOSS_CAP, getHealer, goldLoss, goldLossFraction, healerSpots, nearestHealer, respawnLines } from './death';
+import { HEALERS, LOSS_CAP, getHealer, moneyLoss, moneyLossFraction, healerSpots, nearestHealer, respawnLines } from './death';
 
 describe('altın kaybı', () => {
   it('oran seviyeyle artar, üst sınırı aşmaz', () => {
-    expect(goldLossFraction(1)).toBeCloseTo(0.06, 6);
-    expect(goldLossFraction(10)).toBeCloseTo(0.15, 6);
-    expect(goldLossFraction(20)).toBe(LOSS_CAP);
-    expect(goldLossFraction(30)).toBe(LOSS_CAP);
-    for (let l = 2; l <= 30; l++) expect(goldLossFraction(l)).toBeGreaterThanOrEqual(goldLossFraction(l - 1));
+    expect(moneyLossFraction(1)).toBeCloseTo(0.06, 6);
+    expect(moneyLossFraction(10)).toBeCloseTo(0.15, 6);
+    expect(moneyLossFraction(20)).toBe(LOSS_CAP);
+    expect(moneyLossFraction(30)).toBe(LOSS_CAP);
+    for (let l = 2; l <= 30; l++) expect(moneyLossFraction(l)).toBeGreaterThanOrEqual(moneyLossFraction(l - 1));
   });
 
   it('geçersiz seviye 1. seviye sayılır', () => {
-    expect(goldLossFraction(0)).toBe(goldLossFraction(1));
-    expect(goldLossFraction(-5)).toBe(goldLossFraction(1));
+    expect(moneyLossFraction(0)).toBe(moneyLossFraction(1));
+    expect(moneyLossFraction(-5)).toBe(moneyLossFraction(1));
   });
 
   it('kayıp eldeki altının oranıdır; aşağı yuvarlanır, altını aşmaz', () => {
-    expect(goldLoss(10, 1000)).toBe(150);
-    expect(goldLoss(1, 99)).toBe(5); // 5.94 -> 5
-    expect(goldLoss(1, 10)).toBe(0); // 0.6 -> 0
-    expect(goldLoss(30, 3)).toBe(0);
+    expect(moneyLoss(10, 1000)).toBe(150);
+    expect(moneyLoss(1, 99)).toBe(5); // 5.94 -> 5
+    expect(moneyLoss(1, 10)).toBe(0); // 0.6 -> 0
+    expect(moneyLoss(30, 3)).toBe(0);
   });
 
   it('altın yoksa ya da geçersizse kayıp 0', () => {
-    expect(goldLoss(5, 0)).toBe(0);
-    expect(goldLoss(5, -10)).toBe(0);
-    expect(goldLoss(5, NaN)).toBe(0);
+    expect(moneyLoss(5, 0)).toBe(0);
+    expect(moneyLoss(5, -10)).toBe(0);
+    expect(moneyLoss(5, NaN)).toBe(0);
   });
 
   it('yüksek seviye aynı altınla daha çok kaybeder', () => {
-    expect(goldLoss(20, 1000)).toBeGreaterThan(goldLoss(2, 1000));
+    expect(moneyLoss(20, 1000)).toBeGreaterThan(moneyLoss(2, 1000));
   });
 
   it('yalnız altın gider: XP, seviye, eşya ve ekipman korunur', () => {
     const p = new PlayerState();
-    p.addGold(1000);
+    p.addMoney('kor', 1000);
     p.addXp(500);
     p.addItem('eq-robe-earth-1');
     p.equip('eq-robe-earth-1');
     const level = p.level;
-    p.spendGold(goldLoss(level, p.gold));
-    expect(p.gold).toBe(1000 - goldLoss(level, 1000));
+    p.spendMoney('kor', moneyLoss(level, p.balance('kor')));
+    expect(p.balance('kor')).toBe(1000 - moneyLoss(level, 1000));
     expect(p.xp).toBe(500);
     expect(p.level).toBe(level);
     expect(p.isEquipped('eq-robe-earth-1')).toBe(true);
@@ -95,6 +95,6 @@ describe('şifacılar', () => {
     expect(lines[1].text).toContain('150');
     expect(lines[1].text).toContain('%15');
     expect(lines[2].speaker).toBe(spot.healer.name);
-    expect(respawnLines(spot, 0, 1)[1].text).toContain('kaybedecek altının yoktu');
+    expect(respawnLines(spot, 0, 1)[1].text).toContain('kaybedecek paran yoktu');
   });
 });

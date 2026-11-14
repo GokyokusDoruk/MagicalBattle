@@ -4,7 +4,8 @@ import { GEAR_SLOTS, ITEMS, getItem, isGear } from './items';
 import { MAX_LEVEL, levelForXp, levelProgress, xpToReach } from './leveling';
 import { MERCHANTS, getMerchant } from './merchants';
 import { LOCATIONS } from '../world/locations';
-import { MAX_GOLD, MAX_STACK, PlayerState } from './player';
+import { MAX_STACK, PlayerState } from './player';
+import { MAX_MONEY } from './currency';
 import { buyItem, buyPrice, sell, sellPrice } from './shop';
 
 describe('katalog', () => {
@@ -75,23 +76,23 @@ describe('seviye', () => {
 describe('PlayerState', () => {
   it('altın ekler ve harcar, yetmezse reddeder, üst sınırı aşmaz', () => {
     const p = new PlayerState();
-    p.addGold(100);
-    expect(p.spendGold(30)).toBe(true);
-    expect(p.gold).toBe(70);
-    expect(p.spendGold(71)).toBe(false);
-    expect(p.gold).toBe(70);
-    p.addGold(MAX_GOLD * 2);
-    expect(p.gold).toBe(MAX_GOLD);
+    p.addMoney('kor', 100);
+    expect(p.spendMoney('kor', 30)).toBe(true);
+    expect(p.balance('kor')).toBe(70);
+    expect(p.spendMoney('kor', 71)).toBe(false);
+    expect(p.balance('kor')).toBe(70);
+    p.addMoney('kor', MAX_MONEY * 2);
+    expect(p.balance('kor')).toBe(MAX_MONEY);
   });
 
   it('geçersiz miktarları yok sayar (negatif, NaN, kesirli)', () => {
     const p = new PlayerState();
-    p.addGold(-50);
-    p.addGold(Number.NaN);
-    expect(p.gold).toBe(0);
-    p.addGold(10.9);
-    expect(p.gold).toBe(10);
-    expect(p.spendGold(-1)).toBe(false);
+    p.addMoney('kor', -50);
+    p.addMoney('kor', Number.NaN);
+    expect(p.balance('kor')).toBe(0);
+    p.addMoney('kor', 10.9);
+    expect(p.balance('kor')).toBe(10);
+    expect(p.spendMoney('kor', -1)).toBe(false);
     expect(p.addXp(-5)).toBe(0);
   });
 
@@ -144,7 +145,7 @@ describe('PlayerState', () => {
 
   it('snapshot/restore her şeyi geri getirir', () => {
     const a = new PlayerState();
-    a.addGold(250);
+    a.addMoney('kor', 250);
     a.addXp(320);
     a.addItem('sifali-ot', 4);
     a.addItem('eq-robe-fire-4');
@@ -164,7 +165,7 @@ describe('PlayerState', () => {
       items: { 'sifali-ot': 99999, 'sahte-esya': 5, 'kristal-parcasi': -3, 'eq-hat-earth-1': 1.9 },
       equipped: { robe: 'eq-hat-earth-1', hat: 'eq-hat-air-2', ring: 'eq-ring-fire-1' }, // yanlış yer, sahip değil, sahip değil
     });
-    expect(p.gold).toBe(0);
+    expect(p.balance('kor')).toBe(0);
     expect(p.xp).toBe(0);
     expect(p.count('sifali-ot')).toBe(MAX_STACK);
     expect(p.count('sahte-esya')).toBe(0);
@@ -172,7 +173,7 @@ describe('PlayerState', () => {
     expect(p.count('eq-hat-earth-1')).toBe(1);
     expect(p.equipped).toEqual({}); // hiçbiri geçerli değil
     p.restore(undefined);
-    expect(p.snapshot()).toEqual({ gold: 0, xp: 0, items: {}, equipped: {}, hp: null });
+    expect(p.snapshot()).toEqual({ wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, items: {}, equipped: {}, hp: null });
   });
 
   it('eski kayıt: eski zırh kimlikleri yeni eşyalara dönüşür, tılsım yüzük olur; eski çanta aynen kalır', () => {
@@ -196,7 +197,7 @@ describe('PlayerState', () => {
     const p = new PlayerState();
     let n = 0;
     p.onChange(() => n++);
-    p.addGold(5);
+    p.addMoney('kor', 5);
     p.addItem('sifali-ot');
     p.addXp(5);
     expect(n).toBe(3);
@@ -206,26 +207,26 @@ describe('PlayerState', () => {
 describe('alışveriş', () => {
   it('satın alma altını düşer, ekipmanı verir ve boş yerse kuşandırır', () => {
     const p = new PlayerState();
-    p.addGold(100);
+    p.addMoney('kor', 100);
     const r = buyItem(p, 'eq-robe-earth-1', 60);
     expect(r).toEqual({ ok: true, price: 60 });
-    expect(p.gold).toBe(40);
+    expect(p.balance('kor')).toBe(40);
     expect(p.count('eq-robe-earth-1')).toBe(1);
     expect(p.equipped.robe).toBe('eq-robe-earth-1');
   });
 
   it('yetersiz altında reddeder ve hiçbir şey değişmez', () => {
     const p = new PlayerState();
-    p.addGold(59);
+    p.addMoney('kor', 59);
     expect(buyItem(p, 'eq-robe-earth-1', 60)).toMatchObject({ ok: false });
-    expect(p.gold).toBe(59);
+    expect(p.balance('kor')).toBe(59);
     expect(p.count('eq-robe-earth-1')).toBe(0);
     expect(buyItem(p, 'yok', 1)).toMatchObject({ ok: false });
   });
 
   it('aynı eşyadan birden fazla alınabilir', () => {
     const p = new PlayerState();
-    p.addGold(500);
+    p.addMoney('kor', 500);
     buyItem(p, 'eq-hat-fire-1', 40);
     expect(buyItem(p, 'eq-hat-fire-1', 40)).toMatchObject({ ok: true });
     expect(p.count('eq-hat-fire-1')).toBe(2);
@@ -233,7 +234,7 @@ describe('alışveriş', () => {
 
   it('daha nadir ekipman kuşanılır, daha az nadir olan eskisini bırakmaz', () => {
     const p = new PlayerState();
-    p.addGold(10000);
+    p.addMoney('kor', 10000);
     buyItem(p, 'eq-robe-water-3', 1);
     buyItem(p, 'eq-robe-fire-1', 1); // daha az nadir
     expect(p.equipped.robe).toBe('eq-robe-water-3');
@@ -247,7 +248,7 @@ describe('alışveriş', () => {
     p.addItem('kristal-parcasi', 3);
     const r = sell(p, 'kristal-parcasi', 2);
     expect(r).toEqual({ ok: true, price: 22 }); // 11 × 2
-    expect(p.gold).toBe(22);
+    expect(p.balance('kor')).toBe(22);
     expect(p.count('kristal-parcasi')).toBe(1);
   });
 
@@ -256,7 +257,7 @@ describe('alışveriş', () => {
     expect(sell(p, 'sifali-ot')).toMatchObject({ ok: false });
     p.addItem('sifali-ot', 1);
     expect(sell(p, 'sifali-ot', 2)).toMatchObject({ ok: false });
-    p.addGold(100);
+    p.addMoney('kor', 100);
     buyItem(p, 'eq-hat-earth-1', 40); // kuşanılır
     expect(sell(p, 'eq-hat-earth-1')).toMatchObject({ ok: false, reason: expect.stringContaining('çıkar') });
     p.unequip('hat');

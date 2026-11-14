@@ -1,11 +1,13 @@
 import { levelProgress } from '../economy/leveling';
+import { CURRENCIES, CURRENCY_ICONS, CURRENCY_NAMES, type Wallet } from '../economy/currency';
 
 export interface StatusView {
   level: number;
   /** Mevcut can ve azami can */
   hp: number;
   maxHp: number;
-  gold: number;
+  /** Dört para biriminin bakiyesi */
+  wallet: Readonly<Wallet>;
   xp: number;
   /** Kaydedilmemiş ilerleme var mı (son kayıt noktasından sonra bir şey değişti) */
   dirty: boolean;
@@ -27,7 +29,7 @@ export interface StatusView {
 export class StatusBar {
   readonly element: HTMLDivElement;
   private readonly levelEl: HTMLElement;
-  private readonly goldEl: HTMLElement;
+  private readonly walletEl: HTMLElement;
   private readonly fillEl: HTMLElement;
   private readonly hpEl: HTMLElement;
   private readonly hpFillEl: HTMLElement;
@@ -44,7 +46,8 @@ export class StatusBar {
     this.element.className =
       'pointer-events-none fixed left-3 top-14 z-40 w-48 rounded-lg bg-black/60 px-3 py-2 text-xs text-amber-50 shadow';
     this.element.innerHTML = `
-      <div class="flex items-center justify-between font-bold"><span data-level></span><span data-gold></span></div>
+      <div class="flex items-center justify-between font-bold"><span data-level></span></div>
+      <div data-wallet class="mt-1 grid grid-cols-4 gap-0.5 text-center text-[10px]"></div>
       <div class="mt-1 h-1.5 overflow-hidden rounded bg-white/15"><div data-fill class="h-full bg-sky-400 transition-all duration-300"></div></div>
       <div class="mt-1 flex items-center justify-between text-[11px]"><span>❤ Can</span><b data-hp></b></div>
       <div class="h-1.5 overflow-hidden rounded bg-white/15"><div data-hpfill class="h-full bg-rose-400 transition-all duration-300"></div></div>
@@ -56,7 +59,7 @@ export class StatusBar {
       <div data-quests class="mt-1 flex flex-col gap-0.5 text-[11px] text-slate-200"></div>`;
     const q = <T extends HTMLElement>(sel: string): T => this.element.querySelector<T>(sel)!;
     this.levelEl = q('[data-level]');
-    this.goldEl = q('[data-gold]');
+    this.walletEl = q('[data-wallet]');
     this.fillEl = q('[data-fill]');
     this.hpEl = q('[data-hp]');
     this.hpFillEl = q('[data-hpfill]');
@@ -77,7 +80,7 @@ export class StatusBar {
   update(view: StatusView): void {
     const p = levelProgress(view.xp);
     this.levelEl.textContent = `Seviye ${view.level}`;
-    this.goldEl.textContent = `🪙 ${view.gold}`;
+    this.walletEl.innerHTML = CURRENCIES.map((c) => `<span title="${CURRENCY_NAMES[c]}">${CURRENCY_ICONS[c]}<br>${view.wallet[c]}</span>`).join('');
     this.fillEl.style.width = `${p.ratio * 100}%`;
     this.hpEl.textContent = `${view.hp}/${view.maxHp}`;
     this.hpEl.classList.toggle('text-amber-300', view.hp < view.maxHp);
