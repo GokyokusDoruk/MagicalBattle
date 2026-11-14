@@ -27,7 +27,7 @@ export class DrawingSession {
   private readonly strokes: Stroke[] = [];
   private current: Stroke | null = null;
   private result: DrawingResult | null = null;
-  private readonly drawTimeMs: number;
+  private drawTimeMs: number;
   private readonly idleTimeoutMs: number;
 
   constructor(options: SessionOptions = {}) {
@@ -37,6 +37,17 @@ export class DrawingSession {
 
   get currentPhase(): SessionPhase {
     return this.phase;
+  }
+
+  /** Şu anki çizim süresi sınırı (ms); `penalize` ile kısalabilir */
+  get limitMs(): number {
+    return this.drawTimeMs;
+  }
+
+  /** Çizim süresini kısaltır (Yanık İzi'ne dokunmak gibi); en az 300 ms kalır. */
+  penalize(ms: number): void {
+    if (this.phase === 'finished') return;
+    this.drawTimeMs = Math.max(300, this.drawTimeMs - Math.max(0, ms));
   }
 
   /** Şu ana kadar çizilen çizgiler (canlı gösterim için). */

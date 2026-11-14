@@ -1,5 +1,5 @@
 import type { SlotRef } from '../arena/layout';
-import { neutralEffects, type SpellResolver } from '../../skills/resolver';
+import { NO_PASSIVES, neutralEffects, type Passives, type SpellResolver } from '../../skills/resolver';
 import type { GearResolver } from '../../economy/gearEffects';
 import type { BotProfile } from './bot';
 import { neutralWand, type WandResolver } from '../../wands/inventory';
@@ -25,6 +25,8 @@ export interface FighterInit {
   takenMultiplier?: number;
   /** Yetenek ağacından gelen büyü etkileri (verilmezse yeteneksiz) */
   spells?: SpellResolver;
+  /** Pasif yetenekler (Yanık İzi: rakibin saldırı çizim ekranına yara izi koyar); verilmezse yok */
+  passives?: Passives;
   /** Asalardan gelen etkiler: saldırı asası taban gücü, savunma asası alınan hasarı değiştirir (verilmezse asasız) */
   wands?: WandResolver;
   /** Yapay zekâ kişiliği (yalnızca botlar için): Elysia'nın ruh hali savaşını etkiler */
@@ -39,6 +41,19 @@ export interface Fighter extends Required<Omit<FighterInit, 'persona' | 'ai' | '
   ai: BotProfile | null;
   index: number;
   hp: number;
+  /** Yanma hasarı (her döngü başında yenir); 0 = yanmıyor. Savaşın sonuna kadar sürer, birikmez. */
+  burn: number;
+  /** Art arda ateş saldırısı sayısı (Alev Zinciri) */
+  fireChain: number;
+}
+
+/** Bir döngü başında yanan savaşçının yediği yanma hasarı */
+export interface BurnEvent {
+  ref: SlotRef;
+  damage: number;
+  hpBefore: number;
+  hpAfter: number;
+  defeated: boolean;
 }
 
 /** Bir tur: kim saldırıyor, kim savunuyor. Savunan, saldırı anındaki durumuna göre belirlenir. */
@@ -70,6 +85,7 @@ export class BattleEngine {
   private readonly fighters: Fighter[];
   private queue: SlotRef[] = [];
   private cycleCount = 0;
+  private burnLog: BurnEvent[] = [];
   private readonly maxCycles: number;
 
   constructor(inits: readonly FighterInit[], options: { maxCycles?: number } = {}) {
@@ -88,6 +104,9 @@ export class BattleEngine {
         dealtMultiplier: init.dealtMultiplier ?? 1,
         takenMultiplier: init.takenMultiplier ?? 1,
         spells: init.spells ?? neutralEffects,
+        passives: init.passives ?? NO_PASSIVES,
+        burn: 0,
+        fireChain: 0,
         wands: init.wands ?? neutralWand,
         persona: init.persona ?? null,
         ai: init.ai ?? null,
@@ -168,7 +187,8 @@ export class BattleEngine {
       if (this.isOver) return null;
       if (this.queue.length === 0) {
         this.cycleCount++;
-        if (this.isOver) return null; // döngü sınırı doldu
+        this.tickBurns();
+        if (this.isOver) return null; // döngü sınırı doldu ya da yanma savaşı bitirdi
         this.queue = this.cycleOrder();
       }
       const attacker = this.queue.shift()!;
@@ -178,6 +198,31 @@ export class BattleEngine {
       return { attacker, defender };
     }
     return null;
+  }
+
+  /** Yeni döngü başında yanan canlı herkes yanma hasarı yer. */
+  private tickBurns(): void {
+    for (const f of this.fighters) {
+      if (f.hp <= 0 || f.burn <= 0) continue;
+      const r = this.applyDamage({ team: f.team, index: f.index }, f.burn);
+      this.burnLog.push({ ref: { team: f.team, index: f.index }, damage: r.hpBefore - r.hpAfter, hpBefore: r.hpBefore, hpAfter: r.hpAfter, defeated: r.defeated });
+    }
+  }
+
+  /** Son döngü başında yenen yanma hasarları (okununca boşalır); arayüz bunları oynatır. */
+  takeBurnEvents(): BurnEvent[] {
+    const out = this.burnLog;
+    this.burnLog = [];
+    return out;
+  }
+
+  /** Savaşçıyı tutuşturur. Zaten yanıyorsa birikmez (en yüksek yanma hasarı kalır); yeni tutuştuysa true. */
+  ignite(target: SlotRef, damage: number): boolean {
+    const f = this.fighter(target);
+    if (f.hp <= 0 || damage <= 0) return false;
+    const was = f.burn > 0;
+    f.burn = Math.max(f.burn, damage);
+    return !was;
   }
 
   /** Savunana hasar uygular (en az 0). Can sıfıra inince savaşçı yenilir. */

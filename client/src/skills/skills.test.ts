@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ELEMENTS } from '../battle/damage/elements';
-import { calculateDamage, powerFactor } from '../battle/damage/calculate';
-import { runBattle, type BattleIO, type TurnReport } from '../battle/flow/controller';
-import { BattleEngine } from '../battle/flow/engine';
+import { calculateDamage } from '../battle/damage/calculate';
+import { runBattle, SCAR_PENALTY_SEC, type BattleIO, type DrawExtras, type TurnReport } from '../battle/flow/controller';
+import { BattleEngine, type BurnEvent } from '../battle/flow/engine';
 import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
-import { BRANCHES, BRANCH_KINDS, SKILLS, SP_PER_LEVEL, describeStats, getSkill, skillId } from './catalog';
-import { LIMITS, SYNERGY, neutralEffects, resolveSpell } from './resolver';
+import { CARRY_SKILLS, MAX_SKILL_LEVEL, SKILLS, SP_PER_LEVEL, describeEffect, effectAt, getSkill, skillsOf } from './catalog';
+import { LIMITS, SHIELD_BREAK_STRENGTH, neutralEffects, resolvePassives, resolveSpell } from './resolver';
 import { RESET_COST_PER_LEVEL, SkillTree } from './tree';
 
 const treeAt = (level: number) => {
@@ -14,328 +13,439 @@ const treeAt = (level: number) => {
   return { state, tree: new SkillTree(() => state.level) };
 };
 
-/** Bir dalı sırayla sonuna kadar alır */
-const learnBranch = (tree: SkillTree, element: (typeof ELEMENTS)[number], kind: (typeof BRANCH_KINDS)[number], upTo = 3) => {
-  for (let t = 1; t <= upTo; t++) expect(tree.learn(skillId(element, kind, t as 1 | 2 | 3))).toBe(true);
+/** Bir yeteneği verilen seviyeye kadar alır */
+const learnTo = (tree: SkillTree, id: string, level: number) => {
+  for (let i = 0; i < level; i++) expect(tree.learn(id)).toBe(true);
+};
+
+const learnAllFire = (tree: SkillTree) => {
+  for (const s of skillsOf('fire')) learnTo(tree, s.id, 3);
 };
 
 describe('katalog', () => {
-  it('4 element x 3 dal x 3 kademe = 36 yetenek, kimlikler benzersiz', () => {
-    expect(SKILLS).toHaveLength(36);
-    expect(BRANCHES).toHaveLength(12);
-    expect(new Set(SKILLS.map((s) => s.id)).size).toBe(36);
-    expect(new Set(SKILLS.map((s) => s.name)).size).toBe(36);
+  it('ateşin 5 yeteneği var, kimlikler ve adlar benzersiz, her birinin 3 seviyesi var', () => {
+    expect(skillsOf('fire')).toHaveLength(5);
+    expect(new Set(SKILLS.map((s) => s.id)).size).toBe(SKILLS.length);
+    expect(new Set(SKILLS.map((s) => s.name)).size).toBe(SKILLS.length);
+    for (const s of SKILLS) expect(s.levels).toHaveLength(MAX_SKILL_LEVEL);
   });
 
-  it('bedeller 1, 2, 3 (dal başına 6) ve her yeteneğin en az bir etkisi var', () => {
+  it('eski yetenek adları kalktı; ateşin yeni adları var', () => {
+    expect(SKILLS.map((s) => s.name)).toEqual(['Közleyen Alev', 'Kalkan Kıran', 'Alev Zinciri', 'Kıvılcım Saçması', 'Yanık İzi']);
+    expect(getSkill('fire-power-1')).toBeUndefined();
+  });
+
+  it('seviyeler yükseldikçe etki güçlenir ve her seviyenin açıklaması var', () => {
     for (const s of SKILLS) {
-      expect(s.cost).toBe(s.tier);
-      expect(Object.values(s.stats).some((v) => (v ?? 0) > 0)).toBe(true);
-      expect(describeStats(s.stats).length).toBeGreaterThan(0);
+      for (const key of Object.keys(s.levels[0]) as (keyof (typeof s.levels)[0])[]) {
+        const values = s.levels.map((l) => l[key] ?? 0);
+        expect(values[1]).toBeGreaterThan(values[0]);
+        expect(values[2]).toBeGreaterThan(values[1]);
+      }
+      for (const l of s.levels) expect(describeEffect(l).length).toBeGreaterThan(0);
     }
   });
 
-  it('tüm yetenekler toplamı 72 puan; 30. seviye 58 puan verir, yani hepsi alınamaz', () => {
-    const all = SKILLS.reduce((n, s) => n + s.cost, 0);
-    expect(all).toBe(72);
-    expect(SP_PER_LEVEL * 29).toBe(58);
-    expect(58).toBeLessThan(all);
+  it('tam ateş yeteneği 3 puan; ateşin hepsi 15 puan; taşıyıcı dalı 6 puan', () => {
+    expect(skillsOf('fire').length * MAX_SKILL_LEVEL).toBe(15);
+    expect(CARRY_SKILLS.reduce((n, s) => n + s.cost, 0)).toBe(6);
   });
 
-  it('element karakteri: ateş en çok hasar, toprak en sağlam kalkan', () => {
-    const total = (el: string, key: 'dealt' | 'taken') =>
-      SKILLS.filter((s) => s.element === el).reduce((n, s) => n + (s.stats[key] ?? 0), 0);
-    expect(total('fire', 'dealt')).toBeGreaterThan(total('earth', 'dealt'));
-    expect(total('earth', 'taken')).toBeGreaterThan(total('fire', 'taken'));
+  it('Yanık İzi pasiftir; yara izi sayısı 1-2-3', () => {
+    const scars = getSkill('fire-scars')!;
+    expect(scars.passive).toBe(true);
+    expect([1, 2, 3].map((l) => effectAt(scars, l).scars)).toEqual([1, 2, 3]);
   });
 });
 
 describe('SkillTree: puan ve alma kuralları', () => {
-  it('puan seviyeden gelir: 1. seviye 0, sonrası seviye başına 2', () => {
+  it('puan seviyeden gelir: 1. seviye 0, sonrası seviye başına 2; 30. seviyede 58', () => {
     const { state, tree } = treeAt(1);
     expect(tree.pointsTotal).toBe(0);
     state.level = 2;
     expect(tree.pointsFree).toBe(2);
-    state.level = 10;
-    expect(tree.pointsTotal).toBe(18);
+    state.level = 30;
+    expect(tree.pointsTotal).toBe(58);
+    expect(SP_PER_LEVEL * 29).toBe(58);
+  });
+
+  it('açmak ve her seviye 1 puandır; en çok 3 seviye', () => {
+    const { tree } = treeAt(10);
+    expect(tree.learn('fire-burn')).toBe(true);
+    expect(tree.level('fire-burn')).toBe(1);
+    expect(tree.pointsSpent).toBe(1);
+    expect(tree.learn('fire-burn')).toBe(true);
+    expect(tree.learn('fire-burn')).toBe(true);
+    expect(tree.level('fire-burn')).toBe(3);
+    expect(tree.pointsSpent).toBe(3);
+    const again = tree.check('fire-burn');
+    expect(again.ok).toBe(false);
+    expect(tree.learn('fire-burn')).toBe(false);
+    expect(tree.level('fire-burn')).toBe(3);
   });
 
   it('puan yetmezse alınmaz, nedeni söylenir', () => {
     const { tree } = treeAt(1);
-    const r = tree.check(skillId('fire', 'power', 1));
-    expect(r).toEqual({ ok: false, reason: '1 yetenek puanı gerekiyor.' });
-    expect(tree.learn(skillId('fire', 'power', 1))).toBe(false);
+    const c = tree.check('fire-burn');
+    expect(c.ok).toBe(false);
+    if (!c.ok) expect(c.reason).toMatch(/puan/);
+    expect(tree.learn('fire-burn')).toBe(false);
   });
 
-  it('kademeler sırayla alınır', () => {
+  it('ateşin hepsini almak 15 puandır; yetenekler birbirinden bağımsız seviyelenir', () => {
     const { tree } = treeAt(30);
-    expect(tree.check(skillId('fire', 'power', 2))).toMatchObject({ ok: false });
-    expect(tree.learn(skillId('fire', 'power', 3))).toBe(false);
-    expect(tree.learn(skillId('fire', 'power', 1))).toBe(true);
-    expect(tree.learn(skillId('fire', 'power', 2))).toBe(true);
-    expect(tree.rank('fire', 'power')).toBe(2);
-    expect(tree.learn(skillId('fire', 'power', 1))).toBe(false); // zaten alınmış
+    learnAllFire(tree);
+    expect(tree.pointsSpent).toBe(15);
+    expect(tree.pointsFree).toBe(58 - 15);
   });
 
-  it('harcanan puan bedellerin toplamıdır', () => {
-    const { tree } = treeAt(30);
-    learnBranch(tree, 'water', 'ward', 3);
-    expect(tree.pointsSpent).toBe(6);
-    expect(tree.pointsFree).toBe(58 - 6);
+  it('taşıyıcı kademeleri sırayla alınır ve puana eklenir', () => {
+    const { tree } = treeAt(10);
+    expect(tree.learn('carry-2')).toBe(false);
+    expect(tree.learn('carry-1')).toBe(true);
+    expect(tree.learn('carry-2')).toBe(true);
+    expect(tree.pointsSpent).toBe(3);
+    expect(tree.carryBonus.wands).toBe(2);
   });
 
   it('bilinmeyen kimlik alınamaz', () => {
     const { tree } = treeAt(30);
-    expect(tree.learn('yok-yok-1')).toBe(false);
-    expect(tree.check('yok')).toMatchObject({ ok: false });
+    expect(tree.learn('nope')).toBe(false);
+    expect(tree.learn('fire-power-1')).toBe(false);
   });
 
   it('sıfırlama puanları geri verir; bedel seviyeye bağlı, hiç yetenek yoksa bedava', () => {
     const { tree } = treeAt(10);
     expect(tree.resetCost).toBe(0);
-    learnBranch(tree, 'air', 'precision', 3);
+    learnTo(tree, 'fire-chain', 2);
     expect(tree.resetCost).toBe(RESET_COST_PER_LEVEL * 10);
     tree.reset();
     expect(tree.pointsFree).toBe(18);
-    expect(tree.snapshot()).toEqual([]);
+    expect(tree.level('fire-chain')).toBe(0);
+    expect(tree.resetCost).toBe(0);
   });
 
   it('değişince dinleyicilere haber verir', () => {
     const { tree } = treeAt(5);
-    let n = 0;
-    tree.onChange(() => n++);
-    tree.learn(skillId('fire', 'power', 1));
+    let calls = 0;
+    tree.onChange(() => calls++);
+    tree.learn('fire-burn');
     tree.reset();
-    expect(n).toBe(2);
+    expect(calls).toBe(2);
   });
 });
 
 describe('SkillTree: kayıt', () => {
-  it('geçerli ağaç bire bir geri yüklenir', () => {
-    const { tree } = treeAt(20);
-    learnBranch(tree, 'fire', 'power', 3);
-    learnBranch(tree, 'earth', 'ward', 2);
-    const snap = tree.snapshot();
-    const other = treeAt(20).tree;
-    other.restore(snap);
-    expect(other.snapshot()).toEqual(snap);
-    expect(other.pointsSpent).toBe(tree.pointsSpent);
+  it('geçerli ağaç bire bir geri yüklenir; kimlikler "<yetenek>-<seviye>"', () => {
+    const { tree } = treeAt(30);
+    learnTo(tree, 'fire-burn', 2);
+    learnTo(tree, 'fire-scars', 3);
+    tree.learn('carry-1');
+    expect(tree.snapshot()).toEqual(['fire-burn-2', 'fire-scars-3', 'carry-1']);
+    const fresh = treeAt(30).tree;
+    fresh.restore(tree.snapshot());
+    expect(fresh.snapshot()).toEqual(tree.snapshot());
+    expect(fresh.pointsSpent).toBe(tree.pointsSpent);
   });
 
-  it('bilinmeyen kimlikler, kademe atlayanlar ve puanı aşanlar atılır', () => {
+  it('eski kayıttaki yetenekler atılır, puanları iade olur; taşıyıcı korunur', () => {
+    const { tree } = treeAt(10);
+    tree.restore(['fire-power-1', 'fire-power-2', 'water-ward-3', 'carry-1']);
+    expect(tree.levels.size).toBe(0);
+    expect(tree.has('carry-1')).toBe(true);
+    expect(tree.pointsSpent).toBe(1);
+    expect(tree.pointsFree).toBe(18 - 1);
+  });
+
+  it('puanı aşan seviyeler atılır, geçersiz seviye sayıları yok sayılır', () => {
     const { tree } = treeAt(3); // 4 puan
-    tree.restore([
-      'sahte-1',
-      skillId('fire', 'power', 3), // önceki kademeler yok
-      skillId('water', 'ward', 1), // 1
-      skillId('water', 'ward', 2), // 2
-      skillId('air', 'power', 1), // 1 (toplam 4)
-      skillId('air', 'power', 2), // puan yok
-    ]);
-    expect(tree.snapshot()).toEqual([skillId('water', 'ward', 1), skillId('water', 'ward', 2), skillId('air', 'power', 1)]);
-    expect(tree.pointsFree).toBe(0);
+    tree.restore(['fire-burn-3', 'fire-chain-3', 'fire-breaker-9', 'fire-scatter-0']);
+    expect(tree.pointsSpent).toBeLessThanOrEqual(4);
+    expect(tree.level('fire-breaker')).toBe(0);
+    expect(tree.level('fire-scatter')).toBe(0);
   });
 
   it('undefined ya da boş kayıt ağacı boşaltır', () => {
     const { tree } = treeAt(10);
-    tree.learn(skillId('fire', 'power', 1));
+    learnTo(tree, 'fire-burn', 1);
     tree.restore(undefined);
-    expect(tree.snapshot()).toEqual([]);
+    expect(tree.pointsSpent).toBe(0);
+    learnTo(tree, 'fire-burn', 1);
+    tree.restore([]);
+    expect(tree.levels.size).toBe(0);
   });
 });
 
-describe('resolveSpell: tek büyünün sinerjisi', () => {
-  const own = (...ids: string[]) => new Set(ids);
+describe('resolveSpell: ateş yetenekleri', () => {
+  const none = new Map<string, number>();
 
   it('yetenek yoksa etkisizdir', () => {
-    const fx = resolveSpell(own(), 'fire', 'attack');
+    expect(resolveSpell(none, 'fire', 'attack')).toEqual(neutralEffects('fire', 'attack'));
+    expect(resolvePassives(none)).toEqual({ scars: 0 });
+  });
+
+  it('seviye değerleri doğru okunur (Közleyen Alev 3 = %40, 12 hasar)', () => {
+    const fx = resolveSpell(new Map([['fire-burn', 3]]), 'fire', 'attack');
+    expect(fx.burnChance).toBeCloseTo(0.4, 6);
+    expect(fx.burnDamage).toBe(12);
+    expect(fx.skills).toEqual(['fire-burn-3']);
+  });
+
+  it('ateş yetenekleri yalnızca ateş saldırısında işler', () => {
+    const all = new Map(skillsOf('fire').map((s) => [s.id, 3]));
+    expect(resolveSpell(all, 'fire', 'attack').shieldBreak).toBeGreaterThan(0);
+    expect(resolveSpell(all, 'fire', 'defense').shieldBreak).toBe(0);
+    expect(resolveSpell(all, 'fire', 'defense').burnChance).toBe(0);
+    expect(resolveSpell(all, 'water', 'attack')).toEqual(neutralEffects('water', 'attack'));
+  });
+
+  it('Yanık İzi büyü elementinden bağımsız pasiftir', () => {
+    expect(resolvePassives(new Map([['fire-scars', 2]]))).toEqual({ scars: 2 });
+    const fx = resolveSpell(new Map([['fire-scars', 3]]), 'fire', 'attack');
     expect(fx).toEqual(neutralEffects('fire', 'attack'));
   });
 
-  it('saldırıda yalnızca Güç ve Hassasiyet dalları, savunmada yalnızca Kalkan dalı işler', () => {
-    const all = own(...SKILLS.filter((s) => s.element === 'earth').map((s) => s.id));
-    const atk = resolveSpell(all, 'earth', 'attack');
-    const def = resolveSpell(all, 'earth', 'defense');
-    expect(atk.takenMultiplier).toBe(1);
-    expect(atk.reflect).toBe(0);
-    expect(def.dealtMultiplier).toBe(1);
-    expect(def.armorPierce).toBe(0);
-    expect(atk.skills.every((id) => !id.includes('ward'))).toBe(true);
-    expect(def.skills.every((id) => id.includes('ward'))).toBe(true);
-  });
-
-  it('başka elementin yetenekleri bu büyüyü etkilemez', () => {
-    const fireOnly = own(...SKILLS.filter((s) => s.element === 'fire').map((s) => s.id));
-    expect(resolveSpell(fireOnly, 'water', 'attack')).toEqual(neutralEffects('water', 'attack'));
-    expect(resolveSpell(fireOnly, 'water', 'defense')).toEqual(neutralEffects('water', 'defense'));
-  });
-
-  it('bir dalın kademeleri birikir', () => {
-    const one = resolveSpell(own(skillId('fire', 'power', 1)), 'fire', 'attack');
-    const two = resolveSpell(own(skillId('fire', 'power', 1), skillId('fire', 'power', 2)), 'fire', 'attack');
-    expect(two.dealtMultiplier).toBeGreaterThan(one.dealtMultiplier);
-    expect(two.effortBonus).toBeGreaterThan(one.effortBonus);
-  });
-
-  it('kademe atlanmışsa (bozuk kayıt) boşluktan sonrası sayılmaz', () => {
-    const fx = resolveSpell(own(skillId('fire', 'power', 3)), 'fire', 'attack');
-    expect(fx.dealtMultiplier).toBe(1);
-    expect(fx.skills).toEqual([]);
-  });
-
-  it('üç dalın da ilk kademesi varsa temel uyum, hepsi Ustalıktaysa tam uyum', () => {
-    const basic = own(...BRANCH_KINDS.map((k) => skillId('air', k, 1)));
-    const fxBasic = resolveSpell(basic, 'air', 'attack');
-    const airPower1 = getSkill(skillId('air', 'power', 1))!.stats.dealt!;
-    expect(fxBasic.synergy).toBe('basic');
-    expect(fxBasic.dealtMultiplier).toBeCloseTo(1 + airPower1 + SYNERGY.basic, 6);
-    // uyum savunmada alınan hasarı düşürür
-    expect(resolveSpell(basic, 'air', 'defense').takenMultiplier).toBeLessThan(1 - getSkill(skillId('air', 'ward', 1))!.stats.taken!);
-
-    const full = own(...SKILLS.filter((s) => s.element === 'air').map((s) => s.id));
-    expect(resolveSpell(full, 'air', 'attack').synergy).toBe('full');
-    const partial = own(...BRANCH_KINDS.slice(0, 2).map((k) => skillId('air', k, 1)));
-    expect(resolveSpell(partial, 'air', 'attack').synergy).toBe('none');
-  });
-
-  it('su gücü ustalığı can çalma verir', () => {
-    const water = own(...[1, 2, 3].map((t) => skillId('water', 'power', t as 1 | 2 | 3)));
-    expect(resolveSpell(water, 'water', 'attack').lifesteal).toBeGreaterThan(0);
-    const fire = own(...[1, 2, 3].map((t) => skillId('fire', 'power', t as 1 | 2 | 3)));
-    expect(resolveSpell(fire, 'fire', 'attack').lifesteal).toBe(0);
+  it('SkillTree.resolve ve passives ağaç değişince güncel durumu okur', () => {
+    const { tree } = treeAt(10);
+    const resolver = tree.resolver;
+    expect(resolver('fire', 'attack').shieldBreak).toBe(0);
+    expect(tree.passives.scars).toBe(0);
+    tree.learn('fire-breaker');
+    tree.learn('fire-scars');
+    tree.learn('fire-scars');
+    expect(resolver('fire', 'attack').shieldBreak).toBeCloseTo(0.2, 6);
+    expect(tree.passives.scars).toBe(2);
   });
 
   it('en güçlü kurulumda bile sınırlar aşılmaz', () => {
-    for (const el of ELEMENTS) {
-      const all = own(...SKILLS.filter((s) => s.element === el).map((s) => s.id));
-      const atk = resolveSpell(all, el, 'attack');
-      const def = resolveSpell(all, el, 'defense');
-      expect(def.takenMultiplier).toBeGreaterThanOrEqual(LIMITS.minTakenMultiplier);
-      expect(atk.armorPierce).toBeLessThanOrEqual(LIMITS.maxPierce);
-      expect(def.reflect).toBeLessThanOrEqual(LIMITS.maxReflect);
-      expect(atk.lifesteal).toBeLessThanOrEqual(LIMITS.maxLifesteal);
-      expect(atk.effortBonus).toBeLessThanOrEqual(LIMITS.maxEffort);
-      expect(atk.headBonus).toBeLessThanOrEqual(LIMITS.maxHeadBonus);
-      expect(atk.dealtMultiplier).toBeLessThan(1.5);
-    }
-  });
-
-  it('SkillTree.resolve ağaç değişince güncel durumu okur', () => {
-    const { tree } = treeAt(10);
-    const resolver = tree.resolver;
-    expect(resolver('fire', 'attack').dealtMultiplier).toBe(1);
-    tree.learn(skillId('fire', 'power', 1));
-    expect(resolver('fire', 'attack').dealtMultiplier).toBeGreaterThan(1);
+    const all = new Map(skillsOf('fire').map((s) => [s.id, 3]));
+    const fx = resolveSpell(all, 'fire', 'attack');
+    expect(fx.burnChance).toBeLessThanOrEqual(LIMITS.maxBurnChance);
+    expect(fx.shieldBreak).toBeLessThanOrEqual(LIMITS.maxShieldBreak);
+    expect(fx.scatter).toBeLessThanOrEqual(LIMITS.maxScatter);
   });
 });
 
-describe('hasar hesabına bağlantı', () => {
+describe('hasar hesabı: savunma geçişi (Kıvılcım Saçması, Kalkan Kıran)', () => {
   const circle = analyzeStrokes(buildShape('circle', 128, 128, 75, 2400));
-  const base = { basePower: 100, attack: circle, defense: null, attackerElement: 'fire', defenderElement: 'earth' } as const;
+  const base = { basePower: 100, attack: circle, defense: circle.density, attackerElement: 'fire', defenderElement: 'fire' } as const;
 
-  it('zırh delme zırhı o oranda yok sayar', () => {
-    const plain = calculateDamage({ ...base, defenderArmor: 0.4 });
-    const pierced = calculateDamage({ ...base, defenderArmor: 0.4, attackerArmorPierce: 0.5 });
-    expect(plain.armorReduction).toBeCloseTo(0.4, 6);
-    expect(pierced.armorReduction).toBeCloseTo(0.2, 6);
-    expect(pierced.finalDamage).toBeGreaterThan(plain.finalDamage);
+  it('tam kapatan savunmada bile geçiş oranı kadar hasar geçer', () => {
+    const blocked = calculateDamage(base);
+    const half = calculateDamage({ ...base, defenseBypass: 0.5 });
+    const full = calculateDamage({ ...base, defenseBypass: 1 });
+    const open = calculateDamage({ ...base, defense: null });
+    expect(blocked.defenseBypass).toBe(0);
+    expect(half.finalDamage).toBeGreaterThan(blocked.finalDamage);
+    expect(full.finalDamage).toBeGreaterThan(half.finalDamage);
+    expect(full.finalDamage).toBe(open.finalDamage);
+    expect(half.defendedRatio).toBeCloseTo(blocked.defendedRatio * 0.5, 6);
   });
 
-  it('baş bonusu yalnızca baş çarpanını yükseltir', () => {
-    const noBonus = calculateDamage({ ...base });
-    const bonus = calculateDamage({ ...base, attackerHeadBonus: 0.2 });
-    if (noBonus.headShare > 0) expect(bonus.weightedUnblockedRatio).toBeGreaterThan(noBonus.weightedUnblockedRatio);
-    else expect(bonus.weightedUnblockedRatio).toBe(noBonus.weightedUnblockedRatio);
-  });
-
-  it('çaba tabanı aceleyle çizilen büyünün gücünü artırır, tam süre çizimi değiştirmez', () => {
-    const rushed = analyzeStrokes(buildShape('circle', 128, 128, 75, 300)).metrics;
-    const full = analyzeStrokes(buildShape('circle', 128, 128, 75, 2900)).metrics;
-    expect(powerFactor(rushed, 0.2).total).toBeGreaterThan(powerFactor(rushed).total);
-    expect(Math.abs(powerFactor(full, 0.2).total - powerFactor(full).total)).toBeLessThan(0.02);
-    expect(powerFactor(rushed, 5).effort).toBeLessThanOrEqual(1);
+  it('savunma yoksa geçiş bir şey değiştirmez', () => {
+    const a = calculateDamage({ ...base, defense: null });
+    const b = calculateDamage({ ...base, defense: null, defenseBypass: 0.7 });
+    expect(b.finalDamage).toBe(a.finalDamage);
   });
 });
 
-describe('savaş akışına bağlantı', () => {
+describe('savaş akışı: ateş yetenekleri', () => {
   const good = () => analyzeStrokes(buildShape('circle', 128, 128, 75, 2400));
   const none = () => analyzeStrokes([]);
 
-  function run(engine: BattleEngine, defenderDraws: boolean, element: 'fire' | 'water' = 'fire'): Promise<TurnReport> {
+  const fighters = (spellsA?: SkillTree, extraB: Partial<ConstructorParameters<typeof BattleEngine>[0][number]> = {}) =>
+    new BattleEngine([
+      { name: 'A', team: 0, control: 'bot', spells: spellsA?.resolver, passives: spellsA?.passives },
+      { name: 'B', team: 1, control: 'bot', ...extraB },
+    ]);
+
+  /** `turns` rapor toplanınca durur; savunan çizim yapar ya da yapmaz */
+  async function play(engine: BattleEngine, turns: number, opts: { defenderDraws?: boolean; random?: () => number; draws?: DrawExtras[] } = {}) {
     const reports: TurnReport[] = [];
+    const burns: BurnEvent[] = [];
     const stop = new AbortController();
     const io: BattleIO = {
       announceTurn: async () => {},
-      chooseElement: async () => element,
+      chooseElement: async () => 'fire',
       revealRound: async () => {},
-      draw: async (_r, role) => (role === 'attack' || defenderDraws ? good() : none()),
-      play: async (r) => void (reports.push(r), stop.abort()),
+      draw: async (_r, role, _g, _l, extras) => {
+        if (role === 'attack' && extras) opts.draws?.push(extras);
+        return role === 'attack' || opts.defenderDraws ? good() : none();
+      },
+      announceBurn: async (events) => void burns.push(...events),
+      play: async (r) => void (reports.push(r), reports.length >= turns && stop.abort()),
       announceEnd: async () => {},
     };
-    return runBattle(engine, io, { signal: stop.signal }).then(() => reports[0]);
+    await runBattle(engine, io, { signal: stop.signal, random: opts.random ?? (() => 0.99) });
+    return { reports, burns };
   }
 
-  const withTree = (_element: 'fire' | 'water', ids: string[], level = 30) => {
+  const treeWith = (ids: Record<string, number>, level = 30) => {
     const tree = new SkillTree(() => level);
-    tree.restore(ids);
+    for (const [id, n] of Object.entries(ids)) learnTo(tree, id, n);
     return tree;
   };
 
-  it('verilen hasar yetenekleri çarpar (savunmasız vuruş)', async () => {
-    const plain = await run(new BattleEngine([{ name: 'A', team: 0, control: 'bot' }, { name: 'B', team: 1, control: 'bot' }]), false);
-    const tree = withTree('fire', SKILLS.filter((s) => s.element === 'fire' && s.branch === 'power').map((s) => s.id));
-    const boosted = await run(
-      new BattleEngine([{ name: 'A', team: 0, control: 'bot', spells: tree.resolver }, { name: 'B', team: 1, control: 'bot' }]),
-      false,
-    );
-    expect(boosted.damage).toBeGreaterThan(plain.damage);
+  it('yetenek yoksa yeni alanlar boş kalır', async () => {
+    const { reports } = await play(fighters(), 1);
+    expect(reports[0].ignited).toBe(false);
+    expect(reports[0].shieldBroken).toBe(false);
+    expect(reports[0].chainStacks).toBe(0);
+    expect(reports[0].scatter).toBe(false);
+    expect(reports[0].breakdown!.defenseBypass).toBe(0);
   });
 
-  it('savunanın kalkan yeteneği hasarı azaltır', async () => {
-    const plain = await run(new BattleEngine([{ name: 'A', team: 0, control: 'bot' }, { name: 'B', team: 1, control: 'bot' }]), false);
-    const tree = withTree('fire', SKILLS.filter((s) => s.element === 'fire' && s.branch === 'ward').map((s) => s.id));
-    const guarded = await run(
-      new BattleEngine([{ name: 'A', team: 0, control: 'bot' }, { name: 'B', team: 1, control: 'bot', spells: tree.resolver }]),
-      false,
-    );
-    expect(guarded.damage).toBeLessThan(plain.damage);
+  it('Közleyen Alev: şans tutarsa rakip yanar, her döngü başında hasar yer', async () => {
+    const tree = treeWith({ 'fire-burn': 3 });
+    const engine = fighters(tree);
+    const { reports, burns } = await play(engine, 3, { random: () => 0 });
+    expect(reports[0].ignited).toBe(true);
+    expect(engine.fighter({ team: 1, index: 0 }).burn).toBe(12);
+    // B'nin kendi saldırısı, sonra yeni döngü: B yanma hasarı yer
+    expect(burns).toHaveLength(1);
+    expect(burns[0]).toMatchObject({ damage: 12, ref: { team: 1, index: 0 } });
   });
 
-  it('yansıma saldırana hasar verir, can çalma saldıranı iyileştirir', async () => {
-    const ward = withTree('fire', SKILLS.filter((s) => s.element === 'fire' && s.branch === 'ward').map((s) => s.id));
-    const engine = new BattleEngine([{ name: 'A', team: 0, control: 'bot' }, { name: 'B', team: 1, control: 'bot', spells: ward.resolver }]);
-    const r = await run(engine, false);
-    expect(r.reflected).toBeGreaterThan(0);
-    expect(engine.fighter({ team: 0, index: 0 }).hp).toBe(300 - r.reflected);
-
-    const power = withTree('water', SKILLS.filter((s) => s.element === 'water' && s.branch === 'power').map((s) => s.id));
-    const e2 = new BattleEngine([{ name: 'A', team: 0, control: 'bot', spells: power.resolver }, { name: 'B', team: 1, control: 'bot' }]);
-    e2.applyDamage({ team: 0, index: 0 }, 100); // can çalma için yer aç
-    // ateşle atılırsa su yetenekleri etkisiz, can çalma yok
-    expect((await run(e2, false, 'fire')).healed).toBe(0);
-
-    // suyla atılırsa verdiği hasarın bir kısmı canına döner
-    const e3 = new BattleEngine([{ name: 'A', team: 0, control: 'bot', spells: power.resolver }, { name: 'B', team: 1, control: 'bot' }]);
-    e3.applyDamage({ team: 0, index: 0 }, 100);
-    const r3 = await run(e3, false, 'water');
-    expect(r3.healed).toBe(Math.round(r3.damage * 0.08));
-    expect(r3.healed).toBeGreaterThan(0);
-    expect(e3.fighter({ team: 0, index: 0 }).hp).toBe(200 + r3.healed);
+  it('yanma birikmez: yanan rakip yeniden tutuşturulunca "yeni tutuştu" sayılmaz', async () => {
+    const tree = treeWith({ 'fire-burn': 3 });
+    const engine = fighters(tree);
+    const { reports } = await play(engine, 3, { random: () => 0 });
+    expect(reports[0].ignited).toBe(true);
+    expect(reports[2].ignited).toBe(false);
+    expect(engine.fighter({ team: 1, index: 0 }).burn).toBe(12);
   });
 
-  it('can çalma azami canı aşmaz', () => {
-    const e = new BattleEngine([{ name: 'A', team: 0, control: 'bot' }, { name: 'B', team: 1, control: 'bot' }]);
-    e.applyDamage({ team: 0, index: 0 }, 10);
-    expect(e.heal({ team: 0, index: 0 }, 50)).toBe(10);
-    expect(e.fighter({ team: 0, index: 0 }).hp).toBe(300);
-    e.applyDamage({ team: 0, index: 0 }, 300);
-    expect(e.heal({ team: 0, index: 0 }, 50)).toBe(0); // ölü iyileşmez
+  it('şans tutmazsa tutuşmaz', async () => {
+    const tree = treeWith({ 'fire-burn': 1 }); // %15
+    const { reports } = await play(fighters(tree), 1, { random: () => 0.99 });
+    expect(reports[0].ignited).toBe(false);
   });
 
-  it('yetenek yoksa hiçbir şey değişmez (yansıma ve can çalma 0)', async () => {
-    const r = await run(new BattleEngine([{ name: 'A', team: 0, control: 'bot' }, { name: 'B', team: 1, control: 'bot' }]), false);
-    expect(r.reflected).toBe(0);
-    expect(r.healed).toBe(0);
-    expect(r.attackerDefeated).toBe(false);
+  it('yanma savaşı bitirebilir (can sıfıra iner)', () => {
+    const engine = fighters();
+    engine.ignite({ team: 1, index: 0 }, 500);
+    engine.nextAction(); // 1. döngü yanma yok (henüz yeni döngü başlıyor: yanma uygulanır)
+    expect(engine.fighter({ team: 1, index: 0 }).hp).toBe(0);
+    expect(engine.winner).toBe(0);
+    expect(engine.takeBurnEvents()[0]).toMatchObject({ defeated: true });
+  });
+
+  it('ignite: ölü ya da 0 hasarlı yanma yok, daha güçlüsü eskinin yerine geçer', () => {
+    const engine = fighters();
+    const b = { team: 1 as const, index: 0 };
+    expect(engine.ignite(b, 0)).toBe(false);
+    expect(engine.ignite(b, 6)).toBe(true);
+    expect(engine.ignite(b, 12)).toBe(false);
+    expect(engine.fighter(b).burn).toBe(12);
+    expect(engine.ignite(b, 6)).toBe(false);
+    expect(engine.fighter(b).burn).toBe(12);
+  });
+
+  it('Kalkan Kıran: kırılırsa savunmaya rağmen daha çok hasar verir', async () => {
+    const tree = treeWith({ 'fire-breaker': 3 });
+    const plain = await play(fighters(), 1, { defenderDraws: true });
+    const broken = await play(fighters(tree), 1, { defenderDraws: true, random: () => 0 });
+    expect(broken.reports[0].shieldBroken).toBe(true);
+    expect(broken.reports[0].breakdown!.defenseBypass).toBeCloseTo(SHIELD_BREAK_STRENGTH, 6);
+    expect(broken.reports[0].damage).toBeGreaterThan(plain.reports[0].damage);
+    const notBroken = await play(fighters(tree), 1, { defenderDraws: true, random: () => 0.99 });
+    expect(notBroken.reports[0].shieldBroken).toBe(false);
+    expect(notBroken.reports[0].damage).toBe(plain.reports[0].damage);
+  });
+
+  it('savunma yapılamadıysa kalkan kırılmaz', async () => {
+    const tree = treeWith({ 'fire-breaker': 3 });
+    const { reports } = await play(fighters(tree), 1, { defenderDraws: false, random: () => 0 });
+    expect(reports[0].shieldBroken).toBe(false);
+  });
+
+  it('Kıvılcım Saçması: savunmayı kısmen aşar', async () => {
+    const tree = treeWith({ 'fire-scatter': 3 });
+    const plain = await play(fighters(), 1, { defenderDraws: true });
+    const scattered = await play(fighters(tree), 1, { defenderDraws: true });
+    expect(scattered.reports[0].scatter).toBe(true);
+    expect(scattered.reports[0].damage).toBeGreaterThan(plain.reports[0].damage);
+  });
+
+  it('Alev Zinciri: art arda ateş saldırısı son vuruşu güçlendirir, ilk vuruş etkilenmez', async () => {
+    const tree = treeWith({ 'fire-chain': 3 });
+    const plain = await play(fighters(), 3);
+    const chained = await play(fighters(tree), 3);
+    // rapor sırası: A, B, A(2. döngü)
+    expect(chained.reports[0].chainStacks).toBe(0);
+    expect(chained.reports[0].damage).toBe(plain.reports[0].damage);
+    expect(chained.reports[2].chainStacks).toBe(1);
+    expect(chained.reports[2].damage).toBeGreaterThan(plain.reports[2].damage);
+  });
+
+  it('Alev Zinciri en çok 3 yığınla sınırlıdır', () => {
+    const engine = fighters(treeWith({ 'fire-chain': 3 }));
+    const a = engine.fighter({ team: 0, index: 0 });
+    a.fireChain = 10;
+    expect(Math.min(LIMITS.maxChainStacks, a.fireChain)).toBe(3);
+  });
+
+  it('başka element zinciri keser', async () => {
+    const tree = treeWith({ 'fire-chain': 3 });
+    const engine = fighters(tree);
+    const reports: TurnReport[] = [];
+    const stop = new AbortController();
+    let call = 0;
+    const io: BattleIO = {
+      announceTurn: async () => {},
+      // A: 1. döngü ateş, 2. döngü su
+      chooseElement: async (ref) => (ref.team === 0 && ++call > 1 ? 'water' : 'fire'),
+      revealRound: async () => {},
+      draw: async () => good(),
+      play: async (r) => void (reports.push(r), reports.length >= 3 && stop.abort()),
+      announceEnd: async () => {},
+    };
+    await runBattle(engine, io, { signal: stop.signal, random: () => 0.99 });
+    expect(reports[2].attackerElement).toBe('water');
+    expect(reports[2].chainStacks).toBe(0);
+    expect(engine.fighter({ team: 0, index: 0 }).fireChain).toBe(0);
+  });
+
+  it('Yanık İzi: savunanın pasifi saldırgana yara izi gönderir; bot yara izine rastgele denk gelip süre kaybeder', async () => {
+    const draws: DrawExtras[] = [];
+    const tree = treeWith({ 'fire-scars': 3 });
+    // A saldırır, B (izli) savunur: izli oyuncu B
+    const engine = new BattleEngine([
+      { name: 'A', team: 0, control: 'bot' },
+      { name: 'B', team: 1, control: 'bot', passives: tree.passives },
+    ]);
+    const plain = await play(fighters(), 1);
+    const scarred = await play(engine, 1, { draws, random: () => 0 });
+    expect(draws).toEqual([{ scars: 3 }]);
+    expect(scarred.reports[0].attack.metrics.drawTimeSec).toBeCloseTo(plain.reports[0].attack.metrics.drawTimeSec - 3 * SCAR_PENALTY_SEC, 6);
+    expect(scarred.reports[0].damage).toBeLessThan(plain.reports[0].damage);
+  });
+
+  it('Yanık İzi: şans tutmazsa bot izlere değmez; izi olmayana hiç ekstra gitmez', async () => {
+    const draws: DrawExtras[] = [];
+    const tree = treeWith({ 'fire-scars': 2 });
+    const engine = new BattleEngine([
+      { name: 'A', team: 0, control: 'bot' },
+      { name: 'B', team: 1, control: 'bot', passives: tree.passives },
+    ]);
+    const plain = await play(fighters(), 1);
+    const safe = await play(engine, 1, { draws, random: () => 0.99 });
+    expect(draws).toEqual([{ scars: 2 }]);
+    expect(safe.reports[0].attack.metrics.drawTimeSec).toBe(plain.reports[0].attack.metrics.drawTimeSec);
+
+    const none: DrawExtras[] = [];
+    await play(fighters(), 1, { draws: none });
+    expect(none).toEqual([]);
+  });
+
+  it('Yanık İzi: insan oyuncunun süresini denetleyici değiştirmez (tuval kendisi keser)', async () => {
+    const tree = treeWith({ 'fire-scars': 3 });
+    const engine = new BattleEngine([
+      { name: 'A', team: 0, control: 'human' },
+      { name: 'B', team: 1, control: 'bot', passives: tree.passives },
+    ]);
+    const plain = await play(fighters(), 1);
+    const human = await play(engine, 1, { random: () => 0 });
+    expect(human.reports[0].attack.metrics.drawTimeSec).toBe(plain.reports[0].attack.metrics.drawTimeSec);
   });
 });

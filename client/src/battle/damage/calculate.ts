@@ -36,14 +36,18 @@ export interface DamageInput {
   attackerDrawTimeSec?: number;
   /** Bu vuruş kritik mi (zarı çağıran atar): hasar ×1.5 */
   critical?: boolean;
+  /** Ateş yetenekleri (Kıvılcım Saçması, kırılan kalkan): savunmanın tuttuğu kısmın bu oranı yok sayılır (0-1) */
+  defenseBypass?: number;
 }
 
 export interface DamageBreakdown {
   /** 1) Çizim gücü */
   powerFactor: { size: number; effort: number; total: number };
   power: number;
-  /** 2) Savunma */
+  /** 2) Savunma (`defenseBypass` uygulanmış etkin oran) */
   defendedRatio: number;
+  /** Savunmanın yok sayılan oranı (0 = yok) */
+  defenseBypass: number;
   /** Savunulmayan kısım (ağırlıkça, bölge çarpanı uygulanmadan), 0-1 */
   unblockedRatio: number;
   /** 3) Bölge: savunulmayan kısmın ne kadarı başa düştü (0-1) ve bölge çarpanıyla birlikte oran */
@@ -102,11 +106,14 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
   const match = matchDefense(input.attack.density, input.defense);
   const total = match.totalAttackWeight;
 
+  const bypass = clamp01(positive(input.defenseBypass, 0));
   let unblockedHead = 0;
   let unblockedBody = 0;
   for (let k = 0; k < match.unblocked.length; k++) {
-    if (isHeadRow(Math.floor(k / GRID))) unblockedHead += match.unblocked[k];
-    else unblockedBody += match.unblocked[k];
+    // Saçılan ya da kalkanı kırılan büyünün, savunmanın tuttuğu kısmının bir bölümü yine de geçer
+    const open = match.unblocked[k] + bypass * match.blocked[k];
+    if (isHeadRow(Math.floor(k / GRID))) unblockedHead += open;
+    else unblockedBody += open;
   }
   const unblockedTotal = unblockedHead + unblockedBody;
   const unblockedRatio = total > 0 ? unblockedTotal / total : 0;
@@ -131,7 +138,8 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
   return {
     powerFactor: factor,
     power,
-    defendedRatio: match.defendedRatio,
+    defendedRatio: match.defendedRatio * (1 - bypass),
+    defenseBypass: bypass,
     unblockedRatio,
     headShare,
     weightedUnblockedRatio,

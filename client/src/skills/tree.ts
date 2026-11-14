@@ -1,6 +1,6 @@
 import type { Element } from '../battle/damage/elements';
-import { CARRY_SKILLS, SKILLS, SP_PER_LEVEL, TIERS, getCarrySkill, getSkill, skillId, type BranchKind, type SkillDef, type SpellRole } from './catalog';
-import { resolveSpell, type SpellEffects, type SpellResolver } from './resolver';
+import { CARRY_SKILLS, MAX_SKILL_LEVEL, SKILLS, SKILL_POINT_COST, SP_PER_LEVEL, getCarrySkill, getSkill, type SpellRole } from './catalog';
+import { resolvePassives, resolveSpell, type Passives, type SpellEffects, type SpellResolver } from './resolver';
 
 /** Yetenekleri sıfırlamanın toplam bedeli: seviye başına bu kadar değer; dört para biriminden her biri dörtte birini öder (hiç yetenek yoksa bedava) */
 export const RESET_COST_PER_LEVEL = 25;
@@ -9,16 +9,23 @@ export type LearnCheck = { ok: true } | { ok: false; reason: string };
 
 /**
  * Oyuncunun yetenek ağacı. Puan, karakter seviyesinden gelir (2. seviyeden itibaren seviye başına 2 puan).
- * Her dalda kademeler sırayla alınır (Seviye 1 → Seviye 2 → Ustalık). Arayüzden bağımsızdır.
+ * Element yeteneklerinin her biri 3 seviyelidir; açmak ve her seviyeyi artırmak 1 puandır. Taşıyıcı dalı (3 kademe)
+ * sırayla alınır. Arayüzden bağımsızdır.
  */
 export class SkillTree {
-  private readonly ownedIds = new Set<string>();
+  private readonly levelMap = new Map<string, number>();
+  private readonly carryIds = new Set<string>();
   private readonly listeners = new Set<() => void>();
 
   constructor(private readonly levelOf: () => number) {}
 
+  /** Element yeteneklerinin seviyeleri (id → 1-3) */
+  get levels(): ReadonlyMap<string, number> {
+    return this.levelMap;
+  }
+
   get owned(): ReadonlySet<string> {
-    return this.ownedIds;
+    return this.carryIds;
   }
 
   onChange(listener: () => void): void {
@@ -35,7 +42,8 @@ export class SkillTree {
 
   get pointsSpent(): number {
     let spent = 0;
-    for (const id of this.ownedIds) spent += getSkill(id)?.cost ?? getCarrySkill(id)?.cost ?? 0;
+    for (const lv of this.levelMap.values()) spent += lv * SKILL_POINT_COST;
+    for (const id of this.carryIds) spent += getCarrySkill(id)?.cost ?? 0;
     return spent;
   }
 
@@ -43,49 +51,47 @@ export class SkillTree {
     return Math.max(0, this.pointsTotal - this.pointsSpent);
   }
 
+  /** Sahip olunan seviye (0 = hiç alınmadı) */
+  level(id: string): number {
+    return this.levelMap.get(id) ?? 0;
+  }
+
   has(id: string): boolean {
-    return this.ownedIds.has(id);
+    return this.carryIds.has(id) || this.level(id) > 0;
   }
 
-  /** Dalda sahip olunan kademe sayısı (0-3) */
-  rank(element: Element, branch: BranchKind): number {
-    let rank = 0;
-    for (const tier of TIERS) {
-      if (!this.ownedIds.has(skillId(element, branch, tier))) break;
-      rank = tier;
-    }
-    return rank;
-  }
-
-  /** Yetenek alınabilir mi? Değilse nedeni (Türkçe). */
+  /** Yetenek alınabilir ya da bir seviye artırılabilir mi? Değilse nedeni (Türkçe). */
   check(id: string): LearnCheck {
     const carry = getCarrySkill(id);
     if (carry) {
-      if (this.ownedIds.has(id)) return { ok: false, reason: 'Bu yeteneği zaten aldın.' };
-      if (carry.tier > 1 && !this.ownedIds.has(`carry-${carry.tier - 1}`)) return { ok: false, reason: 'Önce bir önceki kademeyi almalısın.' };
+      if (this.carryIds.has(id)) return { ok: false, reason: 'Bu yeteneği zaten aldın.' };
+      if (carry.tier > 1 && !this.carryIds.has(`carry-${carry.tier - 1}`)) return { ok: false, reason: 'Önce bir önceki kademeyi almalısın.' };
       if (carry.cost > this.pointsFree) return { ok: false, reason: `${carry.cost} yetenek puanı gerekiyor.` };
       return { ok: true };
     }
     const skill = getSkill(id);
     if (!skill) return { ok: false, reason: 'Böyle bir yetenek yok.' };
-    if (this.ownedIds.has(id)) return { ok: false, reason: 'Bu yeteneği zaten aldın.' };
-    if (skill.tier > 1 && !this.ownedIds.has(skillId(skill.element, skill.branch, (skill.tier - 1) as 1 | 2))) {
-      return { ok: false, reason: 'Önce bir önceki kademeyi almalısın.' };
-    }
-    if (skill.cost > this.pointsFree) return { ok: false, reason: `${skill.cost} yetenek puanı gerekiyor.` };
+    if (this.level(id) >= MAX_SKILL_LEVEL) return { ok: false, reason: 'Bu yetenek zaten en üst seviyede.' };
+    if (SKILL_POINT_COST > this.pointsFree) return { ok: false, reason: `${SKILL_POINT_COST} yetenek puanı gerekiyor.` };
     return { ok: true };
   }
 
+  /** Yeteneği açar ya da bir seviye artırır. */
   learn(id: string): boolean {
     if (!this.check(id).ok) return false;
-    this.ownedIds.add(id);
+    if (getCarrySkill(id)) this.carryIds.add(id);
+    else this.levelMap.set(id, this.level(id) + 1);
     this.changed();
     return true;
   }
 
+  private get isEmpty(): boolean {
+    return this.levelMap.size === 0 && this.carryIds.size === 0;
+  }
+
   /** Sıfırlamanın toplam bedeli; hiç yetenek yoksa 0. */
   get resetCost(): number {
-    return this.ownedIds.size === 0 ? 0 : RESET_COST_PER_LEVEL * Math.max(1, Math.floor(this.levelOf()));
+    return this.isEmpty ? 0 : RESET_COST_PER_LEVEL * Math.max(1, Math.floor(this.levelOf()));
   }
 
   /** Her para biriminden alınacak miktar (toplam bedelin dörtte biri, yukarı yuvarlanır). */
@@ -95,8 +101,9 @@ export class SkillTree {
 
   /** Tüm yetenekleri geri verir (bedeli çağıran öder). */
   reset(): void {
-    if (this.ownedIds.size === 0) return;
-    this.ownedIds.clear();
+    if (this.isEmpty) return;
+    this.levelMap.clear();
+    this.carryIds.clear();
     this.changed();
   }
 
@@ -104,7 +111,7 @@ export class SkillTree {
   get carryBonus(): { wands: number; goods: number; gear: number } {
     const total = { wands: 0, goods: 0, gear: 0 };
     for (const s of CARRY_SKILLS) {
-      if (!this.ownedIds.has(s.id)) continue;
+      if (!this.carryIds.has(s.id)) continue;
       total.wands += s.bonus.wands;
       total.goods += s.bonus.goods;
       total.gear += s.bonus.gear;
@@ -114,7 +121,12 @@ export class SkillTree {
 
   /** Bir büyü için birleşik etki (hasar hesabına bağlanır). */
   resolve(element: Element, role: SpellRole): SpellEffects {
-    return resolveSpell(this.ownedIds, element, role);
+    return resolveSpell(this.levelMap, element, role);
+  }
+
+  /** Pasif yetenekler (Yanık İzi gibi); büyü elementinden bağımsız. */
+  get passives(): Passives {
+    return resolvePassives(this.levelMap);
   }
 
   /** Savaşçıya verilecek çözücü; ağaç sonradan değişse bile güncel durumu okur. */
@@ -122,24 +134,38 @@ export class SkillTree {
     return (element, role) => this.resolve(element, role);
   }
 
-  /** Kayıt için: alınan yetenek kimlikleri, katalog sırasında. */
+  /** Kayıt için: `<yetenek>-<seviye>` (örn. `fire-burn-2`) ve taşıyıcı kimlikleri, katalog sırasında. */
   snapshot(): string[] {
-    return [...SKILLS.filter((s) => this.ownedIds.has(s.id)).map((s) => s.id), ...CARRY_SKILLS.filter((s) => this.ownedIds.has(s.id)).map((s) => s.id)];
+    return [
+      ...SKILLS.filter((s) => this.level(s.id) > 0).map((s) => `${s.id}-${this.level(s.id)}`),
+      ...CARRY_SKILLS.filter((s) => this.carryIds.has(s.id)).map((s) => s.id),
+    ];
   }
 
   /**
-   * Kayıttan yükler. Bilinmeyen kimlikler, sırasız (önceki kademesi olmayan) kademeler ve puanı aşan
-   * yetenekler atılır; ucuz kademeler önce işlenir, bu yüzden geçerli bir kayıt bire bir geri gelir.
+   * Kayıttan yükler. Bilinmeyen kimlikler (eski yetenekler dahil; puanları otomatik iade olur), sırasız taşıyıcı
+   * kademeleri ve puanı aşan yetenekler atılır.
    */
   restore(ids: readonly string[] | undefined): void {
-    this.ownedIds.clear();
-    const wanted = new Set(ids ?? []);
-    const ordered: { id: string; tier: number }[] = [
-      ...SKILLS.filter((s: SkillDef) => wanted.has(s.id)),
-      ...CARRY_SKILLS.filter((s) => wanted.has(s.id)),
-    ].sort((a, b) => a.tier - b.tier);
-    for (const skill of ordered) {
-      if (this.check(skill.id).ok) this.ownedIds.add(skill.id);
+    this.levelMap.clear();
+    this.carryIds.clear();
+    const wantedLevels = new Map<string, number>();
+    const wantedCarry = new Set<string>();
+    for (const raw of ids ?? []) {
+      if (getCarrySkill(raw)) {
+        wantedCarry.add(raw);
+        continue;
+      }
+      const m = /^(.+)-([1-3])$/.exec(raw);
+      if (!m || !getSkill(m[1])) continue;
+      wantedLevels.set(m[1], Math.max(wantedLevels.get(m[1]) ?? 0, Number(m[2])));
+    }
+    for (const c of CARRY_SKILLS) {
+      if (wantedCarry.has(c.id) && this.check(c.id).ok) this.carryIds.add(c.id);
+    }
+    for (const s of SKILLS) {
+      const want = wantedLevels.get(s.id) ?? 0;
+      for (let i = 0; i < want && this.check(s.id).ok; i++) this.levelMap.set(s.id, this.level(s.id) + 1);
     }
     this.changed();
   }

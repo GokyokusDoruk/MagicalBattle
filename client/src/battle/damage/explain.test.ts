@@ -6,6 +6,7 @@ const base: DamageBreakdown = {
   powerFactor: { size: 1, effort: 1, total: 1 },
   power: 100,
   defendedRatio: 0,
+  defenseBypass: 0,
   unblockedRatio: 1,
   headShare: 0,
   weightedUnblockedRatio: 1,

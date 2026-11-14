@@ -7,7 +7,8 @@ import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Eleme
 import { Bot } from '../battle/flow/bot';
 import { ElysiaBot } from '../battle/flow/elysia';
 import { EFFECT_LABELS, explainDamage, spellEffect } from '../battle/damage/explain';
-import { runBattle, type BattleIO, type Role, type RoundChoice, type TurnElements, type TurnReport } from '../battle/flow/controller';
+import type { BurnEvent } from '../battle/flow/engine';
+import { runBattle, type BattleIO, type DrawExtras, type Role, type RoundChoice, type TurnElements, type TurnReport } from '../battle/flow/controller';
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import { DrawingCanvas } from './drawingCanvas';
@@ -123,7 +124,7 @@ export class BattleScreen implements BattleIO {
       const ratio = f.hp / f.maxHp;
       h.fill.style.width = `${ratio * 100}%`;
       h.fill.style.background = ratio > 0.5 ? '#4ade80' : ratio > 0.25 ? '#fbbf24' : '#f87171';
-      h.text.textContent = `${f.hp}/${f.maxHp}`;
+      h.text.textContent = `${f.burn > 0 && f.hp > 0 ? '🔥 ' : ''}${f.hp}/${f.maxHp}`;
       h.card.style.opacity = f.hp > 0 ? '1' : '0.45';
     }
   }
@@ -231,14 +232,14 @@ export class BattleScreen implements BattleIO {
     await this.say(this.center, `Bu döngünün elementleri<br><span class="text-sm font-normal">${rows}</span>`, 1800, 'bg-slate-800/85 text-slate-100');
   }
 
-  async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult> {
+  async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number, extras?: DrawExtras): Promise<DrawingResult> {
     const bot = this.bots.get(key(ref));
     if (bot) {
       await sleep(this.arenaPause(role));
       return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
-    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec);
+    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -246,7 +247,7 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
@@ -257,6 +258,7 @@ export class BattleScreen implements BattleIO {
       showHeadZone: true,
       // Asa çizim süresini uzatabilir (varsayılan 3 sn)
       drawTimeMs: limitSec ? Math.round(limitSec * 1000) : undefined,
+      scars,
       drawSound: () => this.sfx.beginDraw(element),
     });
     // Boss mekaniği (zihin kontrolü): belirli döngüden sonra çizim tuvali bulanıklaşır
@@ -268,6 +270,14 @@ export class BattleScreen implements BattleIO {
       this.closeModal();
       return result;
     });
+  }
+
+  /** Döngü başında yanan savaşçılar yanma hasarı yer. */
+  async announceBurn(events: readonly BurnEvent[]): Promise<void> {
+    this.updateHud();
+    const text = events.map((e) => `🔥 ${esc(this.name(e.ref))} yanıyor −${e.damage}`).join('<br>');
+    await this.say(this.center, text, 1100, 'bg-orange-800/85 text-orange-50');
+    for (const e of events) if (e.defeated) this.arena.defeat(e.ref);
   }
 
   async play(report: TurnReport): Promise<void> {
@@ -292,6 +302,13 @@ export class BattleScreen implements BattleIO {
       element: report.attackerElement,
     });
     await this.showEffect(report);
+    // Ateş yetenekleri: kısa duyurular
+    const notes: string[] = [];
+    if (report.chainStacks) notes.push(`⛓️ Alev Zinciri ×${report.chainStacks}`);
+    if (report.scatter) notes.push('✨ Kıvılcımlar savunmayı aştı');
+    if (report.shieldBroken) notes.push('🛡️💥 Kalkan kırıldı!');
+    if (report.ignited) notes.push(`🔥 ${this.name(action.defender)} tutuştu!`);
+    if (notes.length > 0) void this.say(this.calc, notes.join('<br>'), 1500, 'bg-orange-800/85 text-orange-50');
     // Kişilikli botlar (Elysia) hasar yiyince tepki verir
     this.bots.get(key(action.defender))?.onDamaged(report.damage, this.engine.fighter(action.defender).maxHp);
     if (report.reflected > 0) this.bots.get(key(action.attacker))?.onDamaged(report.reflected, this.engine.fighter(action.attacker).maxHp);

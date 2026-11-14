@@ -1,4 +1,4 @@
-import { BRUSH_RADIUS, DRAW_TIME_MS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
+import { BRUSH_RADIUS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
 import { HEAD_ZONE_FRACTION } from '../battle/damage/config';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
@@ -13,6 +13,51 @@ export interface DrawingCanvasOptions extends SessionOptions {
   showHeadZone?: boolean;
   /** Her çizgi başlarken çağrılır; kalem hızına göre sürekli ses verir (ör. `engine.beginDraw`) */
   drawSound?: () => DrawLoop;
+  /** Yanık İzi: ekranda beliren yara izi sayısı. Dokunan her iz ekranı kırmızıya boyar ve 0.2 sn süre alır. */
+  scars?: number;
+  /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
+  random?: () => number;
+}
+
+/** Çizim ekranındaki bir yara izi (mantıksal koordinat) */
+interface Scar {
+  x: number;
+  y: number;
+  angle: number;
+  hit: boolean;
+}
+
+/** Yara izinin dokunma yarıçapı (mantıksal birim) */
+export const SCAR_RADIUS = 16;
+/** Dokunulan yara izinin aldığı süre (ms) */
+export const SCAR_PENALTY_MS = 200;
+
+/**
+ * Yara izi konumları: kenarlardan uzak, birbirinden ayrı ve ortadaki çizim alanına rastgele serpilir.
+ * (Saf fonksiyon: testlenebilir.)
+ */
+export function placeScars(count: number, random: () => number = Math.random): { x: number; y: number; angle: number }[] {
+  const out: { x: number; y: number; angle: number }[] = [];
+  const margin = 36;
+  for (let i = 0; i < count; i++) {
+    let best = { x: 0, y: 0, angle: 0 };
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const c = { x: margin + random() * (LOGICAL_SIZE - 2 * margin), y: margin + random() * (LOGICAL_SIZE - 2 * margin), angle: (random() - 0.5) * Math.PI };
+      best = c;
+      if (out.every((o) => Math.hypot(o.x - c.x, o.y - c.y) > SCAR_RADIUS * 3)) break;
+    }
+    out.push(best);
+  }
+  return out;
+}
+
+/** a-b doğru parçası c noktasına `r` mesafeden yakın mı */
+export function segmentNearPoint(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }, r: number): boolean {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.min(1, Math.max(0, ((c.x - a.x) * dx + (c.y - a.y) * dy) / len2));
+  return Math.hypot(a.x + t * dx - c.x, a.y + t * dy - c.y) <= r;
 }
 
 /**
@@ -32,6 +77,8 @@ export class DrawingCanvas {
   private pointerId: number | null = null;
   private loop: DrawLoop | null = null;
   private lastMove: { x: number; y: number; at: number } | null = null;
+  private scars: Scar[] = [];
+  private flashUntil = 0;
 
   constructor(private readonly options: DrawingCanvasOptions) {
     this.session = new DrawingSession(options);
@@ -64,6 +111,8 @@ export class DrawingCanvas {
   start(): Promise<DrawingResult> {
     this.session = new DrawingSession(this.options);
     this.session.start(performance.now());
+    this.scars = placeScars(Math.max(0, Math.floor(this.options.scars ?? 0)), this.options.random).map((s) => ({ ...s, hit: false }));
+    this.flashUntil = 0;
     this.fitCanvas();
     this.timer = window.setInterval(() => this.frame(), Math.min(DWELL_SAMPLE_MS, 16));
     this.frame();
@@ -105,8 +154,20 @@ export class DrawingCanvas {
     const p = this.toLogical(e);
     const now = performance.now();
     this.session.pointerDown(p.x, p.y, now);
+    this.touchScars(p, p, now);
     this.loop = this.options.drawSound?.() ?? null;
     this.lastMove = { x: p.x, y: p.y, at: now };
+  }
+
+  /** Kalem iki nokta arasında bir yara izine değdiyse: iz yanar, ekran kızarır, 0.2 sn gider (her iz bir kez). */
+  private touchScars(from: { x: number; y: number }, to: { x: number; y: number }, now: number): void {
+    if (this.session.currentPhase !== 'drawing') return;
+    for (const scar of this.scars) {
+      if (scar.hit || !segmentNearPoint(from, to, scar, SCAR_RADIUS)) continue;
+      scar.hit = true;
+      this.session.penalize(SCAR_PENALTY_MS);
+      this.flashUntil = now + 280;
+    }
   }
 
   private onMove(e: PointerEvent): void {
@@ -115,6 +176,7 @@ export class DrawingCanvas {
     const now = performance.now();
     this.session.pointerMove(p.x, p.y, now);
     const last = this.lastMove;
+    this.touchScars(last ?? p, p, now);
     if (this.loop && last) {
       // mantıksal birim/ms; ~0.8 çok hızlı sayılır
       this.loop.update(Math.hypot(p.x - last.x, p.y - last.y) / Math.max(1, now - last.at) / 0.8);
@@ -203,6 +265,38 @@ export class DrawingCanvas {
     ctx.restore();
   }
 
+  /** Küçük kırmızı yara izleri: eğik bir kesik ve üstünde iki çapraz çizgi; dokunulan iz solar. */
+  private drawScars(scale: number): void {
+    const { ctx } = this;
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const s of this.scars) {
+      ctx.globalAlpha = s.hit ? 0.25 : 0.95;
+      ctx.strokeStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = s.hit ? 0 : 6 * scale;
+      ctx.lineWidth = 3 * scale;
+      const dx = Math.cos(s.angle) * SCAR_RADIUS * 0.8 * scale;
+      const dy = Math.sin(s.angle) * SCAR_RADIUS * 0.8 * scale;
+      const cx = s.x * scale;
+      const cy = s.y * scale;
+      ctx.beginPath();
+      ctx.moveTo(cx - dx, cy - dy);
+      ctx.lineTo(cx + dx, cy + dy);
+      ctx.stroke();
+      ctx.lineWidth = 2 * scale;
+      for (const t of [-0.35, 0.35]) {
+        const px = cx + dx * t;
+        const py = cy + dy * t;
+        ctx.beginPath();
+        ctx.moveTo(px - dy * 0.6, py + dx * 0.6);
+        ctx.lineTo(px + dy * 0.6, py - dx * 0.6);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   private render(now: number): void {
     const { ctx, canvas } = this;
     const scale = canvas.width / LOGICAL_SIZE;
@@ -220,9 +314,14 @@ export class DrawingCanvas {
 
     if (this.options.showHeadZone) this.drawHeadZone(scale);
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
+    this.drawScars(scale);
     this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
+    if (now < this.flashUntil) {
+      ctx.fillStyle = `rgba(239,68,68,${(0.45 * (this.flashUntil - now)) / 280})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
-    const total = this.options.drawTimeMs ?? DRAW_TIME_MS;
+    const total = this.session.limitMs;
     const remaining = this.session.remainingMs(now);
     this.fill.style.width = `${(remaining / total) * 100}%`;
     this.fill.style.background = remaining < total * 0.25 ? '#f87171' : '#fcd34d';

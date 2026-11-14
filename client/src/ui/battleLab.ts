@@ -48,7 +48,7 @@ export function startBattleLab(root: HTMLElement): void {
   };
 
   const fighters = (): FighterInit[] => {
-    const mine: FighterInit[] = [{ name: 'Sen', team: 0, control: 'human', spells: tree.resolver, wands: wandSet() }];
+    const mine: FighterInit[] = [{ name: 'Sen', team: 0, control: 'human', spells: tree.resolver, passives: tree.passives, wands: wandSet() }];
     const theirs: FighterInit[] = [{ name: 'Rakip', team: 1, control: 'bot' }];
     if (settings.teamSize === 2) {
       mine.push({ name: 'Elysia', team: 0, control: 'bot', persona: 'elysia' });

@@ -69,6 +69,7 @@ export function enemyFighters(element: Element, tier: Tier, player: PlayerStats)
       dealtMultiplier: player.dealtMultiplier,
       takenMultiplier: player.takenMultiplier,
       spells: player.spells,
+      passives: player.passives,
       wands: player.wands,
     },
     {
