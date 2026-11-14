@@ -71,3 +71,26 @@ export function markersInRange(
 ): MainQuestMarker[] {
   return markers.filter((m) => Math.hypot(m.px - px, m.py - py) <= range);
 }
+
+const ARROWS = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'] as const;
+
+/** Oyuncudan işarete yön oku (ekranda yukarı = harita yukarısı) ve karo uzaklığı. */
+export function directionTo(fromPx: number, fromPy: number, m: Pick<MainQuestMarker, 'px' | 'py'>): { arrow: string; tiles: number } {
+  const dx = m.px - fromPx;
+  const dy = m.py - fromPy;
+  const angle = Math.atan2(dy, dx); // 0 = sağ, saat yönünde artar (y aşağı)
+  const idx = ((Math.round(angle / (Math.PI / 4)) % 8) + 8) % 8;
+  return { arrow: ARROWS[idx], tiles: Math.round(Math.hypot(dx, dy) / TILE_SIZE) };
+}
+
+/** Şu anki ana görev: aktif bölümlerin en küçüğü, adı, yeri ve oyuncudan yönü. Hiç aktif görev yoksa null. */
+export function mainQuestHint(
+  markers: readonly MainQuestMarker[],
+  fromPx: number,
+  fromPy: number,
+): { title: string; place: string; arrow: string; tiles: number } | null {
+  const m = [...markers].sort((a, b) => a.chapter - b.chapter)[0];
+  if (!m) return null;
+  const place = LOCATIONS.find((l) => l.id === m.locationId)?.name ?? '';
+  return { title: m.title, place, ...directionTo(fromPx, fromPy, m) };
+}

@@ -74,3 +74,9 @@ Yüklerken (`SkillTree.restore`) bilinmeyen kimlikler, kademe atlayanlar ve puan
 - Sınırlar ve sinerji değerleri: `skills/resolver.ts` (`LIMITS`, `SYNERGY`).
 - Puan kuralı: `SP_PER_LEVEL`, `TIER_COST` (catalog.ts); sıfırlama bedeli `RESET_GOLD_PER_LEVEL` (tree.ts).
 - Yetenekler boss savaşlarında oyuncunun savaşçısına `spells: skillTree.resolver` ile bağlıdır ([boss-savaslari.md](boss-savaslari.md)) ve savaş denemesinde de çalışır.
+
+## Tablo görünümü ve ana görev rehberi (Task 34)
+
+- Yetenek ağacında her elementin 9 yeteneği **tek tabloda** gösterilir: satır = yetenek (dal ve kademe), sütunlar = Verilen hasar, Alınan hasar, Baş bonusu, Zırh delme, Yansıtma, Can çalma, Acele çizim ve Bedel. Etkisi olmayan hücre "–" görünür. Satıra dokununca (alınabiliyorsa) öğrenilir. Dar ekranda tablo yatay kayar.
+- **Aceleyle çizilen büyü:** büyünün gücü çizimin büyüklüğüne ve harcanan süreye bağlıdır. Süreyi doldurmadan bitirirsen ya da çok küçük çizersen güç düşer, en kötü durumda %40'a kadar. "Acele çizim" etkisi bu tabanı yükseltir (örn. +%10: %50'ye kadar).
+- **Ana görev rehberi:** sol üstteki durum panelinde "★ Ana görev" kutusu görevin adını, yerini, yön okunu ve karo uzaklığını gösterir. Kilitli bir kapıya yaklaşınca uyarı hangi ana görevin yapılacağını ve sarı ! işaretinin nerede olduğunu söyler.

@@ -9,6 +9,8 @@ export interface StatusView {
   xp: number;
   /** Kaydedilmemiş ilerleme var mı (son kayıt noktasından sonra bir şey değişti) */
   dirty: boolean;
+  /** Ana görev rehberi: ad, yer, yön oku ve karo uzaklığı */
+  mainQuest?: { title: string; place: string; arrow: string; tiles: number } | null;
   /** Takip edilen (aktif) görevler */
   quests: { title: string; value: number; target: number }[];
   /** Harcanmamış yetenek puanı */
@@ -33,6 +35,7 @@ export class StatusBar {
   private readonly hpFillEl: HTMLElement;
   private readonly dirtyEl: HTMLElement;
   private readonly questsEl: HTMLElement;
+  private readonly mainEl: HTMLElement;
   private readonly skillsBtn: HTMLButtonElement;
   private readonly moralEl: HTMLElement;
   private readonly wandsBtn: HTMLButtonElement;
@@ -53,6 +56,7 @@ export class StatusBar {
       <button type="button" data-bag class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🎒 Çanta (B)</button>
       <div data-moral class="mt-1 text-[11px] text-purple-200"></div>
       <div data-dirty class="mt-1 hidden text-[10px] text-amber-300">● Kaydedilmedi: bir şehre girince kaydedilir</div>
+      <div data-main class="mt-1 hidden rounded bg-amber-400/20 px-1.5 py-1 text-[11px] text-amber-100"></div>
       <div data-quests class="mt-1 flex flex-col gap-0.5 text-[11px] text-slate-200"></div>`;
     const q = <T extends HTMLElement>(sel: string): T => this.element.querySelector<T>(sel)!;
     this.levelEl = q('[data-level]');
@@ -62,6 +66,7 @@ export class StatusBar {
     this.hpFillEl = q('[data-hpfill]');
     this.dirtyEl = q('[data-dirty]');
     this.questsEl = q('[data-quests]');
+    this.mainEl = q('[data-main]');
     this.moralEl = q('[data-moral]');
     this.skillsBtn = q<HTMLButtonElement>('[data-skills]');
     this.skillsBtn.hidden = !onSkills;
@@ -88,6 +93,9 @@ export class StatusBar {
     this.bagBtn.classList.toggle('text-amber-300', view.bagFull);
     this.moralEl.textContent = `☯ ${view.moralityLabel}`;
     this.dirtyEl.classList.toggle('hidden', !view.dirty);
+    const mq = view.mainQuest;
+    this.mainEl.classList.toggle('hidden', !mq);
+    if (mq) this.mainEl.innerHTML = `<b>★ Ana görev</b><br>${mq.title}<br><span class="text-amber-300">${mq.arrow} ${mq.place} (${mq.tiles} karo)</span>`;
     this.questsEl.replaceChildren(
       ...view.quests.map((qv) => {
         const row = document.createElement('div');

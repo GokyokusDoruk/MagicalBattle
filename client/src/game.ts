@@ -59,7 +59,7 @@ import { generateMap } from './world/generateMap';
 import { LOCATIONS, getLocation } from './world/locations';
 import { merchantSpots } from './world/merchantSpots';
 import { PICKUP_SPOTS } from './world/pickups';
-import { QuestTracker } from './world/questMarkers';
+import { QuestTracker, mainQuestHint } from './world/questMarkers';
 import { TILE_SIZE } from './world/tiles';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -197,6 +197,8 @@ document.body.appendChild(exitDropUi.element);
 /** Başka bir panel (sahne, tüccar, diyalog ya da diğer çekmeceler) açıkken yeni panel açılmaz */
 const otherOpen = (except: { isOpen: boolean }): boolean =>
   [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi, groundPileUi, exitDropUi].some((p) => p !== except && p.isOpen);
+/** Oyuncunun son dünya konumu (piksel); ana görev okunu hesaplamak için */
+const heroPos = { x: 0, y: 0 };
 const statusBar = new StatusBar(
   () => {
     if (!otherOpen(skillUi)) skillUi.toggle();
@@ -220,6 +222,7 @@ const refreshHud = (): void =>
     gold: hero.gold,
     xp: hero.xp,
     dirty: dirty && saves.enabled,
+    mainQuest: mainQuestHint(quests.activeMarkers(), heroPos.x, heroPos.y),
     quests: sideQuests.active().map((q) => ({ title: q.title, ...sideQuests.progress(q.id) })),
     skillPoints: skillTree.pointsFree,
     bagSummary: `Asa ${carry.usage().wands}/${carry.capacity().wands} · Eşya ${carry.usage().goods}/${carry.capacity().goods}`,
@@ -296,6 +299,7 @@ document.body.appendChild(dialogueUi.element);
 /** Bir bölümün sahnesi, boss savaşı ve seçimleri sürerken true (aralardaki boşlukta da dünya durur) */
 let chapterBusy = false;
 let fightBusy = false;
+let lastHintTile = '';
 let mineBusy = false;
 let chestBusy = false;
 const mineBoard = new MineBoard(() => performance.now());
@@ -702,7 +706,15 @@ void import('./world/bootWorld').then((m) =>
     },
     onFrame: (player) => {
       debug.player = player;
+      heroPos.x = player.x;
+      heroPos.y = player.y;
       minimap.update(player);
+      // Ana görev okunu ve uzaklığını sık yenile (karo değişince)
+      const tileKey = `${Math.floor(player.x / TILE_SIZE)},${Math.floor(player.y / TILE_SIZE)}`;
+      if (tileKey !== lastHintTile) {
+        lastHintTile = tileKey;
+        refreshHud();
+      }
     },
   }),
 );
