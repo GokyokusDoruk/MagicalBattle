@@ -45,5 +45,5 @@ Her köyde bir şifacı vardır (köyler her zaman açıktır):
 
 ## Bilinen sınırlar
 
-- Ölüm yalnızca boss savaşlarında var. Düşmanlarla dünyada rastgele karşılaşma gelirse aynı `handleDeath` kullanılabilir.
+- Ölüm boss savaşlarında ve dünya düşmanlarında (Task 28) var: yenilip "Pes et" denince aynı `handleDeath` çalışır. Savaşta kaçmak (savaşa girmeden) ölüm sayılmaz.
 - Kaydedilmemiş ilerleme varken tarayıcıyı kapatmak, ödülü ya da cezayı geri alır (kayıt yalnızca şehirlerde yapılır). Bu bilinçli bir tasarımdır, ayrıntısı [backend.md](backend.md) içinde.

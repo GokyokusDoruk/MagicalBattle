@@ -34,7 +34,7 @@ Sol üstteki panelde seviye ve altının altında **❤ Can** çubuğu görünü
 
 ## Dikkat
 
-Dünya düşmanları (Task 28) gelene kadar can yalnızca boss savaşlarında azalır. Han bedava ve şehirlerde olduğu için ana görev zinciri boyunca can doldurmak kolaydır; zorluk dünya savaşları ve madenlerle gelecek.
+Can boss savaşlarında ve dünya düşmanlarıyla savaşlarda ([dunya-dusmanlari.md](dunya-dusmanlari.md)) azalır. Han bedava ve şehirlerde olduğu için can doldurmak kolaydır; yolda iksir taşımak önem kazanır.
 
 ## Kod
 

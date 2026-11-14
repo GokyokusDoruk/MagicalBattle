@@ -90,6 +90,15 @@ export const STALL_KEY = 'stall';
 export const HERB_KEY = 'pickup-herb';
 export const CRYSTAL_KEY = 'pickup-crystal';
 export const PILE_KEY = 'ground-pile';
+/** Dünya düşmanı dokusunun anahtarı (elemente göre) */
+export const enemyKey = (element: string): string => `enemy-${element}`;
+
+const ENEMY_COLORS: Record<string, [number, number]> = {
+  fire: [0xef4444, 0xfca5a5],
+  water: [0x3b82f6, 0x93c5fd],
+  earth: [0x92400e, 0xd6a76b],
+  air: [0xe2e8f0, 0xffffff],
+};
 
 /** Tüccar tezgâhı ve toplanabilir eşyaların (ot, kristal) görselleri. */
 export function createWorldItemTextures(scene: Scene): void {
@@ -128,5 +137,18 @@ export function createWorldItemTextures(scene: Scene): void {
   g.fillStyle(0xb98550, 1).fillTriangle(8, 12, 14, 6, 20, 12);
   g.fillStyle(0xfef3c7, 1).fillRect(11, 12, 6, 2);
   g.generateTexture(PILE_KEY, 28, 30);
+  g.clear();
+
+  // Dünya düşmanları: elementin renginde yuvarlak yaratık, kızgın gözler ve dikenler
+  for (const [el, [body, light]] of Object.entries(ENEMY_COLORS)) {
+    g.fillStyle(0x000000, 0.25).fillEllipse(16, 29, 22, 6);
+    g.fillStyle(body, 1).fillCircle(16, 17, 12);
+    g.fillTriangle(8, 9, 11, 1, 14, 8).fillTriangle(18, 8, 21, 1, 24, 9);
+    g.fillStyle(light, 1).fillCircle(13, 14, 3).fillCircle(20, 14, 3);
+    g.fillStyle(0x111111, 1).fillCircle(13, 15, 1.5).fillCircle(20, 15, 1.5);
+    g.fillStyle(0x111111, 1).fillRect(12, 21, 9, 2);
+    g.generateTexture(enemyKey(el), 32, 32);
+    g.clear();
+  }
   g.destroy();
 }

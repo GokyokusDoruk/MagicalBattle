@@ -6,8 +6,9 @@ import { tileAt, type WorldMap } from './generateMap';
 import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
 import type { PickupSpot } from './pickups';
+import type { EnemySpot } from '../enemies/spots';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CRYSTAL_KEY, HERB_KEY, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
+import { CRYSTAL_KEY, HERB_KEY, enemyKey, PILE_KEY, PLAYER_KEY, STALL_KEY, TILESET_KEY, createPlayerTexture, createTilesetTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
 const PLAYER_SPEED = 150; // piksel/saniye
@@ -19,6 +20,7 @@ const MARKER_TRIGGER_RANGE = TILE_SIZE * 0.9;
 const MERCHANT_RANGE = TILE_SIZE * 1.6;
 const PICKUP_RANGE = TILE_SIZE * 0.85;
 const PILE_RANGE = TILE_SIZE * 0.9;
+const ENEMY_RANGE = TILE_SIZE * 0.8;
 
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
 export interface WorldContext {
@@ -52,6 +54,10 @@ export interface WorldContext {
   /** Yerdeki eşya yığınları (şehirden çıkarken bırakılanlar); yığına yaklaşınca `onPileEnter` çağrılır */
   groundPiles?: () => readonly { id: string; tileX: number; tileY: number }[];
   onPileEnter?: (pileId: string) => void;
+  /** Dünya düşmanları (Task 28); oyuncu yanlarına gelince `onEnemyEnter` çağrılır. Yenilenler `isEnemyActive` ile gizlenir. */
+  enemies?: readonly EnemySpot[];
+  isEnemyActive?: (id: string) => boolean;
+  onEnemyEnter?: (id: string) => void;
   /** Oyuncuyu bir dünya konumuna (piksel) ışınlar; kayıt yükleme ve geliştirme denemeleri için. Boşsa null. */
   takeTeleport?: () => { x: number; y: number } | null;
 }
@@ -70,6 +76,8 @@ export class WorldScene extends Phaser.Scene {
   private currentLocation: string | null = null;
   private pileSprites = new Map<string, Phaser.GameObjects.Image>();
   private insidePiles = new Set<string>();
+  private enemySprites = new Map<string, Phaser.GameObjects.Image>();
+  private insideEnemies = new Set<string>();
 
   constructor(private readonly ctx: WorldContext) {
     super('world');
@@ -90,6 +98,7 @@ export class WorldScene extends Phaser.Scene {
     this.createMarkerSprites();
     this.createMerchants();
     this.createPickups();
+    this.createEnemies();
 
     const start = this.ctx.startTile ?? map.spawn;
     this.pos = { x: start.x * TILE_SIZE + TILE_SIZE / 2, y: start.y * TILE_SIZE + TILE_SIZE / 2 };
@@ -161,6 +170,7 @@ export class WorldScene extends Phaser.Scene {
     this.syncPiles();
     this.checkMerchants();
     this.checkPickups();
+    this.checkEnemies();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
@@ -228,6 +238,33 @@ export class WorldScene extends Phaser.Scene {
       this.tweens.add({ targets: sprite, y: sprite.y - 3, duration: 900 + (spot.tileX % 5) * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.pickupSprites.set(spot.id, sprite);
     }
+  }
+
+  /** Dünya düşmanları: elementine göre renkli yaratıklar, hafifçe sallanır. */
+  private createEnemies(): void {
+    for (const spot of this.ctx.enemies ?? []) {
+      const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
+      const sprite = this.add.image(x, y, enemyKey(spot.element)).setDepth(6);
+      this.tweens.add({ targets: sprite, y: y - 4, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.enemySprites.set(spot.id, sprite);
+    }
+  }
+
+  /** Yenilen düşmanı gizler (geri gelince yeniden gösterir); yanına gelince (bir kez, uzaklaşıp dönene kadar) savaşı başlatır. */
+  private checkEnemies(): void {
+    const near = new Set<string>();
+    for (const spot of this.ctx.enemies ?? []) {
+      const sprite = this.enemySprites.get(spot.id);
+      const active = this.ctx.isEnemyActive?.(spot.id) ?? true;
+      sprite?.setVisible(active);
+      if (!active) continue;
+      const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
+      if (Math.hypot(x - this.pos.x, y - this.pos.y) <= ENEMY_RANGE) near.add(spot.id);
+    }
+    for (const id of near) if (!this.insideEnemies.has(id)) this.ctx.onEnemyEnter?.(id);
+    this.insideEnemies = near;
   }
 
   /** Bir konumun alanına yeni girildiğinde haber verir (ziyaret görevleri). */
