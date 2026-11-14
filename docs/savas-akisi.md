@@ -2,13 +2,16 @@
 
 Kod: `client/src/battle/flow/` (kurallar) ve `client/src/ui/battleScreen.ts` (ekran). Denemek için oyunun adresine `?lab=battle` ekle (örn. `https://magicalbattle.dorukplays.com/?lab=battle`). Giriş gerekmez.
 
-## Bir tur nasıl geçer
+## Bir döngü ve tur nasıl geçer
 
-1. **Sıra belirlenir:** kim saldırıyor, kim savunuyor.
-2. **Gizli element seçimi:** saldıran ve savunan **aynı anda, birbirini görmeden** element seçer. İkisi de seçince birlikte açılır, üstünlük ya da dezavantaj gösterilir (ateş ⚔ hava, saldırı üstün ×1,5).
-3. **Saldıran çizer** (3 sn). Çizim çok küçükse "Büyü yapamadı!": savunmaya gerek kalmaz, hasar yok, sıra rakibe geçer.
-4. **Savunan çizer** (3 sn). Gelen saldırıyı soluk "hayalet" olarak görür (ayarlanabilir). Çizemezse saldırının tamamı hasar verir.
-5. **Hasar hesaplanır** ([hasar-hesabi.md](hasar-hesabi.md)), can düşer, büyü arenada oynatılır.
+**Tur elementi:** Her **döngünün başında** canlı herkes **gizlice, aynı anda, birbirini görmeden TEK element** seçer ve elementler birlikte açılır. Seçtiğin element o döngüde **hem saldırının hem savunmanın elementidir**: ateşle saldırdıysan o döngü ateşle savunursun. Ekipmanın (zırh, yüzük) ve asanın element bonusları da bu elemente göre hesaplanır. Sonra döngünün turları oynanır:
+
+1. **Sıra belirlenir:** kim saldırıyor, kim savunuyor. Bu turun element ilişkisi gösterilir: saldıranın elementi savunanınkine üstünse hasar ×1.5, savunan üstünse ×0.5 (ateş ⚔ hava gibi).
+2. **Saldıran çizer** (3 sn + asa ve yüzük süresi). Çizim çok küçükse "Büyü yapamadı!": savunmaya gerek kalmaz, hasar yok, sıra rakibe geçer.
+3. **Savunan çizer** (3 sn + asa ve yüzük süresi). Gelen saldırıyı soluk "hayalet" olarak görür (ayarlanabilir). Çizemezse saldırının tamamı hasar verir.
+4. **Hasar hesaplanır** ([hasar-hesabi.md](hasar-hesabi.md)), can düşer, büyü arenada oynatılır.
+
+**Üstünlük iki yönde işler:** 1v1'de A su, B ateş seçtiyse A'nın saldırısı B'ye ×1.5 vurur, B'nin saldırısı A'ya ×0.5 vurur. Yani doğru elementi tahmin etmek hem hasarını artırır hem aldığını azaltır. Aynı element ya da etkisiz çift (ateş–toprak, su–hava) ×1.
 
 ## Tur sırası
 
@@ -43,7 +46,7 @@ Savunmasız bir saldırı ortalama ~79 hasar verir; can 300'dür.
 ## Koddaki yapı
 
 - `engine.ts`: sıra, can, ölüm, kazanan. Arayüzden bağımsız, testli.
-- `controller.ts`: `runBattle(engine, io)`. Tur akışını yürütür; arayüz `BattleIO` ile bağlanır (çizim, element seçimi, oynatma). Bot, gerçek ekran ve testler aynı akışı kullanır.
+- `controller.ts`: `runBattle(engine, io)`. Tur akışını yürütür; arayüz `BattleIO` ile bağlanır (çizim, döngü başı element seçimi, oynatma). Bot, gerçek ekran ve testler aynı akışı kullanır.
 - `bot.ts`, `shapes.ts`: bot rakip.
 
 Çok oyunculu arena (Task 21) aynı akışı kullanacak: `BattleIO` ağ üzerinden bağlanacak.

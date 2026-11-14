@@ -28,7 +28,7 @@ Sahne, savaş ve seçimler sürerken dünya durur.
 
 | Bölüm | Boss | Can | Güç | Zırh | Savunma becerisi | Öne çıkan | Ödül | Hedef sv. |
 |---|---|---|---|---|---|---|---|---|
-| 1 | General Vael | 260 | 115 | 0 | 0.25 | Kaba kuvvet: büyük ve güçlü vurur, savunması zayıf. Yalnız ateş | 120 altın, 110 XP | 1 |
+| 1 | General Vael | 310 | 115 | 0 | 0.25 | Kaba kuvvet: büyük ve güçlü vurur, savunması zayıf. Yalnız ateş | 120 altın, 110 XP | 1 |
 | 2 | Ambargo Komutanı | 300 | 85 | %20 | 0.70 | Savunma ağırlıklı (toprak, su) | 160, 150 | 4 |
 | 3 | Tapınak Bekçisi + Rüzgâr Çırağı | 420 + 320 | 110 / 100 | %15 / %5 | 0.55 / 0.50 | **2v2**, Elysia yanında. Hava ağırlıklı | 220, 200 | 5 |
 | 4 | Soylu Şampiyonu | 540 | 85 | %35 | 0.55 | Zırhı güçlü, yavaş vurur | 280, 250 | 7 |

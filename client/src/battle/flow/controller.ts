@@ -33,16 +33,32 @@ export interface TurnReport {
   healed: number;
 }
 
+/** Bir döngüde bir savaşçının seçtiği element. Hem saldırısı hem savunması bu elementle yapılır. */
+export interface RoundChoice {
+  ref: SlotRef;
+  element: Element;
+}
+
+/** Bir turun elementleri: saldıranın ve savunanın o döngüde seçtikleri */
+export interface TurnElements {
+  attackerElement: Element;
+  defenderElement: Element;
+}
+
 /**
  * Savaş akışının dış dünyayla konuştuğu her şey. Gerçek oyunda arayüz (çizim tuvali, arena),
  * botlar için anında cevap veren, testlerde sahte uygulamalar kullanılır.
  */
 export interface BattleIO {
-  announceTurn(action: Action, engine: BattleEngine): Promise<void>;
-  /** Element seçimi. Saldıran ve savunan AYNI ANDA, birbirini görmeden seçer. */
-  chooseElement(ref: SlotRef, role: Role): Promise<Element>;
-  /** İki element de seçilince birlikte açılır */
-  revealElements(action: Action, attackerElement: Element, defenderElement: Element): Promise<void>;
+  /** Her turda: kim kime saldırıyor ve o iki savaşçının (döngü başında seçilmiş) elementleri */
+  announceTurn(action: Action, engine: BattleEngine, elements: TurnElements): Promise<void>;
+  /**
+   * Döngü başında element seçimi: her canlı savaşçı AYNI ANDA, birbirini görmeden TEK element seçer. Seçilen element
+   * o döngüde hem saldırının hem savunmanın elementidir (ateşle saldırdıysan o döngü ateşle savunursun).
+   */
+  chooseElement(ref: SlotRef): Promise<Element>;
+  /** Herkes seçince elementler birlikte açılır */
+  revealRound(round: readonly RoundChoice[], engine: BattleEngine): Promise<void>;
   /** `ghost` verilirse (savunan, gelen saldırıyı görür) tuvalde soluk gösterilir */
   /** `limitSec`: çizime tanınan süre (asa uzatabilir); verilmezse temel süre */
   draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult>;
@@ -58,32 +74,47 @@ export interface RunOptions {
 }
 
 /**
- * Savaşı baştan sona yürütür. Her tur:
- *  1. sıradaki saldıran/savunan belirlenir
- *  2. ikisi de gizlice element seçer, sonra birlikte açılır
- *  3. saldıran çizer (büyü yapamazsa tur biter, sıra rakibe geçer)
- *  4. savunan çizer (yapamazsa saldırının tamamı hasar verir)
- *  5. hasar hesaplanıp uygulanır, tur oynatılır
+ * Savaşı baştan sona yürütür. Her DÖNGÜ başında canlı herkes gizlice TEK element seçer ve elementler birlikte açılır.
+ * Seçilen element o döngüde hem saldırının hem savunmanın elementidir. Sonra her tur:
+ *  1. sıradaki saldıran/savunan belirlenir (elementleri döngü başında seçilmiştir)
+ *  2. saldıran çizer (büyü yapamazsa tur biter, sıra rakibe geçer)
+ *  3. savunan çizer (yapamazsa saldırının tamamı hasar verir)
+ *  4. hasar hesaplanıp uygulanır, tur oynatılır
  * Kazananı döndürür (iptal edildiyse o ana kadarki durum).
  */
 export async function runBattle(engine: BattleEngine, io: BattleIO, options: RunOptions = {}): Promise<Winner> {
   const showGhost = options.showAttackToDefender ?? SHOW_ATTACK_TO_DEFENDER;
+  const refKey = (r: SlotRef): string => `${r.team}:${r.index}`;
+  let round = new Map<string, Element>();
+  let roundCycle = 0;
 
   for (;;) {
     if (options.signal?.aborted) return engine.winner;
     const action = engine.nextAction();
     if (!action) break;
 
+    // Yeni döngü: canlı herkes gizlice (aynı anda) tek element seçer, sonra birlikte açılır
+    if (engine.cycle !== roundCycle) {
+      roundCycle = engine.cycle;
+      const alive = engine.all().filter((f) => f.hp > 0);
+      const choices: RoundChoice[] = await Promise.all(
+        alive.map(async (f) => {
+          const ref = { team: f.team, index: f.index };
+          return { ref, element: await io.chooseElement(ref) };
+        }),
+      );
+      round = new Map(choices.map((c) => [refKey(c.ref), c.element]));
+      await io.revealRound(choices, engine);
+      if (options.signal?.aborted) return engine.winner;
+    }
+
     const attacker = engine.fighter(action.attacker);
     const defender = engine.fighter(action.defender);
 
-    await io.announceTurn(action, engine);
-
-    const [attackerElement, defenderElement] = await Promise.all([
-      io.chooseElement(action.attacker, 'attack'),
-      io.chooseElement(action.defender, 'defense'),
-    ]);
-    await io.revealElements(action, attackerElement, defenderElement);
+    // Bu turun elementleri döngü başında seçilmiştir: saldıran kendi elementiyle saldırır, savunan kendi elementiyle savunur
+    const attackerElement = round.get(refKey(action.attacker))!;
+    const defenderElement = round.get(refKey(action.defender))!;
+    await io.announceTurn(action, engine, { attackerElement, defenderElement });
 
     // Asalar: saldıranın asası taban gücü, savunanın asası alınan hasarı değiştirir; ikisi de çizim süresini uzatır
     const attackWand = attacker.wands(attackerElement, 'attack');

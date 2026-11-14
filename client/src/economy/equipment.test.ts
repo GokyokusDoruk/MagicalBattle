@@ -194,7 +194,7 @@ describe('savaşa bağlantı', () => {
     const io: BattleIO = {
       announceTurn: async () => {},
       chooseElement: async () => element,
-      revealElements: async () => {},
+      revealRound: async () => {},
       draw: async (_r, role, _g, limitSec) => {
         draws.push({ role, limitSec });
         return role === 'attack' ? good() : none();

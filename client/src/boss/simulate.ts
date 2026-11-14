@@ -35,7 +35,7 @@ export function simulateBoss(
   const io: BattleIO = {
     announceTurn: async () => {},
     chooseElement: async (ref) => botFor(ref).chooseElement(),
-    revealElements: async () => {},
+    revealRound: async () => {},
     draw: async (ref, role, ghost) => (role === 'attack' ? botFor(ref).drawAttack() : botFor(ref).drawDefense(boss.gimmick?.hideGhost ? undefined : ghost)),
     play: async (r) => {
       botFor(r.action.defender).onDamaged(r.damage, engine.fighter(r.action.defender).maxHp);

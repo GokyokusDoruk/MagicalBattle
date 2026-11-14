@@ -59,7 +59,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 1,
     id: 'vael',
     title: 'General Vael',
-    foes: [{ name: 'General Vael', hp: 260, basePower: 115, armor: 0, skill: 0.25, elements: { fire: 1 }, attackScale: 1.15 }],
+    foes: [{ name: 'General Vael', hp: 310, basePower: 115, armor: 0, skill: 0.25, elements: { fire: 1 }, attackScale: 1.15 }],
     intro: [{ speaker: 'General Vael', text: 'Bir çırak mı? Küle döneceksin! Alevlerim senden büyük!' }],
     reward: { gold: 120, xp: 110 },
     targetLevel: 1,

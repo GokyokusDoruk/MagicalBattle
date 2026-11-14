@@ -21,9 +21,9 @@ Fiyat: yuva taban fiyatı (Cüppe 60, Şapka 40, Pantalon 50, Çanta 100, Ayakka
 
 ## Element bonusu (tur başına)
 
-Savaşta her turda gizlice element seçersin. **Seçtiğin büyünün elementiyle aynı elementteki zırh parçaları ve yüzük %50 daha güçlüdür** (o tur için):
+Savaşta her **döngünün başında** gizlice tek element seçersin; bu element o döngüde hem saldırın hem savunmandır. **Seçtiğin elementle aynı elementteki zırh parçaları ve yüzük %50 daha güçlüdür** (o döngü için):
 
-- **Zırh:** Savunurken o turdaki zırhın hesaplanır. Örn. ateş cüppesi + su şapkası giyiyorsan ateş büyüsü seçtiğinde cüppe %50 daha çok zırh verir, su seçtiğinde şapka verir.
+- **Zırh:** Savunurken o döngüde seçtiğin elemente göre hesaplanır (saldırdığın elementle aynı). Örn. ateş cüppesi + su şapkası giyiyorsan ateş seçtiğinde cüppe %50 daha çok zırh verir, su seçtiğinde şapka verir.
 - **Yüzük:** Yüzüğün elementi büyünün elementiyle aynıysa süre %50 daha uzun uzar. Hem saldırı hem savunma çiziminde. Süre, asa bonusuyla toplanır.
 - Hepsi aynı elementten tam set (cüppe + şapka + pantalon + yüzük) giyen oyuncu o elementin büyüsünde en güçlüsüdür, ama rakip elementle üstünlük kurarsa (su → ateş) bu avantajı kapatabilir. Karma set her elementte orta güçte kalır.
 

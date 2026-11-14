@@ -40,7 +40,7 @@ Döngü: **Ateş < Su < Toprak < Hava < Ateş** (su ateşi, toprak suyu, hava to
 | Savunan üstün | ×0.5 |
 | Etkisiz (ateş–toprak, su–hava, aynı element) | ×1.0 |
 
-Element seçimi kör ve eşzamanlıdır (iki oyuncu da gizlice seçer, sonra açılır). Savunanın elementi, kullandığı savunma asasından gelir.
+Element **döngü başında** kör ve eşzamanlı seçilir (herkes gizlice tek element seçer, sonra açılır). Saldıranın elementi o döngüde seçtiği, savunanın elementi de **kendi o döngüde seçtiği** elementtir; savunanın saldırı ve savunma elementi aynıdır ([savas-akisi.md](savas-akisi.md)).
 
 ### 4) Skill ve ekipman
 Genel çarpanlardır, bölgeye bağlı değildir:

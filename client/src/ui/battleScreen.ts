@@ -6,7 +6,7 @@ import { ELEMENT_COLORS } from '../battle/arena/palette';
 import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
 import { Bot } from '../battle/flow/bot';
 import { ElysiaBot } from '../battle/flow/elysia';
-import { runBattle, type BattleIO, type Role, type TurnReport } from '../battle/flow/controller';
+import { runBattle, type BattleIO, type Role, type RoundChoice, type TurnElements, type TurnReport } from '../battle/flow/controller';
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import { DrawingCanvas } from './drawingCanvas';
@@ -15,6 +15,7 @@ import { createSoundToggle } from './soundToggle';
 const css = (hex: number): string => `#${hex.toString(16).padStart(6, '0')}`;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const key = (ref: SlotRef): string => `${ref.team}:${ref.index}`;
+const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** Görünüm için varsayılan elementler (cüppe rengi). Büyü elementi her turda ayrıca seçilir. */
 const LOOKS: Record<0 | 1, Element[]> = { 0: ['fire', 'air'], 1: ['water', 'earth'] };
@@ -46,7 +47,8 @@ export class BattleScreen implements BattleIO {
   private readonly center: HTMLElement;
   private readonly modals: HTMLElement;
   private readonly abort = new AbortController();
-  private turnElements: { attacker: Element; defender: Element } | null = null;
+  /** Bu döngüde herkesin seçtiği element (anahtar: takım:sıra); çizim rengi ve etiketler için */
+  private roundElements = new Map<string, Element>();
   private disposed = false;
 
   constructor(
@@ -141,7 +143,7 @@ export class BattleScreen implements BattleIO {
 
   // --- BattleIO ----------------------------------------------------------------------------
 
-  async announceTurn(action: Action): Promise<void> {
+  async announceTurn(action: Action, _engine: BattleEngine, elements: TurnElements): Promise<void> {
     const a = this.name(action.attacker);
     const d = this.name(action.defender);
     const text = this.isHuman(action.attacker)
@@ -149,20 +151,44 @@ export class BattleScreen implements BattleIO {
       : this.isHuman(action.defender)
         ? `${a} saldırıyor! Savunmaya hazırlan`
         : `${a} → ${d}`;
-    if (this.isHuman(action.attacker) || this.isHuman(action.defender)) this.sfx.play('turn');
+    const involved = this.isHuman(action.attacker) || this.isHuman(action.defender);
+    if (involved) this.sfx.play('turn');
     await this.say(this.banner, text, 800);
+    await this.showRelation(elements.attackerElement, elements.defenderElement);
   }
 
-  async chooseElement(ref: SlotRef, role: Role): Promise<Element> {
+  /** Bu turun element ilişkisi: saldıran üstünse hasar artar, savunan üstünse azalır. */
+  private async showRelation(attackerElement: Element, defenderElement: Element): Promise<void> {
+    const rel = elementRelation(attackerElement, defenderElement);
+    const mult = elementMultiplier(attackerElement, defenderElement);
+    this.sfx.play(rel === 'advantage' ? 'revealAdvantage' : rel === 'disadvantage' ? 'revealDisadvantage' : 'revealNeutral');
+    const [tone, label] =
+      rel === 'advantage'
+        ? ['bg-emerald-700/80 text-emerald-100', `saldırı üstün ×${mult}`]
+        : rel === 'disadvantage'
+          ? ['bg-red-800/80 text-red-100', `savunma üstün ×${mult}`]
+          : ['bg-slate-700/80 text-slate-100', 'etkisiz ×1'];
+    await this.say(
+      this.center,
+      `<span style="color:${css(ELEMENT_COLORS[attackerElement].glow)}">${ELEMENT_NAMES[attackerElement]}</span> ⚔ <span style="color:${css(ELEMENT_COLORS[defenderElement].glow)}">${ELEMENT_NAMES[defenderElement]}</span><br><span class="text-xs font-normal">${label}</span>`,
+      1200,
+      tone,
+    );
+  }
+
+  async chooseElement(ref: SlotRef): Promise<Element> {
     const bot = this.bots.get(key(ref));
     if (bot) {
       await sleep(300);
       return bot.chooseElement();
     }
-    return this.pickElement(role === 'attack' ? 'Saldırı elementini seç' : 'Savunma elementini seç', role === 'attack' ? 'Rakip de savunma elementini gizlice seçiyor.' : 'Rakip de saldırı elementini gizlice seçiyor.');
+    return this.pickElement(
+      'Bu döngünün elementini seç',
+      'Seçtiğin element bu döngüde hem saldırının hem savunmanın elementi olur. Rakip de gizlice seçiyor.',
+    );
   }
 
-  /** Kör seçim: oyuncu seçer, rakibinin ne seçtiğini görmez; ikisi de seçilince birlikte açılır. */
+  /** Kör seçim: oyuncu seçer, rakibinin ne seçtiğini görmez; herkes seçince birlikte açılır. */
   private pickElement(title: string, hint: string): Promise<Element> {
     return new Promise((resolve) => {
       this.modals.style.pointerEvents = 'auto';
@@ -192,23 +218,14 @@ export class BattleScreen implements BattleIO {
     this.modals.style.pointerEvents = 'none';
   }
 
-  async revealElements(_action: Action, attackerElement: Element, defenderElement: Element): Promise<void> {
-    this.turnElements = { attacker: attackerElement, defender: defenderElement };
-    const rel = elementRelation(attackerElement, defenderElement);
-    const mult = elementMultiplier(attackerElement, defenderElement);
-    this.sfx.play(rel === 'advantage' ? 'revealAdvantage' : rel === 'disadvantage' ? 'revealDisadvantage' : 'revealNeutral');
-    const [tone, label] =
-      rel === 'advantage'
-        ? ['bg-emerald-700/80 text-emerald-100', `saldırı üstün ×${mult}`]
-        : rel === 'disadvantage'
-          ? ['bg-red-800/80 text-red-100', `savunma üstün ×${mult}`]
-          : ['bg-slate-700/80 text-slate-100', 'etkisiz ×1'];
-    await this.say(
-      this.center,
-      `<span style="color:${css(ELEMENT_COLORS[attackerElement].glow)}">${ELEMENT_NAMES[attackerElement]}</span> ⚔ <span style="color:${css(ELEMENT_COLORS[defenderElement].glow)}">${ELEMENT_NAMES[defenderElement]}</span><br><span class="text-xs font-normal">${label}</span>`,
-      1500,
-      tone,
-    );
+  /** Herkes seçince elementler birlikte açılır; bu döngü boyunca geçerlidir. */
+  async revealRound(round: readonly RoundChoice[]): Promise<void> {
+    this.roundElements = new Map(round.map((c) => [key(c.ref), c.element]));
+    this.sfx.play('turn');
+    const rows = round
+      .map((c) => `<span style="color:${css(ELEMENT_COLORS[c.element].glow)}">${esc(this.name(c.ref))}: ${ELEMENT_NAMES[c.element]}</span>`)
+      .join('<br>');
+    await this.say(this.center, `Bu döngünün elementleri<br><span class="text-sm font-normal">${rows}</span>`, 1800, 'bg-slate-800/85 text-slate-100');
   }
 
   async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult> {
@@ -217,8 +234,8 @@ export class BattleScreen implements BattleIO {
       await sleep(this.arenaPause(role));
       return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
     }
-    const el = role === 'attack' ? this.turnElements?.attacker : this.turnElements?.defender;
-    return this.drawByHand(role, el ?? 'fire', ghost, limitSec);
+    // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
+    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */

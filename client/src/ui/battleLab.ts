@@ -89,7 +89,7 @@ export function startBattleLab(root: HTMLElement): void {
     page.innerHTML = `
       <div class="mx-auto flex max-w-md flex-col gap-5 p-5">
         <h1 class="text-center text-2xl font-bold text-amber-300">Savaş denemesi</h1>
-        <p class="text-center text-sm text-slate-300">Botlara karşı sıra tabanlı savaş. Her turda <b>gizlice element seçersin</b>, sonra büyünü çizersin (saldırıda 3 sn, savunmada 3 sn).</p>
+        <p class="text-center text-sm text-slate-300">Botlara karşı sıra tabanlı savaş. Her <b>döngünün başında gizlice tek element seçersin</b> (hem saldırın hem savunman o element olur), sonra büyünü çizersin (saldırıda 3 sn, savunmada 3 sn).</p>
         <section><h2 class="mb-2 text-sm font-bold text-slate-300">Mod</h2>
           <div class="flex gap-2" data-group="mode"></div></section>
         <section><h2 class="mb-2 text-sm font-bold text-slate-300">Zorluk</h2>
