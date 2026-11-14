@@ -486,7 +486,7 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
     if (intro) await playEncounterIntro(enemyStats(spot.element, spot.tier).name);
     const { outcome, hp: hpLeft } = await runWorldFight(
       spot,
-      { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
+      { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver },
       hero.maxHp,
       // Rüşvet: bölgenin parasıyla; maden ve sandık muhafızlarına verilmez
       fromMine ? undefined : bribeOption(spot),
@@ -611,7 +611,7 @@ async function playChapter(chapter: number): Promise<void> {
       await dialogueUi.run(linesTree(`boss-${chapter}`, boss.intro), ctx);
       const { outcome, hp: hpLeft } = await runBossFight(
         chapter,
-        { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
+        { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver },
         morality.finalPath,
         healHooks,
       );

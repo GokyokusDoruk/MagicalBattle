@@ -1,24 +1,17 @@
 import type { Element } from '../battle/damage/elements';
-import { BRANCHES, BRANCH_KINDS, STAT_KEYS, TIERS, getSkill, skillId, type SpellRole, type SpellStats } from './catalog';
+import { SKILLS, effectAt, type SpellRole } from './catalog';
 
 /** Sınırlar: yetenekler ne kadar birikirse birikse dengeyi bozmasın. */
 export const LIMITS = {
-  /** Alınan hasar çarpanının en düşük değeri (en çok -%60) */
-  minTakenMultiplier: 0.4,
-  maxPierce: 0.6,
-  maxReflect: 0.3,
-  maxLifesteal: 0.3,
-  maxEffort: 0.5,
-  maxHeadBonus: 0.6,
+  maxBurnChance: 0.6,
+  maxShieldBreak: 0.7,
+  /** Alev Zinciri: bonus uygulanan en çok art arda büyü sayısı */
+  maxChainStacks: 3,
+  maxScatter: 0.5,
 } as const;
 
-/** Tek element için "uyum": üç dalın da en az Seviye 1'i varsa, üçü de Ustalıktaysa ek çarpan. */
-export const SYNERGY = {
-  basic: 0.04,
-  full: 0.06,
-} as const;
-
-export type SynergyLevel = 'none' | 'basic' | 'full';
+/** Kırılan kalkanın savunma etkisinin ne kadarı gider (0.6: savunmanın %60'ı geçersiz sayılır) */
+export const SHIELD_BREAK_STRENGTH = 0.6;
 
 /** Tek bir büyünün (element + rol) tüm yeteneklerden aldığı birleşik etki. Hasar hesabına doğrudan bağlanır. */
 export interface SpellEffects {
@@ -33,7 +26,15 @@ export interface SpellEffects {
   reflect: number;
   lifesteal: number;
   effortBonus: number;
-  synergy: SynergyLevel;
+  /** Ateş: tutuşturma şansı ve yanma hasarı */
+  burnChance: number;
+  burnDamage: number;
+  /** Ateş: kalkan kırma şansı */
+  shieldBreak: number;
+  /** Ateş: art arda her ateş büyüsü için eklenen hasar oranı */
+  chainBonus: number;
+  /** Ateş: büyünün savunmaya takılmadan geçen kısmı */
+  scatter: number;
   /** Etkiye katkı veren yeteneklerin kimlikleri */
   skills: string[];
 }
@@ -50,68 +51,55 @@ export const neutralEffects = (element: Element, role: SpellRole): SpellEffects 
   reflect: 0,
   lifesteal: 0,
   effortBonus: 0,
-  synergy: 'none',
+  burnChance: 0,
+  burnDamage: 0,
+  shieldBreak: 0,
+  chainBonus: 0,
+  scatter: 0,
   skills: [],
 });
 
-/** Bir dalda sahip olunan kademe sayısı (0-3; kademeler sırayla alınır). */
-function rankOf(owned: ReadonlySet<string>, element: Element, branch: (typeof BRANCH_KINDS)[number]): number {
-  let rank = 0;
-  for (const tier of TIERS) {
-    if (!owned.has(skillId(element, branch, tier))) break;
-    rank = tier;
+/** Pasif yetenekler (büyü elementinden bağımsız): savaşçıya `passives` olarak verilir. */
+export interface Passives {
+  /** Yanık İzi: rakibin saldırı çizerken ekranında beliren yara izi sayısı */
+  scars: number;
+}
+
+export const NO_PASSIVES: Passives = { scars: 0 };
+
+/** Pasifleri sahip olunan yetenek seviyelerinden okur. */
+export function resolvePassives(levels: ReadonlyMap<string, number>): Passives {
+  let scars = 0;
+  for (const skill of SKILLS) {
+    const level = levels.get(skill.id) ?? 0;
+    if (level > 0 && skill.passive) scars += effectAt(skill, level).scars ?? 0;
   }
-  return rank;
+  return { scars };
 }
-
-export function synergyLevel(owned: ReadonlySet<string>, element: Element): SynergyLevel {
-  const ranks = BRANCH_KINDS.map((k) => rankOf(owned, element, k));
-  if (ranks.every((r) => r === 3)) return 'full';
-  if (ranks.every((r) => r >= 1)) return 'basic';
-  return 'none';
-}
-
-const synergyBonus = (level: SynergyLevel): number =>
-  level === 'full' ? SYNERGY.basic + SYNERGY.full : level === 'basic' ? SYNERGY.basic : 0;
 
 /**
- * Tek bir büyü için tüm yetenek etkilerini birleştirir.
- *  - Büyüyü atarken (saldırı): o elementin Güç ve Hassasiyet dallarının sahip olunan kademeleri toplanır.
- *  - Savunurken: o elementin Kalkan dalı toplanır.
- *  - Elementin üç dalı da açıksa "uyum" bonusu rolüne göre verilen ya da alınan hasara eklenir.
- * Başka elementlerin yetenekleri bu büyüyü etkilemez. Aynı yetenek iki kez sayılmaz.
+ * Tek bir büyü için tüm yetenek etkilerini birleştirir. Ateş yetenekleri yalnızca **ateş saldırısında** işler
+ * (element seçimi o döngüde hem saldırı hem savunma elementidir; savunmada ateşin bir etkisi yoktur). Başka elementlerin
+ * yetenekleri bu büyüyü etkilemez. Pasif yetenekler burada değil `resolvePassives` ile gelir.
  */
-export function resolveSpell(owned: ReadonlySet<string>, element: Element, role: SpellRole): SpellEffects {
-  const sum: SpellStats = { dealt: 0, taken: 0, pierce: 0, headBonus: 0, reflect: 0, lifesteal: 0, effort: 0 };
-  const used: string[] = [];
-
-  for (const branch of BRANCHES) {
-    if (branch.element !== element || branch.role !== role) continue;
-    for (const tier of TIERS) {
-      const id = skillId(element, branch.kind, tier);
-      if (!owned.has(id)) break; // kademeler sırayla; boşluktan sonrası sayılmaz
-      const skill = getSkill(id)!;
-      for (const key of STAT_KEYS) sum[key] += skill.stats[key] ?? 0;
-      used.push(id);
+export function resolveSpell(levels: ReadonlyMap<string, number>, element: Element, role: SpellRole): SpellEffects {
+  const fx = neutralEffects(element, role);
+  for (const skill of SKILLS) {
+    if (skill.element !== element || skill.passive) continue;
+    const level = levels.get(skill.id) ?? 0;
+    if (level <= 0) continue;
+    const e = effectAt(skill, level);
+    if (role === 'attack') {
+      fx.burnChance += e.burnChance ?? 0;
+      fx.burnDamage = Math.max(fx.burnDamage, e.burnDamage ?? 0);
+      fx.shieldBreak += e.shieldBreak ?? 0;
+      fx.chainBonus += e.chainBonus ?? 0;
+      fx.scatter += e.scatter ?? 0;
     }
+    fx.skills.push(`${skill.id}-${level}`);
   }
-
-  const synergy = synergyLevel(owned, element);
-  const bonus = synergyBonus(synergy);
-  const dealt = sum.dealt + (role === 'attack' ? bonus : 0);
-  const taken = sum.taken + (role === 'defense' ? bonus : 0);
-
-  return {
-    element,
-    role,
-    dealtMultiplier: 1 + dealt,
-    takenMultiplier: Math.max(LIMITS.minTakenMultiplier, 1 - taken),
-    armorPierce: Math.min(LIMITS.maxPierce, sum.pierce),
-    headBonus: Math.min(LIMITS.maxHeadBonus, sum.headBonus),
-    reflect: Math.min(LIMITS.maxReflect, sum.reflect),
-    lifesteal: Math.min(LIMITS.maxLifesteal, sum.lifesteal),
-    effortBonus: Math.min(LIMITS.maxEffort, sum.effort),
-    synergy,
-    skills: used,
-  };
+  fx.burnChance = Math.min(LIMITS.maxBurnChance, fx.burnChance);
+  fx.shieldBreak = Math.min(LIMITS.maxShieldBreak, fx.shieldBreak);
+  fx.scatter = Math.min(LIMITS.maxScatter, fx.scatter);
+  return fx;
 }

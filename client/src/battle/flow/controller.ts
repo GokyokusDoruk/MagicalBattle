@@ -4,7 +4,8 @@ import type { Element } from '../damage/elements';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { DRAW_TIME_MS } from '../gesture/config';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
-import type { Action, BattleEngine, Winner } from './engine';
+import { LIMITS, SHIELD_BREAK_STRENGTH } from '../../skills/resolver';
+import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
 
 export type Role = 'attack' | 'defense';
 
@@ -33,7 +34,26 @@ export interface TurnReport {
   attackerDefeated: boolean;
   /** Saldıranın yeteneğiyle (can çalma) iyileşen can */
   healed: number;
+  /** Ateş: savunanın kalkanı kırıldı (Kalkan Kıran) */
+  shieldBroken?: boolean;
+  /** Ateş: savunan bu vuruşla tutuştu (Közleyen Alev) */
+  ignited?: boolean;
+  /** Ateş: Alev Zinciri'nin bu vuruşa uyguladığı yığın sayısı (0 = yok) */
+  chainStacks?: number;
+  /** Ateş: büyü saçılarak savunmayı kısmen aştı (Kıvılcım Saçması) */
+  scatter?: boolean;
 }
+
+/** Saldırı çizerken savunanın pasiflerinden gelen ekran engelleri (Yanık İzi) */
+export interface DrawExtras {
+  /** Çizim ekranında beliren yara izi sayısı */
+  scars: number;
+}
+
+/** Yara izine dokunmanın çizim süresinden aldığı */
+export const SCAR_PENALTY_SEC = 0.2;
+/** Botlar yara izine rastgele denk gelir: iz başına dokunma ihtimali */
+export const BOT_SCAR_HIT_CHANCE = 0.5;
 
 /** Bir döngüde bir savaşçının seçtiği element. Hem saldırısı hem savunması bu elementle yapılır. */
 export interface RoundChoice {
@@ -63,7 +83,10 @@ export interface BattleIO {
   revealRound(round: readonly RoundChoice[], engine: BattleEngine): Promise<void>;
   /** `ghost` verilirse (savunan, gelen saldırıyı görür) tuvalde soluk gösterilir */
   /** `limitSec`: çizime tanınan süre (asa uzatabilir); verilmezse temel süre */
-  draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number): Promise<DrawingResult>;
+  /** `extras.scars`: bu çizimde (insan için) ekranda gösterilecek yara izi sayısı */
+  draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number, extras?: DrawExtras): Promise<DrawingResult>;
+  /** Döngü başında yanan savaşçıların yediği yanma hasarı (isteğe bağlı: arayüz oynatır) */
+  announceBurn?(events: readonly BurnEvent[], engine: BattleEngine): Promise<void>;
   play(report: TurnReport, engine: BattleEngine): Promise<void>;
   announceEnd(winner: Winner, engine: BattleEngine): Promise<void>;
 }
@@ -96,6 +119,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
   for (;;) {
     if (options.signal?.aborted) return engine.winner;
     const action = engine.nextAction();
+    const burns = engine.takeBurnEvents();
+    if (burns.length > 0) await io.announceBurn?.(burns, engine);
     if (!action) break;
 
     // Yeni döngü: canlı herkes gizlice (aynı anda) tek element seçer, sonra birlikte açılır
@@ -131,7 +156,20 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const attackSec = baseSec + attackWand.timeBonusSec + attackGear.timeBonusSec;
     const defenseSec = baseSec + defenseWand.timeBonusSec + defenseGear.timeBonusSec;
 
-    const attack = await io.draw(action.attacker, 'attack', undefined, attackSec);
+    // Yanık İzi: savunanın pasifi saldırganın çizim ekranına yara izi koyar (insan dokununca süre kaybeder; botlar rastgele denk gelir)
+    const scars = defender.passives.scars;
+    let attack = await io.draw(action.attacker, 'attack', undefined, attackSec, scars > 0 ? { scars } : undefined);
+    if (scars > 0 && attacker.control === 'bot' && attack.validity.valid) {
+      let hits = 0;
+      for (let i = 0; i < scars; i++) if (random() < BOT_SCAR_HIT_CHANCE) hits++;
+      if (hits > 0) {
+        attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - hits * SCAR_PENALTY_SEC) } };
+      }
+    }
+
+    // Alev Zinciri: art arda ateş saldırıları sayılır; başka element ya da başarısız büyü zinciri keser
+    const chainBefore = attacker.fireChain;
+    attacker.fireChain = attackerElement === 'fire' && attack.validity.valid ? chainBefore + 1 : 0;
 
     // Saldıran büyü yapamadı: savunmaya gerek kalmaz, sıra rakibe geçer
     if (!attack.validity.valid) {
@@ -168,6 +206,11 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
 
     // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
     const critical = random() < attackGear.crit;
+
+    // Ateş yetenekleri: kalkan kırma zarı, saçma ve zincir (zar yalnızca ilgili yetenek varsa atılır)
+    const chainStacks = attackFx.chainBonus > 0 ? Math.min(LIMITS.maxChainStacks, chainBefore) : 0;
+    const shieldBroken = !defenseFailed && attackFx.shieldBreak > 0 && random() < attackFx.shieldBreak;
+    const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0));
     const breakdown = calculateDamage({
       basePower: attacker.basePower * attackWand.powerMultiplier,
       attack,
@@ -175,7 +218,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       attackerElement,
       defenderElement,
       critical,
-      attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier * (1 + attackGear.damageBonus),
+      defenseBypass: bypass,
+      attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier * (1 + attackGear.damageBonus) * (1 + chainStacks * attackFx.chainBonus),
       defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier * defenseWand.takenMultiplier,
       defenderArmor: defenseGear.armor,
       attackerArmorPierce: attackFx.armorPierce,
@@ -190,6 +234,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const healed = dealt > 0 ? engine.heal(action.attacker, dealt * attackFx.lifesteal) : 0;
     const reflected = dealt > 0 ? Math.round(dealt * defenseFx.reflect) : 0;
     const reflectResult = reflected > 0 ? engine.applyDamage(action.attacker, reflected) : null;
+
+    // Közleyen Alev: vuruş yaşayan rakibi tutuşturabilir (yanan rakipte yenilenmez, birikmez)
+    const ignited = attackFx.burnChance > 0 && !result.defeated && random() < attackFx.burnChance ? engine.ignite(action.defender, attackFx.burnDamage) : false;
 
     await io.play(
       {
@@ -209,6 +256,10 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         reflected: reflectResult ? reflectResult.hpBefore - reflectResult.hpAfter : 0,
         attackerDefeated: reflectResult?.defeated ?? false,
         healed,
+        shieldBroken,
+        ignited,
+        chainStacks,
+        scatter: !defenseFailed && attackFx.scatter > 0,
       },
       engine,
     );

@@ -3,7 +3,7 @@ import type { BotProfile } from '../battle/flow/bot';
 import type { FighterInit } from '../battle/flow/engine';
 import type { GearResolver } from '../economy/gearEffects';
 import type { WandResolver } from '../wands/inventory';
-import type { SpellResolver } from '../skills/resolver';
+import type { Passives, SpellResolver } from '../skills/resolver';
 import type { ChoiceLine } from '../morality/catalog';
 import { elysiaFightsAlongside } from '../story/elysia';
 import type { FinalPath } from '../morality/morality';
@@ -161,6 +161,8 @@ export interface PlayerStats {
   dealtMultiplier?: number;
   takenMultiplier?: number;
   spells?: SpellResolver;
+  /** Pasif yetenekler (Yanık İzi) */
+  passives?: Passives;
   wands?: WandResolver;
   /** Ekipman (zırh ve yüzük) çözücüsü; verilirse `armor` yerine kullanılır (büyünün elementine göre) */
   gear?: GearResolver;
@@ -193,6 +195,7 @@ export function bossFighters(chapter: number, player: PlayerStats, path: FinalPa
       dealtMultiplier: player.dealtMultiplier,
       takenMultiplier: player.takenMultiplier,
       spells: player.spells,
+      passives: player.passives,
       wands: player.wands,
     },
   ];
