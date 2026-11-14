@@ -9,36 +9,36 @@ const map = generateMap();
 const all: { x: number; y: number }[] = [];
 for (let y = 0; y < map.height; y++) for (let x = 0; x < map.width; x++) all.push({ x, y });
 
-describe('bölge elementleri', () => {
-  it('yol, duvar, su ve orman güvenlidir; kumsal sudur', () => {
+describe('bölge elementleri: yalnızca çalılıkta karşılaşma', () => {
+  it('çalılık dışındaki her karo güvenlidir (çimen, kumsal, yol, su, orman, sur)', () => {
     for (const { x, y } of all) {
-      const t = tileAt(map, x, y);
-      const z = zoneElementAt(map, x, y);
-      if (t !== Tile.Grass && t !== Tile.Sand) expect(z).toBeNull();
-      else if (z !== null && t === Tile.Sand) expect(z).toBe('water');
+      if (tileAt(map, x, y) !== Tile.Thicket) expect(zoneElementAt(map, x, y), `${x},${y}`).toBeNull();
     }
   });
 
-  it('şehir ve köy alanları güvenlidir', () => {
+  it('şehir ve köy alanları güvenlidir; çalılıkta element vardır', () => {
     for (const l of map.locations) expect(zoneElementAt(map, l.x, l.y)).toBeNull();
+    const thickets = all.filter((p) => tileAt(map, p.x, p.y) === Tile.Thicket);
+    expect(thickets.length).toBeGreaterThan(200);
+    const withEl = thickets.filter((p) => zoneElementAt(map, p.x, p.y) !== null);
+    expect(withEl.length).toBeGreaterThan(thickets.length * 0.9);
   });
 
-  it('dört element de haritada bulunur ve çoğunluk yeşillik (toprak) değildir bile olsa hepsi vardır', () => {
+  it('dört elementin çalılığı da haritada bulunur (en yakın şehrin elementi)', () => {
     const seen = new Set(all.map((p) => zoneElementAt(map, p.x, p.y)).filter(Boolean));
     expect([...seen].sort()).toEqual([...ELEMENTS].sort());
   });
 
-  it('şehrin yanındaki çimen şehrin elementidir', () => {
+  it('çalılık şehrin yanındaysa şehrin elementidir', () => {
     const ignis = map.locations.find((l) => l.id === 'ignis')!;
-    const near = all.filter((p) => Math.hypot(p.x - ignis.x, p.y - ignis.y) < 14 && zoneElementAt(map, p.x, p.y) !== null && tileAt(map, p.x, p.y) === Tile.Grass);
-    expect(near.length).toBeGreaterThan(0);
+    const near = all.filter((p) => Math.hypot(p.x - ignis.x, p.y - ignis.y) < 12 && zoneElementAt(map, p.x, p.y) !== null);
     for (const p of near) expect(zoneElementAt(map, p.x, p.y)).toBe('fire');
   });
 
-  it('karşılaşma düşmanı bölge elementinde ve geçerli kademededir', () => {
-    const p = all.find((q) => zoneElementAt(map, q.x, q.y) === 'earth')!;
+  it('karşılaşma düşmanı çalılığın elementinde ve geçerli kademededir; güvenli karoda null', () => {
+    const p = all.find((q) => zoneElementAt(map, q.x, q.y) !== null)!;
     const e = zoneEncounter(map, p.x, p.y)!;
-    expect(e.element).toBe('earth');
+    expect(e.element).toBe(zoneElementAt(map, p.x, p.y));
     expect([1, 2, 3, 4]).toContain(e.tier);
     expect(zoneEncounter(map, map.locations[0].x, map.locations[0].y)).toBeNull();
   });
