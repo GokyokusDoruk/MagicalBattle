@@ -29,6 +29,7 @@ import { goldLoss, nearestHealer, respawnLines } from './economy/death';
 import { DialogueUi } from './ui/dialogueUi';
 import { runBossFight, type HealHooks } from './ui/bossFight';
 import { runWorldFight } from './ui/worldFight';
+import { playEncounterIntro } from './ui/encounterIntro';
 import { ENEMY_SPOTS, EnemyBoard, type EnemySpot } from './enemies/spots';
 import { EncounterGuard, zoneEncounter } from './enemies/zones';
 import { MINE_DROP_BOOST, MINE_SPOTS, MineBoard, mineEnemies } from './enemies/mines';
@@ -373,11 +374,12 @@ async function fightEnemy(id: string): Promise<void> {
 /** Verilen düşmanla savaşır (sabit düşman ya da bölge karşılaşması). Savaş bitince 5 saniye karşılaşma olmaz. */
 type FightResult = 'won' | 'lost' | 'retreat' | 'skipped';
 
-async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false): Promise<FightResult> {
+async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro = false): Promise<FightResult> {
   const id = spot.id;
   if (fightBusy || (modalOpen() && !fromMine)) return 'skipped';
   fightBusy = true;
   try {
+    if (intro) await playEncounterIntro(enemyStats(spot.element, spot.tier).name);
     const { outcome, hp: hpLeft } = await runWorldFight(
       spot,
       { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, wands: wands.resolver },
@@ -671,8 +673,7 @@ void import('./world/bootWorld').then((m) =>
       if (fightBusy || modalOpen() || !encounters.roll(lootRand)) return;
       const spot = zoneEncounter(map, tx, ty);
       if (!spot) return;
-      toast.show(`Yolda ${enemyStats(spot.element, spot.tier).name} çıktı!`);
-      void fightSpot(spot);
+      void fightSpot(spot, 1, false, true);
     },
     pickups: PICKUP_SPOTS,
     isCollected: (id) => collected.has(id),

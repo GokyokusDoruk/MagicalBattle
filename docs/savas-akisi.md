@@ -50,3 +50,11 @@ Savunmasız bir saldırı ortalama ~79 hasar verir; can 300'dür.
 - `bot.ts`, `shapes.ts`: bot rakip.
 
 Çok oyunculu arena (Task 21) aynı akışı kullanacak: `BattleIO` ağ üzerinden bağlanacak.
+
+## Savaş gösterimi (Task 33)
+
+- **Çarpışma:** saldırı büyüsü hedefe varınca (savunma varsa kalkana çarpar) oyun zamanı **yavaşlar** (savunmada ~1,6 sn, savunmasızda ~0,7 sn gerçek süre); iki büyü kıvılcımlar saçar.
+- **Hasar hesabı kartı:** çarpışma anında ekranın üstünde hesap adım adım yazar, büyünün renginde: `Büyü gücü 100`, `Savunmayı geçen %60`, `Baş vuruşu ×1.5`, `Toprak üstün ×1.5 = 150`, `Yetenek ve ekipman`, `Zırh −%20`, en altta `Hasar`. Etkisi olmayan (×1) adımlar gösterilmez (`battle/damage/explain.ts`).
+- **Etki yazısı** (vuruştan sonra, hasarla birlikte): savunmayı **%60 ve üstü** geçtiyse **ETKİLİ BÜYÜ**, **%30-60** arası **ORTA HASAR**, **%30'un altı** (iyi bloklandı) **ETKİSİZ BÜYÜ**. Savunma yapılamadıysa hep etkili.
+- **Renk:** saldırı büyüsü saldıranın elementinin rengindedir; savunma kalkanı da artık savunanın elementinin rengindedir.
+- **Bölge savaşı girişi:** ekran üç kez yanıp söner, dünya küçülüp tekrar büyür, "Bir düşman büyücü ortaya çıktı!" yazar, sonra savaş paneli açılır (`ui/encounterIntro.ts`).
