@@ -34,3 +34,13 @@ ve asa seviyesine göre 3 kademede güçlenir (asa Sv 1-9: 1 bulut/yama, 10-19: 
   Botlarda bulut/yama başına savunma zayıflar (sis %10, çamur %8, toplam en çok %50).
 - Puanla alınan yetenekler: ateş 4 (12 puan), su 3 (9), toprak 3 (9), hava 3 (9), taşıyıcı 6; puanla alınanların toplamı 39 (+6 taşıyıcı).
 - Düşmanlar ve bosslar da bu pasifleri kendi setiyle kullanır; Ambargo Komutanı gibi bosslar değişmedi.
+
+## Güncelleme: pasifler çizimi engellemez, yalnızca görüşü engeller (Task 66)
+
+Yara izi, çamur, sis ve sarsıntı **insan oyuncunun çizimini asla engellemez**:
+
+- **Çamur Yaması:** eskiden çamurun içine girince çizgi kesiliyordu; artık çizgi her zaman kaydedilir, çamur yalnızca çizimin o kısmını örter.
+- **Yanık İzi:** eskiden yara izine dokununca ekran kızarıyor ve 0.2 sn süre kaybediliyordu; artık dokunmanın etkisi yok, izler yalnızca görüntüde kalır.
+- **Sis Perdesi:** yalnızca görüş (değişmedi). **Sarsıntılı Rüzgâr:** ekran sarsılır (görüntü), çizgiler yine kaydedilir.
+- Yara izi, çamur ve sis çizginin **üstüne** çizilir (altına değil), böylece gerçekten görüşü örter.
+- **Botlar** görmedikleri için bu pasiflerden zayıflar: sis ve çamur savunmayı zayıflatır, yara izi ve sarsıntı saldırı çizim süresinden düşer (değişmedi).
