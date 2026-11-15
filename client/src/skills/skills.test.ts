@@ -186,7 +186,7 @@ describe('resolveSpell: ateş yetenekleri', () => {
 
   it('yetenek yoksa etkisizdir', () => {
     expect(resolveSpell(none, 'fire', 'attack')).toEqual(neutralEffects('fire', 'attack'));
-    expect(resolvePassives(none)).toEqual({ scars: 0, shake: 0 });
+    expect(resolvePassives(none)).toEqual({ scars: 0, shake: 0, fog: 0, mud: 0 });
   });
 
   it('seviye değerleri doğru okunur (Közleyen Alev 3 = %40, 12 hasar)', () => {
@@ -205,7 +205,7 @@ describe('resolveSpell: ateş yetenekleri', () => {
   });
 
   it('Yanık İzi büyü elementinden bağımsız pasiftir', () => {
-    expect(resolvePassives(new Map([['fire-scars', 2]]))).toEqual({ scars: 2, shake: 0 });
+    expect(resolvePassives(new Map([['fire-scars', 2]]))).toEqual({ scars: 2, shake: 0, fog: 0, mud: 0 });
     const fx = resolveSpell(new Map([['fire-scars', 3]]), 'fire', 'attack');
     expect(fx).toEqual(neutralEffects('fire', 'attack'));
   });

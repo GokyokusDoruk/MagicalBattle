@@ -108,22 +108,31 @@ export interface Passives {
   scars: number;
   /** Sarsıntılı Rüzgâr: rakibin saldırı çizim ekranının sarsıntı şiddeti (0-3) */
   shake: number;
+  /** Sis Perdesi: rakibin savunma çiziminde sis bulutu sayısı (0-3); sahibi saldırırken geçerlidir */
+  fog: number;
+  /** Çamur Yaması: rakibin savunma çiziminde çamur yaması sayısı (0-3); sahibi saldırırken geçerlidir */
+  mud: number;
 }
 
-export const NO_PASSIVES: Passives = { scars: 0, shake: 0 };
+export const NO_PASSIVES: Passives = { scars: 0, shake: 0, fog: 0, mud: 0 };
 
 /** Pasifleri sahip olunan yetenek seviyelerinden okur. */
 export function resolvePassives(levels: ReadonlyMap<string, number>): Passives {
   let scars = 0;
   let shake = 0;
+  let fog = 0;
+  let mud = 0;
   for (const skill of SKILLS) {
     const level = levels.get(skill.id) ?? 0;
     if (level > 0 && skill.passive) {
-      scars += effectAt(skill, level).scars ?? 0;
-      shake += effectAt(skill, level).shake ?? 0;
+      const e = effectAt(skill, level);
+      scars += e.scars ?? 0;
+      shake += e.shake ?? 0;
+      fog += e.fog ?? 0;
+      mud += e.mud ?? 0;
     }
   }
-  return { scars, shake: Math.min(3, shake) };
+  return { scars: Math.min(3, scars), shake: Math.min(3, shake), fog: Math.min(LIMITS.maxFog, fog), mud: Math.min(LIMITS.maxMud, mud) };
 }
 
 /**

@@ -267,7 +267,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       continue;
     }
 
-    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attackFx.fog > 0 || attackFx.mud > 0 ? { fog: attackFx.fog, mud: attackFx.mud } : undefined);
+    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attacker.passives.fog > 0 || attacker.passives.mud > 0 ? { fog: attacker.passives.fog, mud: attacker.passives.mud } : undefined);
     const defenseFailed = !defense.validity.valid;
 
     // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
@@ -277,7 +277,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const chainStacks = attackFx.chainBonus > 0 ? Math.min(LIMITS.maxChainStacks, chainBefore) : 0;
     const shieldBroken = !defenseFailed && attackFx.shieldBreak > 0 && random() < attackFx.shieldBreak;
     // Sis Perdesi: sisli ekranda bir botun savunması zayıflar (insan sisi kendi gözüyle aşmaya çalışır)
-    const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attackFx.fog * FOG_BOT_BYPASS + attackFx.mud * MUD_BOT_BYPASS) : 0;
+    const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attacker.passives.fog * FOG_BOT_BYPASS + attacker.passives.mud * MUD_BOT_BYPASS) : 0;
     const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0)) * (1 - fogBypass);
     const special = matchShape(attack.strokes, specialShape);
     const parts: { label: string; value: number }[] = [
@@ -361,10 +361,10 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         chainStacks,
         scatter: !defenseFailed && attackFx.scatter > 0,
         chilled,
-        fogged: attackFx.fog,
+        fogged: attacker.passives.fog,
         stunned,
         armorGained,
-        mudded: attackFx.mud,
+        mudded: attacker.passives.mud,
         specialShape,
         specialOk: special.ok,
         specialDistance: special.distance,

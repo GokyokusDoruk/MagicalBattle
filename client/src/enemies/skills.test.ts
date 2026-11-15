@@ -40,8 +40,8 @@ describe('düşman yetenekleri', () => {
     expect(enemySkills('fire', 4).passives.scars).toBe(3);
     expect(enemySkills('air', 1).passives.shake).toBe(1);
     expect(enemySkills('air', 4).passives.shake).toBe(3);
-    expect(enemySkills('water', 4).spells('water', 'attack').fog).toBe(3);
-    expect(enemySkills('earth', 4).spells('earth', 'attack').mud).toBe(3);
+    expect(enemySkills('water', 4).passives.fog).toBe(3);
+    expect(enemySkills('earth', 4).passives.mud).toBe(3);
   });
 
   it('düşman başka elementin büyüsünü seçerse yetenekleri işlemez', () => {
@@ -52,8 +52,7 @@ describe('düşman yetenekleri', () => {
 
   it('enemyFighters düşmana yetenekleri verir, oyuncuya dokunmaz', () => {
     const [me, foe] = enemyFighters('earth', 4, player);
-    expect(foe.passives).toEqual({ scars: 0, shake: 0 });
-    expect(foe.spells!('earth', 'attack').mud).toBe(3);
+    expect(foe.passives).toEqual({ scars: 0, shake: 0, fog: 0, mud: 3 });
     expect(me.passives).toBeUndefined();
   });
 

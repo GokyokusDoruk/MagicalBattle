@@ -5,7 +5,7 @@ import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
 import { placeFog } from '../ui/drawingCanvas';
 import { MAX_SKILL_LEVEL, describeEffect, skillsOf } from './catalog';
-import { FOG_BOT_BYPASS, neutralEffects, resolveSpell } from './resolver';
+import { FOG_BOT_BYPASS, neutralEffects, resolvePassives, resolveSpell } from './resolver';
 import { SkillTree } from './tree';
 
 const good = () => analyzeStrokes(buildShape('circle', 128, 128, 75, 2400));
@@ -44,15 +44,16 @@ async function play(engine: BattleEngine, turns: number, opts: { defenderDraws?:
 }
 
 describe('su yetenekleri', () => {
-  it('katalog: 4 yetenek (12 puan); saldırı yetenekleri saldırıda, yansıma yalnızca savunmada işler', () => {
+  it('katalog: 3 yetenek puanla (9 puan) + Sis Perdesi asa pasifi; saldırı yetenekleri saldırıda, yansıma yalnızca savunmada işler', () => {
     expect(skillsOf('water').map((s) => s.name)).toEqual(['Buz Nefesi', 'Şifa Kabarcıkları', 'Yansıyan Dalga', 'Sis Perdesi']);
-    expect(skillsOf('water').length * MAX_SKILL_LEVEL).toBe(12);
+    expect(skillsOf('water').filter((s) => !s.passive).length * MAX_SKILL_LEVEL).toBe(9);
+    expect(skillsOf('water').find((s) => s.passive)?.id).toBe('water-fog');
     const all = new Map(skillsOf('water').map((s) => [s.id, 3]));
     const atk = resolveSpell(all, 'water', 'attack');
     expect(atk.lifesteal).toBeCloseTo(0.2, 6);
     expect(atk.chillChance).toBeCloseTo(0.55, 6);
     expect(atk.chillSec).toBe(0.7);
-    expect(atk.fog).toBe(3);
+    expect(atk.fog).toBe(0); // Sis Perdesi artık pasif (asa seviyesine bağlı)
     expect(atk.reflect).toBe(0);
     const def = resolveSpell(all, 'water', 'defense');
     expect(def.reflect).toBeCloseTo(0.35, 6);
@@ -96,14 +97,14 @@ describe('su yetenekleri', () => {
   });
 
   it('Sis Perdesi: savunma ekranına sis gider; botun savunması zayıflar, insanınki otomatik zayıflamaz', async () => {
-    const tree = waterTree({ 'water-fog': 3 });
+    const owner = { passives: resolvePassives(new Map([['water-fog', 3]])) };
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1, { defenderDraws: true });
-    const fogged = await play(duel({ spells: tree.resolver }), 1, { defenderDraws: true, defenseExtras: extras });
+    const fogged = await play(duel({ passives: owner.passives }), 1, { defenderDraws: true, defenseExtras: extras });
     expect(extras).toEqual([{ fog: 3, mud: 0 }]);
     expect(fogged[0].breakdown!.defenseBypass).toBeCloseTo(3 * FOG_BOT_BYPASS, 6);
     expect(fogged[0].damage).toBeGreaterThan(plain[0].damage);
-    const human = await play(duel({ spells: tree.resolver }, { control: 'human' }), 1, { defenderDraws: true });
+    const human = await play(duel({ passives: owner.passives }, { control: 'human' }), 1, { defenderDraws: true });
     expect(human[0].breakdown!.defenseBypass).toBe(0);
     expect(human[0].fogged).toBe(3);
   });
