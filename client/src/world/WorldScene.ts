@@ -4,6 +4,7 @@ import { GridMover } from './gridMove';
 import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
 import { enemyTitle } from '../enemies/catalog';
+import { DANGER_ZONES } from '../enemies/dangerZones';
 import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
 import type { EnemySpot } from '../enemies/spots';
@@ -119,6 +120,7 @@ export class WorldScene extends Phaser.Scene {
     this.createLocationLabels();
     this.createMarkerSprites();
     this.createMerchants();
+    this.createDangerZones();
     this.createEnemies();
     this.createMines();
     this.createChests();
@@ -230,6 +232,42 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     for (let i = used; i < this.bushes.length; i++) this.bushes[i].setVisible(false);
+  }
+
+  /**
+   * Tehlikeli bölgeler (Task 62): yerde nabız gibi atan kırmızı bir alan, kenarda kırmızı halka ve ortada kafatası ile bölgenin adı.
+   * Alan zeminin üstünde ama karakterin ve düşmanların altında çizilir (karakter bölgenin içinde de görünür kalır).
+   */
+  private createDangerZones(): void {
+    for (const z of DANGER_ZONES) {
+      const cx = z.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const cy = z.tileY * TILE_SIZE + TILE_SIZE / 2;
+      const r = z.radius * TILE_SIZE;
+      const area = this.add.graphics().setDepth(1);
+      area.fillStyle(0xb91c1c, 0.16).fillCircle(cx, cy, r);
+      area.fillStyle(0x7f1d1d, 0.12).fillCircle(cx, cy, r * 0.72);
+      area.lineStyle(3, 0xef4444, 0.75).strokeCircle(cx, cy, r);
+      area.lineStyle(1.5, 0xfecaca, 0.5).strokeCircle(cx, cy, r * 0.97);
+      this.tweens.add({ targets: area, alpha: 0.55, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.add
+        .text(cx, cy - 4, '☠', { fontFamily: 'system-ui, sans-serif', fontSize: '34px', color: '#fecaca', stroke: '#450a0a', strokeThickness: 5 })
+        .setOrigin(0.5)
+        .setDepth(3)
+        .setAlpha(0.85);
+      this.add
+        .text(cx, cy + 22, `⚠ ${z.name}`, { fontFamily: 'system-ui, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#fecaca', stroke: '#450a0a', strokeThickness: 4 })
+        .setOrigin(0.5)
+        .setDepth(3);
+      // Kenarda birkaç küçük kafatası (alan sınırı belli olsun)
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2 + 0.3;
+        this.add
+          .text(cx + Math.cos(a) * r * 0.97, cy + Math.sin(a) * r * 0.97, '☠', { fontFamily: 'system-ui, sans-serif', fontSize: '14px', color: '#fca5a5', stroke: '#450a0a', strokeThickness: 3 })
+          .setOrigin(0.5)
+          .setDepth(2)
+          .setAlpha(0.8);
+      }
+    }
   }
 
   /** Düşman isimleri yalnızca yaklaşınca görünür ("5. seviye Ateş Büyücüsü"); uzaktakiler ve yenilenler gizli. */

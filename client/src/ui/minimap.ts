@@ -2,6 +2,7 @@ import type { GateRegistry } from '../world/gates';
 import type { WorldMap } from '../world/generateMap';
 import type { QuestTracker } from '../world/questMarkers';
 import { TILE_SIZE, Tile } from '../world/tiles';
+import { DANGER_ZONES } from '../enemies/dangerZones';
 
 const SCALE = 2; // karo başına piksel
 const COLORS: Record<Tile, string> = {
@@ -15,7 +16,7 @@ const COLORS: Record<Tile, string> = {
   [Tile.Thicket]: '#687d34',
 };
 
-/** Tüm haritayı gösteren küçük harita: oyuncu (beyaz), ana görevler (sarı), kapılar (kırmızı/yeşil). */
+/** Tüm haritayı gösteren küçük harita: oyuncu (beyaz), ana görevler (sarı), kapılar (kırmızı/yeşil), tehlikeli bölgeler (kırmızı daire, ☠). */
 export class Minimap {
   readonly element: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
@@ -53,6 +54,22 @@ export class Minimap {
   update(player: { x: number; y: number }): void {
     const c = this.ctx;
     c.drawImage(this.terrain, 0, 0);
+
+    // Tehlikeli bölgeler: kırmızı dolgulu daire ve kenar çizgisi (kafatası işareti ortada)
+    for (const z of DANGER_ZONES) {
+      c.beginPath();
+      c.arc(z.tileX * SCALE, z.tileY * SCALE, z.radius * SCALE, 0, Math.PI * 2);
+      c.fillStyle = 'rgba(220,38,38,0.38)';
+      c.fill();
+      c.lineWidth = 1.5;
+      c.strokeStyle = 'rgba(254,202,202,0.9)';
+      c.stroke();
+      c.font = 'bold 11px system-ui, sans-serif';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillStyle = '#ffffff';
+      c.fillText('☠', z.tileX * SCALE, z.tileY * SCALE);
+    }
 
     for (const gate of this.map.gates) {
       c.fillStyle = this.gates.isUnlocked(gate.cityId) ? '#4ade80' : '#ef4444';
