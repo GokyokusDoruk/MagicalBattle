@@ -16,7 +16,7 @@ import { GroundLoot } from './world/groundLoot';
 import { locationAt } from './save/cityEntry';
 import { ExitDropUi } from './ui/exitDropUi';
 import { GroundPileUi } from './ui/groundPileUi';
-import { STARTER_WAND_ID, getWand } from './wands/catalog';
+import { STARTER_WAND_ID } from './wands/catalog';
 import { WandInventory } from './wands/inventory';
 import { RegenAccumulator, activePassive } from './wands/passives';
 import { WandStock } from './wands/stock';
@@ -40,6 +40,7 @@ import { confirmMine } from './ui/mineUi';
 import { CHEST_SPOTS, chestGuards, rollChestLoot } from './enemies/chests';
 import { confirmChest } from './ui/chestUi';
 import { chestLootHint, enemyLootHint, mineLootHint } from './enemies/lootPreview';
+import { showLootPanel, type LootView } from './ui/lootPanel';
 import { enemyStats } from './enemies/catalog';
 import { rollLoot } from './enemies/loot';
 import { applyLoot } from './enemies/applyLoot';
@@ -482,11 +483,26 @@ function bribeOption(spot: EnemySpot): BribeOption {
 
 type FightResult = 'won' | 'lost' | 'retreat' | 'bribed' | 'skipped';
 
+/** Ganimet sonucundan panel görünümü (adlar ve adetler) */
+function lootView(subtitle: string, got: ReturnType<typeof applyLoot>): LootView {
+  return {
+    subtitle,
+    money: got.money,
+    moneyName: CURRENCY_NAMES[got.currency],
+    xp: got.xp,
+    levelUp: got.levelsGained > 0 ? { level: hero.level, skillPoints: skillTree.pointsFree } : undefined,
+    items: Object.entries(got.items).map(([id, count]) => ({ id, count })),
+    wands: Object.entries(got.wands).map(([id, count]) => ({ id, count })),
+    dropped: got.dropped,
+  };
+}
+
 async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro = false): Promise<FightResult> {
   const id = spot.id;
   if (fightBusy || (modalOpen() && !fromMine)) return 'skipped';
   fightBusy = true;
   try {
+    let wonLoot: ReturnType<typeof applyLoot> | null = null;
     const introHandle = intro ? await playEncounterIntro(enemyStats(spot.element, spot.tier).name) : null;
     // Savaş ekranı açılınca (kısa süre sonra) karartma yumuşakça kalkar ve dünya eski hâline döner
     if (introHandle) window.setTimeout(() => introHandle.release(), 200);
@@ -498,6 +514,16 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
         // Savaş öncesi panel yok (Task 55): sabit düşmanda savaşın içinde Kaç ve Rüşvet düğmeleri çıkar; çalılık, maden ve sandıkta çıkış yok
         escape: fromMine || intro ? undefined : { bribe: bribeOption(spot) },
         lootHint: fromMine ? undefined : enemyLootHint(spot.element, spot.tier, hero.level, lootDropRate(), CURRENCY_NAMES[regionCurrency()]),
+        // Zaferden sonra, dünyaya dönmeden savaş ekranının üstünde ganimetler gösterilir
+        onWon: async (root, hp) => {
+          hero.setHp(hp);
+          enemyBoard.defeat(id);
+          const loot = rollLoot(spot.element, spot.tier, hero.level, lootDropRate() * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
+          wonLoot = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
+          sfx.play('victory');
+          setDirty(true);
+          await showLootPanel(root, lootView(`${enemyStats(spot.element, spot.tier).name} yenildi`, wonLoot));
+        },
       },
     );
     if (outcome === 'bribed') {
@@ -514,18 +540,8 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
       await handleDeath();
       return 'lost';
     }
-    if (hpLeft !== null) hero.setHp(hpLeft);
-    enemyBoard.defeat(id);
-    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate) * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
-    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
-    const names = [
-      ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
-      ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
-    ];
-    sfx.play('victory');
-    toast.show(`${enemyStats(spot.element, spot.tier).name} yenildi! +${got.money} ${CURRENCY_NAMES[got.currency]}, +${got.xp} XP${names.length ? `, ${names.join(', ')}` : ''}`);
-    if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
-    if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
+    // Ganimet zaten savaş ekranının üstünde gösterildi (onWon)
+    if (!wonLoot && hpLeft !== null) hero.setHp(hpLeft);
     setDirty(true);
     handleCompletions(sideQuests.onEvent({ type: 'battleWon' }));
     return 'won';
@@ -581,14 +597,8 @@ async function openChest(id: string): Promise<void> {
     collected.add(id);
     const loot = rollChestLoot(chest, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate), lootRand);
     const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
-    const names = [
-      ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
-      ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
-    ];
     sfx.play('victory');
-    toast.show(`Sandık açıldı! +${got.money} ${CURRENCY_NAMES[got.currency]}, +${got.xp} XP, ${names.join(', ')}`);
-    if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
-    if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
+    await showLootPanel(document.body, lootView('Sandık açıldı', got));
     setDirty(true);
     handleCompletions(sideQuests.onEvent({ type: 'chestOpened' }));
   } finally {
