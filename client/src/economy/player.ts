@@ -235,7 +235,7 @@ export class PlayerState {
     this.lastBlockReason = null;
     if (!item?.slot || this.count(id) < 1) return false;
     if (item.level !== undefined && item.level > this.level) {
-      this.lastBlockReason = `Bu eşya ${item.level}. seviye ister (şu an ${this.level}).`;
+      this.lastBlockReason = `Yetersiz seviye: bu eşya ${item.level}. seviye ister (şu an ${this.level}).`;
       return false;
     }
     const reason = this.guards?.canChangeGear(item.slot, id) ?? null;
