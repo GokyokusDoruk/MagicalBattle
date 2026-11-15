@@ -31,7 +31,11 @@ export interface BattleScreenOptions {
   /** Bu döngüden itibaren oyuncunun çizim tuvali bulanıklaşır (boss mekaniği: zihin kontrolü) */
   blurFromCycle?: number;
   /** Savaş sonu düğme yazıları ve görünürlüğü. Verilmezse "Tekrar oyna" ve "Menü". */
-  endLabels?: { again: string; menu: string; /** Zaferde "tekrar" düğmesi gizlenir ve kalan düğmenin yazısı bu olur (boss savaşı) */ hideAgainOnWin?: boolean; winMenu?: string };
+  /** Savaşın içinde Kaç ve (varsa) Rüşvet düğmeleri çıkar (Task 55); verilmezse savaştan çıkış yoktur */
+  escape?: { bribe?: { cost: number; currencyName: string; balance: () => number } };
+  /** Savaş başlarken ortada kısa süre gösterilen not (düşman adı, ganimet) */
+  intro?: string;
+  endLabels?: { again: string; menu: string; /** Yenilgide de "tekrar" düğmesi gizlenir */ noAgain?: boolean; /** Zaferde "tekrar" düğmesi gizlenir ve kalan düğmenin yazısı bu olur (boss savaşı) */ hideAgainOnWin?: boolean; winMenu?: string };
 }
 
 /**
@@ -53,6 +57,9 @@ export class BattleScreen implements BattleIO {
   /** Bu döngüde herkesin seçtiği element (anahtar: takım:sıra); çizim rengi ve etiketler için */
   private roundElements = new Map<string, Element>();
   private disposed = false;
+  /** Oyuncu savaştan çıktıysa nasıl: 'flee' (kaçtı) ya da 'bribe' (rüşvet verdi); aksi null */
+  escaped: 'flee' | 'bribe' | null = null;
+  private escapeResolve: (() => void) | null = null;
 
   constructor(
     parent: HTMLElement,
@@ -88,6 +95,27 @@ export class BattleScreen implements BattleIO {
     this.calc = this.overlay('pointer-events-none absolute inset-x-0 top-[20%] z-10 flex justify-center px-2');
     this.modals = this.overlay('absolute inset-0 z-20');
     this.modals.style.pointerEvents = 'none';
+    if (options.escape) this.buildEscape(options.escape);
+  }
+
+  /** Savaşın içinde köşede Kaç ve Rüşvet düğmeleri: kaçarsan düşman yerinde kalır, rüşvet verirsen çekilir. */
+  private buildEscape(escape: NonNullable<BattleScreenOptions['escape']>): void {
+    const bar = this.overlay('absolute bottom-2 left-2 z-40 flex gap-2');
+    bar.style.pointerEvents = 'auto';
+    const bribe = escape.bribe;
+    const canBribe = bribe ? bribe.balance() >= bribe.cost : false;
+    bar.innerHTML = `<button data-flee type="button" class="rounded bg-slate-800/90 px-3 py-2 text-xs font-bold text-amber-50 hover:bg-slate-700">🏃 Kaç</button>${
+      bribe ? `<button data-bribe type="button" ${canBribe ? '' : 'disabled'} class="rounded bg-emerald-300/95 px-3 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">💰 Rüşvet (${bribe.cost} ${esc(bribe.currencyName)})</button>` : ''
+    }`;
+    const leave = (how: 'flee' | 'bribe'): void => {
+      if (this.escaped || this.disposed) return;
+      this.escaped = how;
+      this.closeModal();
+      this.abort.abort();
+      this.escapeResolve?.();
+    };
+    bar.querySelector('[data-flee]')!.addEventListener('click', () => leave('flee'));
+    bar.querySelector('[data-bribe]')?.addEventListener('click', () => leave('bribe'));
   }
 
   private overlay(cls: string): HTMLElement {
@@ -456,7 +484,7 @@ export class BattleScreen implements BattleIO {
           ? ['ZAFER!', 'text-amber-300']
           : ['YENİLGİ', 'text-red-300'];
     const labels = this.options.endLabels ?? { again: 'Tekrar oyna', menu: 'Menü' };
-    const hideAgain = Boolean(this.options.endLabels?.hideAgainOnWin) && winner === mine;
+    const hideAgain = (Boolean(this.options.endLabels?.hideAgainOnWin) && winner === mine) || (Boolean(this.options.endLabels?.noAgain) && winner !== mine);
     this.sfx.play(winner === mine ? 'victory' : winner === 'draw' || winner === null ? 'revealNeutral' : 'lose');
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-4 bg-slate-950/70 p-4">
@@ -478,8 +506,14 @@ export class BattleScreen implements BattleIO {
   // --- Yaşam döngüsü -----------------------------------------------------------------------
 
   /** Savaşı başlatır; bitince kazananı verir. */
-  run(): Promise<Winner> {
-    return runBattle(this.engine, this, { showAttackToDefender: this.options.showAttackToDefender, signal: this.abort.signal });
+  async run(): Promise<Winner> {
+    if (this.options.intro) void this.say(this.center, this.options.intro, 2800, 'bg-slate-800/90 text-amber-100');
+    const escape = new Promise<'escaped'>((resolve) => {
+      this.escapeResolve = () => resolve('escaped');
+    });
+    const result = await Promise.race([runBattle(this.engine, this, { showAttackToDefender: this.options.showAttackToDefender, signal: this.abort.signal }), escape]);
+    // Çıkıldıysa kazanan yoktur (savaş yarıda kaldı)
+    return result === 'escaped' ? this.engine.winner : result;
   }
 
   dispose(): void {

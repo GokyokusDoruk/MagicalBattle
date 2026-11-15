@@ -22,7 +22,7 @@ export const CITY_HALF = 6;
 /** Köy ve son arenanın temizlenen alanının yarı boyu. */
 export const OPEN_HALF = 4;
 /** Kapının önündeki, yolun bittiği noktaya uzaklık. */
-const APPROACH_DISTANCE = 3;
+export const APPROACH_DISTANCE = 3;
 
 /**
  * Harita 96x96'dan 136x136'ya büyüdü (Task 39): konumlar yerini korur, hepsi 20 karo kaydırıldı (eski kayıtlar sunucuda ve
