@@ -43,6 +43,8 @@ export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp:
   const root = document.createElement('div');
   root.className = 'fixed inset-0 z-[70] bg-black';
   document.body.appendChild(root);
+  // Savaş ekranı karanlıktan yumuşakça açılır
+  root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' });
   try {
     const entryHp = player.hp ?? maxHp;
     const stats = enemyStats(spot.element, spot.tier);

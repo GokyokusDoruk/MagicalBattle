@@ -9,8 +9,8 @@ import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
-import { TILE_SIZE, isBlockedTile } from './tiles';
+import { BUSH_KEY, CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
+import { Tile, TILE_SIZE, isBlockedTile } from './tiles';
 
 const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
 const GATE_NOTICE_COOLDOWN_MS = 3000;
@@ -71,6 +71,8 @@ export interface WorldContext {
 export class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
   private pos = { x: 0, y: 0 };
+  /** Çalılıkta karakterin önünde duran yaprak kümeleri (havuz): karakterin alt yarısı çalının içinde görünür */
+  private bushes: Phaser.GameObjects.Image[] = [];
   /** Kare kare hareket (Task 39) */
   private mover!: GridMover;
   private markerSprites = new Map<string, Phaser.GameObjects.Text>();
@@ -181,6 +183,7 @@ export class WorldScene extends Phaser.Scene {
       this.player.setPosition(this.pos.x, this.pos.y);
     }
     this.movePlayer(delta);
+    this.updateBushes(time);
     this.checkGates(time);
     this.checkMarkers();
     this.checkCityEntry();
@@ -191,6 +194,34 @@ export class WorldScene extends Phaser.Scene {
     this.checkMines();
     this.checkChests();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
+  }
+
+  /**
+   * Çalılık karolarında karakterin önüne yaprak kümesi koyar (karakterin alt yarısı çalıda gibi görünür). Oyuncunun bulunduğu satır,
+   * üç karo genişliğinde taranır; çalı olan her karoya bir küme çizilir ve hafifçe sallanır. Havuz yeniden kullanılır.
+   */
+  private updateBushes(time: number): void {
+    const { map } = this.ctx;
+    const tx = Math.floor(this.pos.x / TILE_SIZE);
+    const ty = Math.floor(this.pos.y / TILE_SIZE);
+    let used = 0;
+    for (let dy = 0; dy <= 0; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = tx + dx;
+        const y = ty + dy;
+        if (x < 0 || y < 0 || x >= map.width || y >= map.height || tileAt(map, x, y) !== Tile.Thicket) continue;
+        let img = this.bushes[used];
+        if (!img) {
+          img = this.add.image(0, 0, BUSH_KEY).setOrigin(0.5, 1).setDepth(11);
+          this.bushes.push(img);
+        }
+        const sway = Math.sin(time / 420 + x * 1.7 + y) * 0.9;
+        img.setPosition(x * TILE_SIZE + TILE_SIZE / 2 + sway, y * TILE_SIZE + TILE_SIZE / 2 + 8);
+        img.setVisible(true);
+        used++;
+      }
+    }
+    for (let i = used; i < this.bushes.length; i++) this.bushes[i].setVisible(false);
   }
 
   /** Kare kare yürür: yön girdisi karo karo adımlara çevrilir, hız çarpanı (ayakkabı, hava asası) adımı kısaltır. */
