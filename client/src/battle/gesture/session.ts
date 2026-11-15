@@ -1,6 +1,7 @@
 import { DRAW_TIME_MS, IDLE_TIMEOUT_MS, LOGICAL_SIZE } from './config';
 import { buildDensity } from './density';
 import { computeMetrics, validateSpell } from './metrics';
+import { computeQuality } from './quality';
 import type { DrawingResult, Stroke } from './types';
 
 export type SessionPhase = 'waiting' | 'drawing' | 'finished';
@@ -128,7 +129,7 @@ export class DrawingSession {
     const metrics = computeMetrics(strokes, density);
     this.phase = 'finished';
     this.current = null;
-    this.result = { strokes, density, metrics, validity: validateSpell(metrics), elapsedMs: Math.max(0, elapsed) };
+    this.result = { strokes, density, metrics, quality: computeQuality(metrics, density), validity: validateSpell(metrics), elapsedMs: Math.max(0, elapsed) };
     return this.result;
   }
 

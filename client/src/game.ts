@@ -24,7 +24,8 @@ import { GearStock } from './economy/gearStock';
 import { BagUi } from './ui/bagUi';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
-import { Morality } from './morality/morality';
+import { Morality, describeMoralOutcome } from './morality/morality';
+import { getChoice } from './morality/catalog';
 import { getBoss } from './boss/bosses';
 import { moneyLoss, nearestHealer, respawnLines } from './economy/death';
 import { CURRENCIES, CURRENCY_NAMES, cityCurrency, currencyAt, type Currency } from './economy/currency';
@@ -397,6 +398,12 @@ async function playChapterChoices(chapter: number): Promise<void> {
   const ctx = {
     score: () => morality.score,
     flags: new Set<string>(),
+    // Her seçeneğin yanında ne kazanacağın yazar (puan, kademe, final yolu)
+    optionHint: (o: import('./dialogue/engine').DialogueOption): string[] | null => {
+      if (o.effect?.type !== 'moral') return null;
+      const choice = getChoice(o.effect.choiceId);
+      return choice ? describeMoralOutcome(morality.score, o.effect.side, choice[o.effect.side].weight) : null;
+    },
     onEffect: (e: import('./dialogue/engine').DialogueEffect): void => {
       if (e.type !== 'moral' || !morality.choose(e.choiceId, e.side)) return;
       setDirty(true);

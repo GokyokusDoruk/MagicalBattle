@@ -265,6 +265,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     ].filter((p) => Math.abs(p.value - 1) > 0.005);
     const input = {
       multiplierParts: parts,
+      attackQuality: attack.quality.total,
+      defenseQuality: defenseFailed ? 1 : defense.quality.scribble,
       basePower: attacker.basePower * attackWand.powerMultiplier,
       attack,
       defense: defenseFailed ? null : defense.density,

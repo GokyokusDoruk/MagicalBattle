@@ -1,5 +1,6 @@
 import { buildDensity } from './density';
 import { computeMetrics, validateSpell } from './metrics';
+import { computeQuality } from './quality';
 import type { DrawingResult, Stroke } from './types';
 
 /**
@@ -15,6 +16,7 @@ export function analyzeStrokes(strokes: readonly Stroke[], elapsedMs?: number): 
     strokes: copy,
     density,
     metrics,
+    quality: computeQuality(metrics, density),
     validity: validateSpell(metrics),
     elapsedMs: elapsedMs ?? lastT,
   };

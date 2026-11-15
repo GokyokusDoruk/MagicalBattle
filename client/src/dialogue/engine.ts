@@ -41,6 +41,8 @@ export interface DialogueContext {
   score: () => number;
   flags: Set<string>;
   onEffect: (effect: DialogueEffect) => void;
+  /** Seçeneğin yanında gösterilecek "bunu seçersen ne kazanırsın" satırları (isteğe bağlı) */
+  optionHint?: (option: DialogueOption) => string[] | null;
 }
 
 export const MAX_STEPS = 500;

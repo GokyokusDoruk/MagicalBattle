@@ -46,8 +46,14 @@ const factorText = (m: number): string => `×${Math.round(m * 100) / 100}`;
  * Örnek: Büyü gücü 100 → Toprak üstün ×1.5 = 150.
  */
 export function explainDamage(b: DamageBreakdown, attackerElement: Element, defenseFailed: boolean): ExplainRow[] {
-  const rows: ExplainRow[] = [{ label: 'Büyü gücü', factor: '', value: Math.round(b.power) }];
+  const rows: ExplainRow[] = [{ label: 'Büyü gücü (alan ve süre)', factor: '', value: Math.round(b.powerBeforeQuality) }];
+  if (b.attackQuality < 0.995) {
+    rows.push({ label: 'Çizim kalitesi (karalama / dağılım)', factor: factorText(b.attackQuality), value: Math.round(b.power) });
+  }
   if (!defenseFailed) {
+    if (b.defenseStrength < 0.99) {
+      rows.push({ label: 'Savunma inceldi (karalama / fazla kaplama)', factor: factorText(b.defenseStrength), value: Math.round(b.power) });
+    }
     rows.push({ label: 'Savunmayı geçen', factor: `%${Math.round(b.unblockedRatio * 100)}`, value: Math.round(b.power * b.unblockedRatio) });
   }
   if (b.headShare > 0.5 && b.weightedUnblockedRatio > b.unblockedRatio) {
