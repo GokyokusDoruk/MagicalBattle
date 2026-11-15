@@ -137,7 +137,7 @@ export class MerchantUi {
     const merchant = getMerchant(merchantId);
     if (!merchant || this.isOpen) return;
     this.merchant = merchant;
-    this.tab = merchant.kind === 'wandsmith' ? 'wands' : merchant.kind === 'innkeeper' ? 'rest' : 'shop';
+    this.tab = merchant.kind === 'wandsmith' ? 'wands' : merchant.kind === 'innkeeper' ? 'rest' : merchant.kind === 'questgiver' ? 'quests' : 'shop';
     this.message = merchant.greeting;
     this.element.classList.remove('hidden');
     this.element.classList.add('flex');
@@ -172,7 +172,7 @@ export class MerchantUi {
           <span>Seviye <b>${player.level}</b></span><span>❤ <b>${player.hp}/${player.maxHp}</b></span>
         </div>
         <div class="grid grid-cols-4 gap-1 rounded bg-black/40 px-2 py-1 text-center text-xs" data-wallet>${CURRENCIES.map((c) => `<span class="${c === this.currency ? 'rounded bg-amber-300/20 font-bold text-amber-200' : 'text-slate-300'}">${CURRENCY_ICONS[c]} ${player.balance(c)}<span class="block text-[10px] opacity-70">${CURRENCY_NAMES[c]}</span></span>`).join('')}</div>
-        ${m.kind === 'wandsmith' ? '' : `<div role="tablist" class="flex gap-2">${m.kind === 'innkeeper' ? `${tabBtn('rest', 'Dinlen')}${tabBtn('potions', 'İksirler')}${tabBtn('quests', 'Görevler')}` : `${tabBtn('shop', 'Alışveriş')}${tabBtn('trade', 'Ticaret')}${tabBtn('exchange', 'Çevir')}`}</div>`}
+        ${m.kind === 'wandsmith' ? '' : `<div role="tablist" class="flex gap-2">${m.kind === 'questgiver' ? tabBtn('quests', 'Görevler') : m.kind === 'innkeeper' ? `${tabBtn('rest', 'Dinlen')}${tabBtn('potions', 'İksirler')}${tabBtn('quests', 'Görevler')}` : `${tabBtn('shop', 'Alışveriş')}${tabBtn('trade', 'Ticaret')}${tabBtn('exchange', 'Çevir')}`}</div>`}
         <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">${this.tab === 'shop' ? this.shopHtml(m) : this.tab === 'trade' ? this.tradeHtml(m) : this.tab === 'exchange' ? this.exchangeHtml() : this.tab === 'wands' ? this.wandsHtml() : this.tab === 'rest' ? this.restHtml() : this.tab === 'potions' ? this.potionsHtml() : this.questsHtml(m)}</div>
       </div>`;
   }

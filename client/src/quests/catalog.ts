@@ -21,7 +21,7 @@ export interface QuestReward {
 export interface QuestDef {
   id: string;
   title: string;
-  /** Görevi veren tüccarın şehri (Task 27: görevler şehir hanlarında verilir) */
+  /** Görevi veren konum: şehirde han, köyde görev veren kişi (Task 47) */
   giver: string;
   /** Metin tabanlı görev anlatımı */
   description: string;
@@ -53,6 +53,14 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     minLevel: 2,
     reward: { money: 160, xp: 90 },
   },
+  {
+    id: 'ignis-ash-haberi',
+    title: "Ash Kanyon'a Selam",
+    giver: 'ignis',
+    description: "Doğudaki Ash Kanyon'un bekçisi Dara kervanlardan haber bekliyor. Köye var, ona Ignis'in selamını götür.",
+    objective: { type: 'visit', locationId: 'ash' },
+    reward: { money: 70, xp: 50 },
+  },
   // --- Abyss (Tüy) ---
   {
     id: 'abyss-ignis-yolu',
@@ -70,6 +78,15 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     objective: { type: 'chest', count: 1 },
     minLevel: 3,
     reward: { money: 150, xp: 100 },
+  },
+  {
+    id: 'abyss-ipek-teslimat',
+    title: 'İpek Sevkiyatı',
+    giver: 'abyss',
+    description: "Ignis'in terzileri Bulut İpeği istiyor. Abyss'in dokumacılarından 4 ipek al, Ignis Surları'na götür.",
+    objective: { type: 'deliver', itemId: 'bulut-ipegi', count: 4, locationId: 'ignis' },
+    minLevel: 2,
+    reward: { money: 140, xp: 90 },
   },
   // --- Stone Heart (Tunç) ---
   {
@@ -89,6 +106,15 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     objective: { type: 'deliver', itemId: 'tas-cevheri', count: 4, locationId: 'still-crystal' },
     minLevel: 3,
     reward: { money: 190, xp: 110 },
+  },
+  {
+    id: 'stone-kalkan-avi',
+    title: 'Sur Nöbeti',
+    giver: 'stone-heart',
+    description: 'Kale surlarının altında dolaşan yaratıklar nöbetçileri yoruyor. Dört düşmanı yen, ödülün yoluna düşecek.',
+    objective: { type: 'battleWon', count: 4 },
+    minLevel: 4,
+    reward: { money: 180, xp: 130 },
   },
   // --- Still Crystal (Çiy) ---
   {
@@ -117,6 +143,100 @@ export const SIDE_QUESTS: readonly QuestDef[] = [
     objective: { type: 'visit', locationId: 'stone-heart' },
     minLevel: 2,
     reward: { money: 130, xp: 90 },
+  },
+  {
+    id: 'crystal-marsh-haberi',
+    title: 'Bataklığa Haber',
+    giver: 'still-crystal',
+    description: "Sisli Bataklık'ın kılavuzu Mert, kıyıdan haber bekliyor. Bataklık köyüne var, ona selamımızı ilet.",
+    objective: { type: 'visit', locationId: 'marsh' },
+    minLevel: 4,
+    reward: { money: 110, xp: 80 },
+  },
+  // --- Köyler (Task 47): küçük işler, küçük ödüller; ödül köyün ilk elementinin biriminde ---
+  // Ash Kanyon (Kor)
+  {
+    id: 'ash-koz-avi',
+    title: 'Kanyon Nöbeti',
+    giver: 'ash',
+    description: 'Kanyonun taşları arasında köz yaratıkları dolaşıyor. İki düşmanı yen, ödülün yoluna düşecek.',
+    objective: { type: 'battleWon', count: 2 },
+    minLevel: 2,
+    reward: { money: 60, xp: 45 },
+  },
+  {
+    id: 'ash-baharat-teslimat',
+    title: 'Baharat Çuvalı',
+    giver: 'ash',
+    description: "Abyss rahipleri kanyonun baharatını seviyor. Ignis'ten 3 Kor Baharatı al, Abyss Tapınağı'na götür.",
+    objective: { type: 'deliver', itemId: 'kor-baharati', count: 3, locationId: 'abyss' },
+    minLevel: 2,
+    reward: { money: 90, xp: 60 },
+  },
+  {
+    id: 'ash-sandik',
+    title: 'Kanyondaki Sandık',
+    giver: 'ash',
+    description: 'Kanyonun yamaçlarında bekçili eski bir sandık duruyor. Bir korumalı sandığı aç; içindekiler senin.',
+    objective: { type: 'chest', count: 1 },
+    minLevel: 3,
+    reward: { money: 80, xp: 70 },
+  },
+  // Vine Surları (Tüy)
+  {
+    id: 'vine-yol-nobeti',
+    title: 'Yol Güvenliği',
+    giver: 'vine',
+    description: 'Surların önündeki yol yaratıklarla dolu. Üç düşmanı yen, ödülün yoluna düşecek.',
+    objective: { type: 'battleWon', count: 3 },
+    minLevel: 4,
+    reward: { money: 90, xp: 70 },
+  },
+  {
+    id: 'vine-ipek-teslimat',
+    title: 'İpek Siparişi',
+    giver: 'vine',
+    description: "Stone Heart'ın örücüleri Bulut İpeği bekliyor. Abyss'ten 3 ipek al, Stone Heart Kalesi'ne götür.",
+    objective: { type: 'deliver', itemId: 'bulut-ipegi', count: 3, locationId: 'stone-heart' },
+    minLevel: 4,
+    reward: { money: 120, xp: 80 },
+  },
+  {
+    id: 'vine-maden',
+    title: 'Sarmaşık Madeni',
+    giver: 'vine',
+    description: 'Köyün eski madenine yaratıklar yerleşti. Bir madeni temizle.',
+    objective: { type: 'mine', count: 1 },
+    minLevel: 4,
+    reward: { money: 130, xp: 100 },
+  },
+  // Sisli Bataklık (Tunç)
+  {
+    id: 'marsh-sis-avi',
+    title: 'Sis Avı',
+    giver: 'marsh',
+    description: 'Bataklıkta sisin içinden çıkan yaratıklar kılavuzları korkutuyor. Dört düşmanı yen.',
+    objective: { type: 'battleWon', count: 4 },
+    minLevel: 6,
+    reward: { money: 120, xp: 100 },
+  },
+  {
+    id: 'marsh-cevher-teslimat',
+    title: 'Cevher Siparişi',
+    giver: 'marsh',
+    description: "Still Crystal'ın demircileri bataklık demiri için Taş Cevheri istiyor. Stone Heart'tan 3 cevher al, Still Crystal'a götür.",
+    objective: { type: 'deliver', itemId: 'tas-cevheri', count: 3, locationId: 'still-crystal' },
+    minLevel: 6,
+    reward: { money: 140, xp: 100 },
+  },
+  {
+    id: 'marsh-sandik',
+    title: 'Batık Sandık',
+    giver: 'marsh',
+    description: 'Bataklığın kıyısında batmış bir kervandan kalma korumalı sandıklar var. Bir tanesini aç.',
+    objective: { type: 'chest', count: 1 },
+    minLevel: 6,
+    reward: { money: 130, xp: 110 },
   },
 ];
 

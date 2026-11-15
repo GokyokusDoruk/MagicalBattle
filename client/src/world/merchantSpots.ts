@@ -15,6 +15,7 @@ const OFFSETS: Record<MerchantKind, { x: number; y: number }> = {
   merchant: { x: 3, y: -2 },
   wandsmith: { x: -3, y: -2 },
   innkeeper: { x: 0, y: -4 },
+  questgiver: { x: 2, y: -2 },
 };
 
 export function merchantSpots(map: WorldMap): MerchantSpot[] {

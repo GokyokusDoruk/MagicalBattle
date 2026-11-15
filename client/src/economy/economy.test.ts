@@ -38,7 +38,15 @@ describe('katalog', () => {
       expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'wandsmith')).toHaveLength(1);
       expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'innkeeper')).toHaveLength(1);
     }
-    expect(MERCHANTS.some((m) => LOCATIONS.find((l) => l.id === m.locationId)?.kind !== 'city')).toBe(false);
+    // Köylerde yalnızca yan görev veren kişi vardır (han, tüccar ve asacı yok)
+    for (const m of MERCHANTS) {
+      const kind = LOCATIONS.find((l) => l.id === m.locationId)?.kind;
+      expect(kind === 'city' || (kind === 'village' && m.kind === 'questgiver'), m.id).toBe(true);
+    }
+    for (const v of LOCATIONS.filter((l) => l.kind === 'village')) {
+      expect(MERCHANTS.filter((m) => m.locationId === v.id)).toHaveLength(1);
+      expect(MERCHANTS.find((m) => m.locationId === v.id)?.kind).toBe('questgiver');
+    }
     expect(getMerchant('tuccar-kazim')?.locationId).toBe('ignis');
     expect(getMerchant('yok')).toBeUndefined();
   });

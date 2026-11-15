@@ -31,13 +31,13 @@ Her bossa elle seçilmiş yetenekler verildi (`BossFoe.skills`); ana hikâye gü
 
 | Bölüm | Eski → yeni can | Yetenekli oyuncuyla kazanma (hedef seviye) |
 |---|---|---|
-| 2 | 300 → 330 | %83 |
-| 3 | 420/320 → 462/352 | %83 |
-| 4 | 510 → 561 | %68 |
-| 5 | 580 → 609 | %53 |
-| 6 | 560 → 784 | %63 |
-| 7 | 560 → 784 | %63 |
-| 8 | 760/340 → 1064/476 (Karanlık yol 560 → 784) | %55 |
+| 2 | 300 → 330 | %72 |
+| 3 | 420/320 → 462/352 | %82 |
+| 4 | 510 → 561 | %75 |
+| 5 | 580 → 609 | %55 |
+| 6 | 560 → 784 | %52 |
+| 7 | 560 → 784 | %60 |
+| 8 | 760/340 → 1064/476 (Karanlık yol 560 → 784) | %57 |
 
 Yeteneksiz oyuncu için 5-8. bölümler artık belirgin zordur: hedef seviyede yeteneklerini kullanmak gerekir.
 
@@ -63,3 +63,5 @@ ya da han gerekiyor. İksir ve ekipman fiyatlarına dokunulmadı; oynanışta ra
 
 - Vekil oyuncu bir bottur; gerçek oyuncunun çizim kalitesi ve yetenek tercihleri farklıdır. Sayılar "tipik" oyuncuya göredir, oynayınca ayarlanır.
 - Ganimet oranları (`DROP_CHANCE`) bu turda değişmedi.
+
+Not: ölçümler tohumlu rastgelelik (kritik ve beceri zarları dahil) ile yapılır; ilk ölçümde zarlar `Math.random` kullandığı için yüzdeler birkaç puan oynuyordu, düzeltildi (`simulateBoss` artık `random: rand` verir).
