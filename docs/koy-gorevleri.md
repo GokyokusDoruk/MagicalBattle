@@ -5,9 +5,9 @@ Görev verenin yanına gidip konuşunca tek sekmeli bir "Görevler" paneli açı
 
 | Köy | Görev veren | Ödül birimi | Görevler |
 |---|---|---|---|
-| Ash Kanyon (sv 2+) | Kanyon Bekçisi Dara | Kor | Kanyon Nöbeti (2 savaş), Baharat Çuvalı (3 Kor Baharatı → Abyss), Kanyondaki Sandık (1 korumalı sandık) |
-| Vine Surları (sv 4+) | Muhtar Sevgi | Tüy | Yol Güvenliği (3 savaş), İpek Siparişi (3 Bulut İpeği → Stone Heart), Sarmaşık Madeni (1 maden) |
-| Sisli Bataklık (sv 6+) | Bataklık Kılavuzu Mert | Tunç | Sis Avı (4 savaş), Cevher Siparişi (3 Taş Cevheri → Still Crystal), Batık Sandık (1 korumalı sandık) |
+| Ash Kanyon (sv 2+) | Kanyon Bekçisi Cindrak | Kor | Kanyon Nöbeti (2 savaş), Baharat Çuvalı (3 Kor Baharatı → Abyss), Kanyondaki Sandık (1 korumalı sandık) |
+| Vine Surları (sv 4+) | Muhtar Zephrin | Tüy | Yol Güvenliği (3 savaş), İpek Siparişi (3 Bulut İpeği → Stone Heart), Sarmaşık Madeni (1 maden) |
+| Sisli Bataklık (sv 6+) | Bataklık Kılavuzu Mirelda | Tunç | Sis Avı (4 savaş), Cevher Siparişi (3 Taş Cevheri → Still Crystal), Batık Sandık (1 korumalı sandık) |
 
 Şehir hanlarına eklenen görevler: Ignis: Ash Kanyon'a Selam; Abyss: İpek Sevkiyatı (4 Bulut İpeği → Ignis); Stone Heart: Sur Nöbeti (4 savaş);
 Still Crystal: Bataklığa Haber. Her şehirde artık 3-4, her köyde 3 görev var.

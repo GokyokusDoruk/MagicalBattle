@@ -10,7 +10,7 @@ import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { BUSH_KEY, CHEST_KEY, QUEST_FLAG_KEY, QUEST_RING_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
+import { BUSH_KEY, STAFF_KEY, CHEST_KEY, QUEST_FLAG_KEY, QUEST_RING_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
 import { Tile, TILE_SIZE, isBlockedTile } from './tiles';
 
 const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
@@ -74,7 +74,11 @@ export interface WorldContext {
 /** Açık dünya: harita, oyuncu hareketi, çarpışma, kamera, kapılar ve ana görev işaretleri. */
 export class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
+  /** Karakterin asası: yürürken aşağı yukarı sallanır, dururken hafifçe salınır */
+  private staff!: Phaser.GameObjects.Image;
   private pos = { x: 0, y: 0 };
+  /** Asa sallanma şiddeti (0 durur, 1 yürür); yumuşak geçiş için */
+  private staffMove = 0;
   /** Çalılıkta karakterin önünde duran yaprak kümeleri (havuz): karakterin alt yarısı çalının içinde görünür */
   private bushes: Phaser.GameObjects.Image[] = [];
   /** Kare kare hareket (Task 39) */
@@ -132,6 +136,8 @@ export class WorldScene extends Phaser.Scene {
     this.locationTracker = new CityEntryTracker(locationAt(map.locations, start.x, start.y));
     this.currentLocation = locationAt(map.locations, start.x, start.y);
     this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.8).setDepth(10);
+    this.staff = this.add.image(this.pos.x, this.pos.y, STAFF_KEY).setOrigin(0.5, 1).setDepth(10.5);
+    this.placeStaff(0);
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, map.width * TILE_SIZE, map.height * TILE_SIZE);
@@ -183,6 +189,7 @@ export class WorldScene extends Phaser.Scene {
       this.player.setPosition(this.pos.x, this.pos.y);
     }
     this.movePlayer(delta);
+    this.placeStaff(time);
     this.updateBushes(time);
     this.updateEnemyLabels();
     this.checkGates(time);
@@ -242,6 +249,22 @@ export class WorldScene extends Phaser.Scene {
     this.player.setPosition(this.pos.x, this.pos.y);
     if (this.mover.facing === 'left') this.player.setFlipX(true);
     else if (this.mover.facing === 'right') this.player.setFlipX(false);
+  }
+
+  /**
+   * Asa karakterin yanında durur (yüz yönüne göre sağda ya da solda). Yürürken yukarı aşağı oynar ve hafifçe sallanır; dururken yavaşça salınır.
+   * Hareket bitince asa kendi yerine döner (anlık zıplama yok: salınım sıfıra yumuşakça iner).
+   */
+  private placeStaff(time: number): void {
+    const left = this.player.flipX;
+    const walking = this.mover.moving;
+    const target = walking ? 1 : 0;
+    this.staffMove += (target - this.staffMove) * 0.2;
+    const bob = Math.sin(time / 85) * 3 * this.staffMove + Math.sin(time / 700) * 0.7 * (1 - this.staffMove);
+    const tilt = Math.sin(time / 85 + 1) * 0.16 * this.staffMove + Math.sin(time / 700) * 0.04;
+    // Doku koordinatında asa x=23 (merkezden +10), alt ucu y=31: dünyada oyuncunun 5.4 piksel aşağısı
+    this.staff.setPosition(this.pos.x + (left ? -10 : 10), this.pos.y + 5.4 + bob);
+    this.staff.setRotation(left ? -tilt : tilt);
   }
 
   /** Kilitli bir kapıya yaklaşınca (sık tekrarlamadan) uyarı verir. */

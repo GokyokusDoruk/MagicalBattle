@@ -32,7 +32,7 @@ describe('katalog', () => {
     }
   });
 
-  it('tüccarlar şehirlerde: her şehirde bir tüccar, bir asacı ve bir hancı, Ignis tüccarı Kazım', () => {
+  it('tüccarlar şehirlerde: her şehirde bir tüccar, bir asacı ve bir hancı, Ignis tüccarı Ignatius', () => {
     for (const city of LOCATIONS.filter((l) => l.kind === 'city')) {
       expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'merchant')).toHaveLength(1);
       expect(MERCHANTS.filter((m) => m.locationId === city.id && m.kind === 'wandsmith')).toHaveLength(1);
