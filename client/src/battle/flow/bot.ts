@@ -2,7 +2,8 @@ import { ELEMENTS, type Element } from '../damage/elements';
 import { analyzeStrokes } from '../gesture/analyze';
 import { LOGICAL_SIZE } from '../gesture/config';
 import type { DrawingResult, Stroke } from '../gesture/types';
-import { SHAPE_NAMES, buildShape, scribbleShape } from './shapes';
+import { SHAPE_NAMES, buildShape, scribbleShape, type ShapeName } from './shapes';
+import type { Stroke as BotStroke } from '../gesture/types';
 
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
@@ -33,6 +34,12 @@ export class Bot {
     return lo + (hi - lo) * this.rand();
   }
 
+  /** Çizgilere elle çizim titremesi ekler: yavaş dalga + küçük rastgelelik (`amp` mantıksal birim). */
+  protected wobble(strokes: BotStroke[], amp: number): BotStroke[] {
+    const phase = this.rand() * 6;
+    return strokes.map((s) => s.map((p, i) => ({ x: p.x + Math.sin(i * 0.4 + phase) * amp * 0.6 + (this.rand() - 0.5) * amp, y: p.y + Math.cos(i * 0.37 + phase) * amp * 0.6 + (this.rand() - 0.5) * amp, t: p.t })));
+  }
+
   /** Hasar yedikten sonra çağrılır (kişilikli botlar tepki verir). Varsayılan bot tepki vermez. */
   onDamaged(_amount: number, _maxHp: number): void {}
 
@@ -59,11 +66,16 @@ export class Bot {
   }
 
   /** Saldırı: rastgele bir şekil, ara sıra (≈%6) çok küçük bir karalama ("büyü yapamadı"). */
-  drawAttack(): DrawingResult {
+  drawAttack(special?: ShapeName): DrawingResult {
     const cx = LOGICAL_SIZE / 2 + this.between(-18, 18);
     const cy = LOGICAL_SIZE / 2 + this.between(-18, 18);
     const ms = this.between(1800, 2900);
     if (this.rand() < 0.06) return analyzeStrokes(scribbleShape(cx, cy, ms), ms);
+    // Özel büyü şekli: bot beceriyle orantılı olarak denemeye çalışır (el titremesi beceri düştükçe artar)
+    if (special && this.rand() < Math.min(0.9, 0.2 + 0.6 * this.skill)) {
+      const size = this.between(58, 92) * (this.profile.attackScale ?? 1);
+      return analyzeStrokes(this.wobble(buildShape(special, cx, cy, size, ms), (1 - this.skill) * 7 + 1.5), ms);
+    }
     const name = SHAPE_NAMES[Math.floor(this.rand() * SHAPE_NAMES.length)];
     return analyzeStrokes(buildShape(name, cx, cy, this.between(58, 92) * (this.profile.attackScale ?? 1), ms), ms);
   }

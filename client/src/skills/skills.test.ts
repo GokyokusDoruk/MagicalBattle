@@ -416,7 +416,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
     ]);
     const plain = await play(fighters(), 1);
     const scarred = await play(engine, 1, { draws, random: () => 0 });
-    expect(draws).toEqual([{ scars: 3, shake: 0 }]);
+    expect(draws).toMatchObject([{ scars: 3, shake: 0 }]);
     expect(scarred.reports[0].attack.metrics.drawTimeSec).toBeCloseTo(plain.reports[0].attack.metrics.drawTimeSec - 3 * SCAR_PENALTY_SEC, 6);
     expect(scarred.reports[0].damage).toBeLessThan(plain.reports[0].damage);
   });
@@ -430,12 +430,12 @@ describe('savaş akışı: ateş yetenekleri', () => {
     ]);
     const plain = await play(fighters(), 1);
     const safe = await play(engine, 1, { draws, random: () => 0.99 });
-    expect(draws).toEqual([{ scars: 2, shake: 0 }]);
+    expect(draws).toMatchObject([{ scars: 2, shake: 0 }]);
     expect(safe.reports[0].attack.metrics.drawTimeSec).toBe(plain.reports[0].attack.metrics.drawTimeSec);
 
     const none: DrawExtras[] = [];
     await play(fighters(), 1, { draws: none });
-    expect(none).toEqual([]);
+    expect(none.every((e) => !e.scars && !e.shake)).toBe(true); // yalnızca özel şekil gider, yara izi ya da sarsıntı yok
   });
 
   it('Yanık İzi: insan oyuncunun süresini denetleyici değiştirmez (tuval kendisi keser)', async () => {

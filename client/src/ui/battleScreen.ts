@@ -12,6 +12,8 @@ import { runBattle, type BattleIO, type DrawExtras, type Role, type RoundChoice,
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import { DrawingCanvas } from './drawingCanvas';
+import { SHAPE_LABELS, type ShapeName } from '../battle/flow/shapes';
+import { templateStrokes } from '../battle/gesture/shapeMatch';
 import { createSoundToggle } from './soundToggle';
 
 const css = (hex: number): string => `#${hex.toString(16).padStart(6, '0')}`;
@@ -269,10 +271,10 @@ export class BattleScreen implements BattleIO {
     const bot = this.bots.get(key(ref));
     if (bot) {
       await sleep(this.arenaPause(role));
-      return role === 'attack' ? bot.drawAttack() : bot.drawDefense();
+      return role === 'attack' ? bot.drawAttack(extras?.specialShape) : bot.drawDefense();
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
-    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined);
+    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -280,10 +282,11 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
+      ${special ? this.specialPreview(special) : ''}
       <div data-canvas class="flex w-full justify-center"></div></div>`;
     const canvas = new DrawingCanvas({
       color: role === 'attack' ? css(ELEMENT_COLORS[element].main) : '#7df0c4',
@@ -337,12 +340,46 @@ export class BattleScreen implements BattleIO {
     for (const e of events) if (e.defeated) this.arena.defeat(e.ref);
   }
 
+  /**
+   * Özel büyü şekli önizlemesi: yalnızca şeklin kendisi ve adı gösterilir; nereye çizileceği gösterilmez (tuvale hiçbir şey çizilmez).
+   * Doğru çizersen hasar ×1.25.
+   */
+  private specialPreview(shape: ShapeName): string {
+    const strokes = templateStrokes(shape);
+    const pts = strokes.flat();
+    const minX = Math.min(...pts.map((p) => p.x));
+    const maxX = Math.max(...pts.map((p) => p.x));
+    const minY = Math.min(...pts.map((p) => p.y));
+    const maxY = Math.max(...pts.map((p) => p.y));
+    const k = 80 / Math.max(maxX - minX, maxY - minY, 1);
+    const ox = 10 + (80 - (maxX - minX) * k) / 2;
+    const oy = 10 + (80 - (maxY - minY) * k) / 2;
+    const paths = strokes
+      .map((s) => `<polyline fill="none" stroke="#f0abfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${s.map((p) => `${(ox + (p.x - minX) * k).toFixed(1)},${(oy + (p.y - minY) * k).toFixed(1)}`).join(' ')}"/>`)
+      .join('');
+    return `<div class="flex items-center gap-3 rounded-lg bg-fuchsia-950/80 px-3 py-1" data-special="${shape}">
+      <svg viewBox="0 0 100 100" width="56" height="56" aria-hidden="true">${paths}</svg>
+      <div class="text-xs leading-tight text-fuchsia-100"><b class="text-sm text-fuchsia-300">Özel büyü: ${esc(SHAPE_LABELS[shape])}</b><br>Bu şekli çizersen hasar <b>×1.25</b></div></div>`;
+  }
+
   async play(report: TurnReport): Promise<void> {
     const { action } = report;
     if (report.attackFailed) {
       void this.say(this.center, `Büyü yapamadı! <span class="font-normal">(${this.name(action.attacker)})</span>`, 1400, 'bg-red-900/80 text-red-100');
       await this.arena.fizzle(action.attacker);
       return;
+    }
+
+    // Özel büyü şekli: çizim şekle uydu mu?
+    if (report.specialShape) {
+      const label = SHAPE_LABELS[report.specialShape];
+      const who = this.isHuman(action.attacker) ? '' : `${this.name(action.attacker)}: `;
+      await this.say(
+        this.center,
+        report.specialOk ? `✨ ${who}Özel büyü başarılı! <span class="font-normal">${esc(label)} ×1.25</span>` : `${who}Özel büyü başarısız <span class="font-normal">(${esc(label)})</span>`,
+        1000,
+        report.specialOk ? 'bg-fuchsia-800/90 text-fuchsia-50' : 'bg-slate-700/90 text-slate-200',
+      );
     }
 
     const defense = report.defense;

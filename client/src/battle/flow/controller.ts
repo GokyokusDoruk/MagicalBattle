@@ -6,6 +6,19 @@ import { DRAW_TIME_MS } from '../gesture/config';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
 import { FOG_BOT_BYPASS, LIMITS, MUD_BOT_BYPASS, SHIELD_BREAK_STRENGTH, STUN_HIT_RATIO } from '../../skills/resolver';
 import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
+import { matchShape } from '../gesture/shapeMatch';
+import { SHAPE_NAMES, type ShapeName } from './shapes';
+
+/** Özel büyü şekli doğru çizilirse verilen hasar çarpanı */
+export const SPECIAL_SHAPE_BONUS = 1.25;
+
+/**
+ * Bir turun özel büyü şekli: döngü, saldıranın takımı ve sırasına göre belirlenir (zar atılmaz; tohumlu testler bozulmaz). Her döngüde
+ * saldıran farklı bir şekil alır; şekiller dönüşümlü gezer.
+ */
+export function specialShapeFor(cycle: number, ref: SlotRef): ShapeName {
+  return SHAPE_NAMES[(cycle * 5 + ref.team * 3 + ref.index * 7) % SHAPE_NAMES.length];
+}
 
 export type Role = 'attack' | 'defense';
 
@@ -36,6 +49,11 @@ export interface TurnReport {
   healed: number;
   /** Ateş: savunanın kalkanı kırıldı (Kalkan Kıran) */
   shieldBroken?: boolean;
+  /** Bu turun özel büyü şekli ve çizimin uyup uymadığı (başarılıysa hasar ×1.25) */
+  specialShape?: ShapeName;
+  specialOk?: boolean;
+  /** Çizimin şablona uzaklığı (küçük = benzer; eşik `MATCH_THRESHOLD`) */
+  specialDistance?: number;
   /** Ateş: savunan bu vuruşla tutuştu (Közleyen Alev) */
   ignited?: boolean;
   /** Ateş: Alev Zinciri'nin bu vuruşa uyguladığı yığın sayısı (0 = yok) */
@@ -58,6 +76,8 @@ export interface TurnReport {
 
 /** Saldırı çizerken savunanın pasiflerinden gelen ekran engelleri (Yanık İzi) */
 export interface DrawExtras {
+  /** Bu turun özel büyü şekli (saldırı çizerken): doğru çizilirse hasar ×1.25. Önizlemede yalnızca şekil gösterilir, nereye çizileceği değil. */
+  specialShape?: ShapeName;
   /** Çizim ekranında beliren yara izi sayısı */
   scars?: number;
   /** Çizim ekranının sarsıntı şiddeti (Sarsıntılı Rüzgâr, 1-3) */
@@ -199,7 +219,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
 
     const scars = defender.passives.scars;
     const shake = defender.passives.shake;
-    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), scars > 0 || shake > 0 ? { scars, shake } : undefined);
+    const specialShape = specialShapeFor(engine.cycle, action.attacker);
+    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
     if (shake > 0 && attacker.control === 'bot' && attack.validity.valid) {
       attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - shake * BOT_SHAKE_PENALTY_SEC) } };
     }
@@ -227,6 +248,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
           defenderElement,
           attack,
           defense: null,
+          specialShape,
+          specialOk: false,
           attackFailed: true,
           defenseFailed: false,
           critical: false,
@@ -256,7 +279,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     // Sis Perdesi: sisli ekranda bir botun savunması zayıflar (insan sisi kendi gözüyle aşmaya çalışır)
     const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attackFx.fog * FOG_BOT_BYPASS + attackFx.mud * MUD_BOT_BYPASS) : 0;
     const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0)) * (1 - fogBypass);
+    const special = matchShape(attack.strokes, specialShape);
     const parts: { label: string; value: number }[] = [
+      { label: 'Özel büyü şekli', value: special.ok ? SPECIAL_SHAPE_BONUS : 1 },
       { label: 'Ekipman çarpanı', value: attacker.dealtMultiplier },
       { label: 'Kuşanılan eşyalar (kendi elementinden bonus)', value: 1 + attackGear.damageBonus },
       { label: 'Saldırı yetenekleri', value: attackFx.dealtMultiplier },
@@ -340,6 +365,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         stunned,
         armorGained,
         mudded: attackFx.mud,
+        specialShape,
+        specialOk: special.ok,
+        specialDistance: special.distance,
         rebounded,
       },
       engine,
