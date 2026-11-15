@@ -22,6 +22,7 @@ export const PILE_KEY = 'ground-pile';
 /** Dünya düşmanı dokusunun anahtarı (elemente göre) */
 export const mineKey = (element: string): string => `mine-${element}`;
 export const CHEST_KEY = 'chest';
+export const ARENA_KEY = 'arena';
 export const enemyKey = (element: string): string => `enemy-${element}`;
 
 const ENEMY_COLORS: Record<string, [number, number]> = {
@@ -89,5 +90,13 @@ export function createWorldItemTextures(scene: Scene): void {
     g.generateTexture(mineKey(el), 40, 38);
     g.clear();
   }
+  // Arena: taş halka, içinde kum ve çapraz kılıçlar
+  g.fillStyle(0x57534e, 1).fillCircle(24, 24, 22);
+  g.fillStyle(0xd6c28f, 1).fillCircle(24, 24, 17);
+  g.lineStyle(3, 0x78716c, 1).strokeCircle(24, 24, 22);
+  g.lineStyle(3, 0xe5e7eb, 1).lineBetween(14, 14, 34, 34).lineBetween(34, 14, 14, 34);
+  g.fillStyle(0xb91c1c, 1).fillRect(12, 12, 5, 5).fillRect(31, 12, 5, 5);
+  g.generateTexture(ARENA_KEY, 48, 48);
+  g.clear();
   g.destroy();
 }

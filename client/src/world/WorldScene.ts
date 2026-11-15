@@ -7,9 +7,10 @@ import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
 import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
+import type { ArenaSpot } from '../enemies/arena';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
+import { ARENA_KEY, CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
 import { TILE_SIZE, isBlockedTile } from './tiles';
 
 const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
@@ -57,6 +58,10 @@ export interface WorldContext {
   mines?: readonly MineSpot[];
   isMineReady?: (id: string) => boolean;
   onMineEnter?: (id: string) => void;
+  /** Arenalar (Task 48); oyuncu girişe gelince `onArenaEnter`. `isArenaReady` false ise sönük çizilir. */
+  arenas?: readonly ArenaSpot[];
+  isArenaReady?: (id: string) => boolean;
+  onArenaEnter?: (id: string) => void;
   /** Korumalı sandıklar (Task 31); açılanlar `isChestOpen` ile gizlenir, yanlarına gelince `onChestEnter`. */
   chests?: readonly ChestSpot[];
   isChestOpen?: (id: string) => boolean;
@@ -88,6 +93,8 @@ export class WorldScene extends Phaser.Scene {
   private insideChests = new Set<string>();
   private mineSprites = new Map<string, Phaser.GameObjects.Image>();
   private insideMines = new Set<string>();
+  private insideArenas = new Set<string>();
+  private arenaSprites = new Map<string, Phaser.GameObjects.Image>();
 
   constructor(private readonly ctx: WorldContext) {
     super('world');
@@ -109,6 +116,7 @@ export class WorldScene extends Phaser.Scene {
     this.createMerchants();
     this.createEnemies();
     this.createMines();
+    this.createArenas();
     this.createChests();
 
     const start = this.ctx.startTile ?? map.spawn;
@@ -189,6 +197,7 @@ export class WorldScene extends Phaser.Scene {
     this.checkMerchants();
     this.checkEnemies();
     this.checkMines();
+    this.checkArenas();
     this.checkChests();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
@@ -272,6 +281,32 @@ export class WorldScene extends Phaser.Scene {
     }
     for (const id of near) if (!this.insideMines.has(id)) this.ctx.onMineEnter?.(id);
     this.insideMines = near;
+  }
+
+  /** Arenalar: taş halka ve isim. */
+  private createArenas(): void {
+    for (const a of this.ctx.arenas ?? []) {
+      const x = a.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = a.tileY * TILE_SIZE + TILE_SIZE / 2;
+      this.arenaSprites.set(a.id, this.add.image(x, y, ARENA_KEY).setDepth(3));
+      this.add
+        .text(x, y - 34, a.name, { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#fecaca', stroke: '#000000', strokeThickness: 3 })
+        .setOrigin(0.5)
+        .setDepth(5);
+    }
+  }
+
+  /** Dinlenen arenaları soluk gösterir; girişe gelince (bir kez, uzaklaşıp dönene kadar) haber verir. */
+  private checkArenas(): void {
+    const near = new Set<string>();
+    for (const a of this.ctx.arenas ?? []) {
+      this.arenaSprites.get(a.id)?.setAlpha(this.ctx.isArenaReady?.(a.id) === false ? 0.45 : 1);
+      const x = a.tileX * TILE_SIZE + TILE_SIZE / 2;
+      const y = a.tileY * TILE_SIZE + TILE_SIZE / 2;
+      if (Math.hypot(x - this.pos.x, y - this.pos.y) <= TILE_SIZE * 1.1) near.add(a.id);
+    }
+    for (const id of near) if (!this.insideArenas.has(id)) this.ctx.onArenaEnter?.(id);
+    this.insideArenas = near;
   }
 
   /** Korumalı sandıklar: hafifçe parlar, açılınca kaybolur. */

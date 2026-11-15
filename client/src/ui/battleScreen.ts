@@ -31,7 +31,7 @@ export interface BattleScreenOptions {
   /** Bu döngüden itibaren oyuncunun çizim tuvali bulanıklaşır (boss mekaniği: zihin kontrolü) */
   blurFromCycle?: number;
   /** Savaş sonu düğme yazıları ve görünürlüğü. Verilmezse "Tekrar oyna" ve "Menü". */
-  endLabels?: { again: string; menu: string; /** Zaferde "tekrar" düğmesi gizlenir ve kalan düğmenin yazısı bu olur (boss savaşı) */ hideAgainOnWin?: boolean; winMenu?: string };
+  endLabels?: { again: string; menu: string; /** Yenilgide de "tekrar" düğmesi gizlenir (arena: ilk yenilgi arenayı bitirir) */ noAgain?: boolean; /** Zaferde "tekrar" düğmesi gizlenir ve kalan düğmenin yazısı bu olur (boss savaşı) */ hideAgainOnWin?: boolean; winMenu?: string };
 }
 
 /**
@@ -402,7 +402,7 @@ export class BattleScreen implements BattleIO {
           ? ['ZAFER!', 'text-amber-300']
           : ['YENİLGİ', 'text-red-300'];
     const labels = this.options.endLabels ?? { again: 'Tekrar oyna', menu: 'Menü' };
-    const hideAgain = Boolean(this.options.endLabels?.hideAgainOnWin) && winner === mine;
+    const hideAgain = (Boolean(this.options.endLabels?.hideAgainOnWin) && winner === mine) || (Boolean(this.options.endLabels?.noAgain) && winner !== mine);
     this.sfx.play(winner === mine ? 'victory' : winner === 'draw' || winner === null ? 'revealNeutral' : 'lose');
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-4 bg-slate-950/70 p-4">

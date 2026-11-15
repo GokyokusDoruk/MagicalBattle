@@ -36,6 +36,8 @@ import { playEncounterIntro } from './ui/encounterIntro';
 import { ENEMY_SPOTS, EnemyBoard, type EnemySpot } from './enemies/spots';
 import { EncounterGuard, zoneEncounter } from './enemies/zones';
 import { MINE_DROP_BOOST, MINE_SPOTS, MineBoard, mineEnemies } from './enemies/mines';
+import { ARENA_COOLDOWN_MS, ARENA_DEFEAT_HP_FRACTION, ARENA_SPOTS, arenaFoes, arenaPayout } from './enemies/arena';
+import { confirmArena, showArenaResult } from './ui/arenaUi';
 import { confirmMine } from './ui/mineUi';
 import { CHEST_SPOTS, chestGuards, rollChestLoot } from './enemies/chests';
 import { confirmChest } from './ui/chestUi';
@@ -383,14 +385,16 @@ document.body.appendChild(dialogueUi.element);
 let chapterBusy = false;
 let fightBusy = false;
 let mineBusy = false;
+let arenaBusy = false;
 let lastQuestTile = '';
 let chestBusy = false;
 const mineBoard = new MineBoard(() => performance.now());
+const arenaBoard = new MineBoard(() => performance.now(), ARENA_COOLDOWN_MS);
 const enemyBoard = new EnemyBoard(() => performance.now());
 const encounters = new EncounterGuard(() => performance.now());
 const lootRand = mulberry32(Date.now());
 const modalOpen = (): boolean =>
-  chapterBusy || fightBusy || mineBusy || chestBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen || questLog.isOpen;
+  chapterBusy || fightBusy || mineBusy || arenaBusy || chestBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen || questLog.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -552,6 +556,59 @@ async function enterMine(id: string): Promise<void> {
     handleCompletions(sideQuests.onEvent({ type: 'mineCleared' }));
   } finally {
     mineBusy = false;
+  }
+}
+
+/**
+ * Arena (Task 48): 5 rakiple peş peşe savaş (can taşınır). Ödül toplam galibiyet sayısına göre en sonda bir kerede ödenir;
+ * ilk yenilgi ya da çekilme arenayı bitirir ve o ana kadarki galibiyetler ödenir. Yenilgi ölüm değildir (can çeyreğe iner).
+ */
+async function enterArena(id: string): Promise<void> {
+  const arena = ARENA_SPOTS.find((a) => a.id === id);
+  if (!arena || arenaBusy || mineBusy || fightBusy || modalOpen()) return;
+  const left = arenaBoard.cooldownLeftMs(id);
+  if (left > 0) {
+    toast.show(`${arena.name} dinleniyor: ${Math.ceil(left / 60000)} dk sonra gel.`);
+    return;
+  }
+  arenaBusy = true;
+  try {
+    const foes = arenaFoes(map, arena);
+    const currency = regionCurrency();
+    if (!(await confirmArena(arena, foes, hero.hp, hero.maxHp, hero.level, CURRENCY_NAMES[currency]))) return;
+    arenaBoard.start(id);
+    let wins = 0;
+    let note = 'tüm rakipleri yendin';
+    for (let i = 0; i < foes.length; i++) {
+      toast.show(`${arena.name}: rakip ${i + 1}/${foes.length}`);
+      const stats = { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver };
+      const { outcome, hp: hpLeft } = await runWorldFight(foes[i], stats, hero.maxHp, undefined, { stage: i + 1, total: foes.length });
+      if (outcome === 'won') {
+        wins++;
+        if (hpLeft !== null) hero.setHp(hpLeft);
+        sfx.play('victory');
+        handleCompletions(sideQuests.onEvent({ type: 'battleWon' }));
+        continue;
+      }
+      note = outcome === 'retreat' ? 'çekildin' : 'yenildin';
+      if (outcome === 'lost') hero.setHp(Math.max(1, Math.round(hero.maxHp * ARENA_DEFEAT_HP_FRACTION)));
+      break;
+    }
+    const payout = arenaPayout(foes, wins, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate), lootRand);
+    const got = wins > 0 ? applyLoot(payout.loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), currency) : null;
+    const names = got
+      ? [
+          ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
+          ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
+        ]
+      : [];
+    await showArenaResult(arena, { wins, money: got?.money ?? 0, moneyName: CURRENCY_NAMES[currency], xp: got?.xp ?? 0, items: names, note });
+    if (got && got.dropped > 0) toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`);
+    if (got && got.levelsGained > 0) toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`);
+    setDirty(true);
+  } finally {
+    arenaBusy = false;
+    encounters.startGrace();
   }
 }
 
@@ -787,6 +844,9 @@ void import('./world/bootWorld').then((m) =>
     mines: MINE_SPOTS,
     isMineReady: (id) => mineBoard.isReady(id),
     onMineEnter: (id) => void enterMine(id),
+    arenas: ARENA_SPOTS,
+    isArenaReady: (id) => arenaBoard.isReady(id),
+    onArenaEnter: (id) => void enterArena(id),
     enemies: ENEMY_SPOTS,
     isEnemyActive: (id) => enemyBoard.isActive(id),
     onEnemyEnter: (id) => void fightEnemy(id),
