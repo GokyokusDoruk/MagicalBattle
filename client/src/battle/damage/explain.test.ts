@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DamageBreakdown } from './calculate';
-import { explainDamage, spellEffect } from './explain';
+import { EFFECT_LABELS, blockedPercent, explainDamage, spellEffect } from './explain';
 
 const base: DamageBreakdown = {
   powerFactor: { size: 1, effort: 1, total: 1 },
@@ -22,6 +22,7 @@ const base: DamageBreakdown = {
   armorReduction: 0,
   afterArmor: 150,
   finalDamage: 150,
+  multiplierParts: [],
 };
 
 describe('hasar açıklaması', () => {
@@ -46,13 +47,45 @@ describe('hasar açıklaması', () => {
 });
 
 describe('büyü etkisi', () => {
-  it('savunmayı çok geçen etkili, yarı yarıya orta, iyi bloklanan etkisiz', () => {
-    expect(spellEffect({ unblockedRatio: 0.9 }, false)).toBe('effective');
-    expect(spellEffect({ unblockedRatio: 0.45 }, false)).toBe('medium');
-    expect(spellEffect({ unblockedRatio: 0.1 }, false)).toBe('weak');
+  it('bloklanan orana göre 5 kademe: çok etkisiz, etkisiz, normal, etkili, çok etkili', () => {
+    expect(spellEffect({ unblockedRatio: 0.95 }, false)).toBe('veryEffective');
+    expect(spellEffect({ unblockedRatio: 0.75 }, false)).toBe('effective');
+    expect(spellEffect({ unblockedRatio: 0.5 }, false)).toBe('normal');
+    expect(spellEffect({ unblockedRatio: 0.3 }, false)).toBe('weak');
+    expect(spellEffect({ unblockedRatio: 0.1 }, false)).toBe('veryWeak');
+    expect(EFFECT_LABELS.veryWeak).toBe('ÇOK ETKİSİZ SALDIRI');
+    expect(EFFECT_LABELS.veryEffective).toBe('ÇOK ETKİLİ SALDIRI');
   });
 
-  it('savunma yapılamadıysa her zaman etkilidir', () => {
-    expect(spellEffect({ unblockedRatio: 0 }, true)).toBe('effective');
+  it('kademeler eşiklerde değişir ve savunma yapılamadıysa her zaman çok etkilidir', () => {
+    expect(spellEffect({ unblockedRatio: 0.9 }, false)).toBe('veryEffective');
+    expect(spellEffect({ unblockedRatio: 0.7 }, false)).toBe('effective');
+    expect(spellEffect({ unblockedRatio: 0.45 }, false)).toBe('normal');
+    expect(spellEffect({ unblockedRatio: 0.2 }, false)).toBe('weak');
+    expect(spellEffect({ unblockedRatio: 0 }, true)).toBe('veryEffective');
+  });
+
+  it('bloklanan yüzdeyi verir; savunma yoksa %0', () => {
+    expect(blockedPercent({ unblockedRatio: 0.35 }, false)).toBe(65);
+    expect(blockedPercent({ unblockedRatio: 0 }, true)).toBe(0);
+  });
+
+  it('detayda çarpan kaynakları ayrı satırlar olarak art arda çarpılır', () => {
+    const rows = explainDamage(
+      {
+        ...base,
+        elementMultiplier: 1,
+        afterElement: 100,
+        multiplierParts: [
+          { label: 'Ekipman çarpanı', value: 1.1 },
+          { label: 'Saldırı yetenekleri', value: 1.2 },
+        ],
+      },
+      'fire',
+      true,
+    );
+    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü', 'Ekipman çarpanı', 'Saldırı yetenekleri']);
+    expect(rows[1]).toMatchObject({ factor: '×1.1', value: 110 });
+    expect(rows[2]).toMatchObject({ factor: '×1.2', value: 132 });
   });
 });
