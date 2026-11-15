@@ -11,7 +11,6 @@ export class DialogueUi {
   readonly element: HTMLDivElement;
   private runner: DialogueRunner | null = null;
   private resolve: (() => void) | null = null;
-  private ctx: DialogueContext | null = null;
 
   constructor(private readonly narrator: Narrator) {
     this.element = document.createElement('div');
@@ -30,7 +29,6 @@ export class DialogueUi {
   /** Diyaloğu oynatır; bitince çözülür. Zaten bir diyalog açıksa hemen çözülür. */
   run(tree: DialogueTree, ctx: DialogueContext): Promise<void> {
     if (this.runner) return Promise.resolve();
-    this.ctx = ctx;
     this.runner = new DialogueRunner(tree, ctx);
     this.element.classList.remove('hidden');
     this.element.classList.add('flex');
@@ -65,7 +63,7 @@ export class DialogueUi {
         <div class="flex flex-col gap-2">${options
           .map(
             (o, i) =>
-              `<button type="button" data-option="${esc(o.id)}" class="rounded border border-amber-300/50 bg-slate-800 px-4 py-3 text-left text-base text-amber-50 hover:bg-slate-700">${i + 1}. ${esc(o.label)}${(this.ctx?.optionHint?.(o) ?? []).map((l) => `<span class="mt-0.5 block text-xs font-normal text-sky-300">${esc(l)}</span>`).join('')}</button>`,
+              `<button type="button" data-option="${esc(o.id)}" class="rounded border border-amber-300/50 bg-slate-800 px-4 py-3 text-left text-base text-amber-50 hover:bg-slate-700">${i + 1}. ${esc(o.label)}</button>`,
           )
           .join('')}</div>
       </div>`;

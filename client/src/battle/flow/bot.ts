@@ -4,6 +4,7 @@ import { LOGICAL_SIZE } from '../gesture/config';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { SHAPE_NAMES, buildShape, scribbleShape } from './shapes';
 
+
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
 /** Düşmanın yapay zekâ ayarları (boss ve özel rakipler). Verilmeyen alan varsayılandır. */
@@ -68,10 +69,24 @@ export class Bot {
   }
 
   /**
-   * Savunma: gelen saldırı biliniyorsa onun bir kısmını (beceriye göre) taklit eder; kayma ve titreme beceri
+   * Savunma: bot oyuncunun saldırısını **görmez**; rastgele bir şekil çizer (Task 53). Beceri yalnızca şeklin ortalama büyüklüğünü
+   * etkiler (yüksek beceri biraz daha geniş savunur), neyi kapatacağını bilmediği için isabet şansa bağlıdır.
+   */
+  drawDefense(): DrawingResult {
+    const ms = this.between(1300, 2700);
+    const name = SHAPE_NAMES[Math.floor(this.rand() * SHAPE_NAMES.length)];
+    const skill = this.defenseSkill();
+    // Becerili bot saldırıların çoğunlukla tuvalin ortasına düştüğünü sezer: biraz daha geniş ve merkeze yakın çizer
+    const scale = 0.7 + 0.5 * skill;
+    const spread = 8 + 32 * (1 - skill);
+    return analyzeStrokes(buildShape(name, 128 + this.between(-spread, spread), 128 + this.between(-spread, spread), this.between(52, 90) * scale, ms), ms);
+  }
+
+  /**
+   * Saldırıyı **gören** savunma (yalnızca denge simülasyonundaki oyuncu vekili kullanır; gerçek oyuncu saldırıyı kendi gözüyle görür). Gelen saldırı biliniyorsa onun bir kısmını (beceriye göre) taklit eder; kayma ve titreme beceri
    * düştükçe artar. Saldırı bilinmiyorsa (ya da ara sıra) rastgele bir şekil çizer.
    */
-  drawDefense(attack?: readonly Stroke[]): DrawingResult {
+  drawDefenseSeeing(attack?: readonly Stroke[]): DrawingResult {
     const ms = this.between(1300, 2700);
     if (!attack || attack.length === 0 || this.rand() < 0.08) {
       const name = SHAPE_NAMES[Math.floor(this.rand() * SHAPE_NAMES.length)];

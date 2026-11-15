@@ -29,7 +29,7 @@ const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', 
 type Choice = 'fight' | 'flee' | 'bribe';
 
 /** Savaş öncesi panel: düşman ve canların. Savaş, kaç ya da (varsa) rüşvet ver. */
-function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, playerMaxHp: number, bribe?: BribeOption): Promise<Choice> {
+function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, playerMaxHp: number, bribe?: BribeOption, lootHint?: string): Promise<Choice> {
   const s = enemyStats(spot.element, spot.tier);
   const skillLine = [...enemySkills(spot.element, spot.tier).levels].map(([id, lv]) => `${getSkill(id)?.name ?? id} Sv${lv}`).join(", ");
   const panel = document.createElement('div');
@@ -40,6 +40,7 @@ function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, pl
       <h2 class="text-xl font-bold text-amber-300" data-enemy>${esc(s.name)}</h2>
       <p class="text-sm text-slate-300">Element: <b>${ELEMENT_NAMES[spot.element]}</b> · Seviye ${s.level} · ${s.hp} can</p>
       <p class="text-xs text-sky-300" data-skills>Yetenekler: ${esc(skillLine)}</p>
+      ${lootHint ? `<p class="text-xs text-emerald-300" data-loot>${esc(lootHint)}</p>` : ''}
       <p class="text-sm" data-hp>Canın: <b class="${playerHp < playerMaxHp ? 'text-amber-300' : 'text-emerald-300'}">${playerHp} / ${playerMaxHp}</b></p>
       ${bribe ? `<p class="text-xs text-slate-400">Rüşvet verirsen savaş olmaz ve düşman çekilir. Elindeki: <b>${bribe.balance()} ${esc(bribe.currencyName)}</b></p>` : ''}
       <div class="flex gap-3">
@@ -64,13 +65,13 @@ function confirmFight(parent: HTMLElement, spot: EnemySpot, playerHp: number, pl
  * Dünya düşmanıyla savaş. Önce panel (kaçabilirsin), sonra savaş. Yenilince "Tekrar dene" ya da pes (ölüm).
  * Zaferde 'won' ve kalan can, pes edince 'lost', kaçınca 'retreat', rüşvet verilince 'bribed' döner.
  */
-export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp: number, bribe?: BribeOption): Promise<WorldFightResult> {
+export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp: number, bribe?: BribeOption, lootHint?: string): Promise<WorldFightResult> {
   const root = document.createElement('div');
   root.className = 'fixed inset-0 z-[70] bg-black';
   document.body.appendChild(root);
   try {
     const entryHp = player.hp ?? maxHp;
-    const choice = await confirmFight(root, spot, entryHp, maxHp, bribe);
+    const choice = await confirmFight(root, spot, entryHp, maxHp, bribe, lootHint);
     if (choice === 'flee') return { outcome: 'retreat', hp: null };
     if (choice === 'bribe') return bribe?.pay() ? { outcome: 'bribed', hp: null } : { outcome: 'retreat', hp: null };
     for (;;) {

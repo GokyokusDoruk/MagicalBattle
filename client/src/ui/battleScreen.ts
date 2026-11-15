@@ -241,7 +241,7 @@ export class BattleScreen implements BattleIO {
     const bot = this.bots.get(key(ref));
     if (bot) {
       await sleep(this.arenaPause(role));
-      return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
+      return role === 'attack' ? bot.drawAttack() : bot.drawDefense();
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
     return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined);
