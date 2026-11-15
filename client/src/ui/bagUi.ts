@@ -115,11 +115,18 @@ export class BagUi {
       .map(({ id, count }) => ({ id, count: count - (player.isEquipped(id) ? 1 : 0) }))
       .filter(({ count }) => count > 0);
 
+    /** Eşyanın seviyesi oyuncunun seviyesinden yüksekse kuşanılamaz (Task 65) */
+    const tooHigh = (id: string): number | null => {
+      const lv = getItem(id)?.level;
+      return lv !== undefined && lv > player.level ? lv : null;
+    };
     const row = (id: string, count: number, actions: string): string => {
       const item = getItem(id)!;
+      const need = tooHigh(id);
       return `<li data-item="${id}" class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900 p-2">
         <div class="flex min-w-0 items-center gap-2"><span class="shrink-0">${itemIconSvg(item, 34)}</span><div class="min-w-0"><span class="font-bold">${itemNameHtml(item)}</span> ${count > 1 ? `<span class="text-slate-400">×${count}</span>` : ''}
-          <div class="text-[11px] text-slate-400">${esc(describeItem(item))}</div></div></div>
+          <div class="text-[11px] text-slate-400">${esc(describeItem(item))}</div>
+          ${need !== null ? `<div class="text-[11px] font-bold text-red-300" data-level-warning>⚠ Yetersiz seviye: ${need}. seviye gerekir (sende ${player.level})</div>` : ''}</div></div>
         <div class="flex gap-1">${actions}</div></li>`;
     };
     const drop = (id: string, all: boolean): string => {
@@ -139,7 +146,8 @@ export class BagUi {
       .join('');
     const gearHtml = carriedGear
       .map(({ id, count }) => {
-        return row(id, count, `<button type="button" data-action="equip" data-id="${id}" class="rounded bg-sky-400 px-2 py-1 text-xs font-bold text-slate-900">Kuşan</button>${drop(id, false)}`);
+        const locked = tooHigh(id) !== null;
+        return row(id, count, `<button type="button" data-action="equip" data-id="${id}" ${locked ? 'disabled title="Yetersiz seviye"' : ''} class="rounded bg-sky-400 px-2 py-1 text-xs font-bold text-slate-900 disabled:opacity-40">Kuşan</button>${drop(id, false)}`);
       })
       .join('');
 
