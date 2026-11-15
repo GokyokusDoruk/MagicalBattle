@@ -26,27 +26,34 @@ describe('asa seviyesine bağlı savaş pasifleri', () => {
   });
 
   it('ateş asası Yanık İzi, hava asası Sarsıntılı Rüzgâr verir; asa seviyesi arttıkça şiddet artar', () => {
-    expect(wandBattlePassives(invWith(30, 'fire', 3))).toEqual({ scars: 1, shake: 0 });
-    expect(wandBattlePassives(invWith(30, 'fire', 12))).toEqual({ scars: 2, shake: 0 });
-    expect(wandBattlePassives(invWith(30, 'fire', 25))).toEqual({ scars: 3, shake: 0 });
-    expect(wandBattlePassives(invWith(30, 'air', 10))).toEqual({ scars: 0, shake: 2 });
-    expect(wandBattlePassives(invWith(30, 'air', 20))).toEqual({ scars: 0, shake: 3 });
+    expect(wandBattlePassives(invWith(30, 'fire', 3))).toEqual({ scars: 1, shake: 0, fog: 0, mud: 0 });
+    expect(wandBattlePassives(invWith(30, 'fire', 12))).toEqual({ scars: 2, shake: 0, fog: 0, mud: 0 });
+    expect(wandBattlePassives(invWith(30, 'fire', 25))).toEqual({ scars: 3, shake: 0, fog: 0, mud: 0 });
+    expect(wandBattlePassives(invWith(30, 'air', 10))).toEqual({ scars: 0, shake: 2, fog: 0, mud: 0 });
+    expect(wandBattlePassives(invWith(30, 'air', 20))).toEqual({ scars: 0, shake: 3, fog: 0, mud: 0 });
   });
 
-  it('su ve toprak asası savaş pasifi vermez; asa yoksa ya da seviye yetmiyorsa pasif yok', () => {
-    expect(wandBattlePassives(invWith(30, 'water', 20))).toEqual({ scars: 0, shake: 0 });
-    expect(wandBattlePassives(invWith(30, 'earth', 20))).toEqual({ scars: 0, shake: 0 });
-    expect(wandBattlePassives(new WandInventory())).toEqual({ scars: 0, shake: 0 });
+  it('su asası Sis Perdesi, toprak asası Çamur Yaması verir (asa seviyesine göre 1-3)', () => {
+    expect(wandBattlePassives(invWith(30, 'water', 5))).toEqual({ scars: 0, shake: 0, fog: 1, mud: 0 });
+    expect(wandBattlePassives(invWith(30, 'water', 20))).toEqual({ scars: 0, shake: 0, fog: 3, mud: 0 });
+    expect(wandBattlePassives(invWith(30, 'earth', 10))).toEqual({ scars: 0, shake: 0, fog: 0, mud: 2 });
+    expect(wandBattlePassives(invWith(30, 'earth', 25))).toEqual({ scars: 0, shake: 0, fog: 0, mud: 3 });
+  });
+
+  it('asa yoksa ya da seviye yetmiyorsa pasif yok', () => {
+    expect(wandBattlePassives(new WandInventory())).toEqual({ scars: 0, shake: 0, fog: 0, mud: 0 });
     const inv = invWith(1, 'fire', 15); // oyuncu 1. seviye, asa 15: kuşanılamaz
-    expect(wandBattlePassives(inv)).toEqual({ scars: 0, shake: 0 });
+    expect(wandBattlePassives(inv)).toEqual({ scars: 0, shake: 0, fog: 0, mud: 0 });
   });
 
   it('yetenek ağacı bu pasifleri vermez ve puan harcatmaz', () => {
     const tree = new SkillTree(() => 30);
     expect(tree.learn('fire-scars')).toBe(false);
     expect(tree.learn('air-tremor')).toBe(false);
+    expect(tree.learn('water-fog')).toBe(false);
+    expect(tree.learn('earth-mud')).toBe(false);
     expect(tree.pointsSpent).toBe(0);
-    expect(tree.passives).toEqual({ scars: 0, shake: 0 });
+    expect(tree.passives).toEqual({ scars: 0, shake: 0, fog: 0, mud: 0 });
     // eski kayıttaki seviyeler yok sayılır, puan iade olur
     tree.restore(['fire-scars-3', 'air-tremor-2', 'fire-burn-1']);
     expect(tree.snapshot()).toEqual(['fire-burn-1']);

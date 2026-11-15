@@ -43,14 +43,15 @@ export function activePassive(wands: WandInventory): WandPassive {
 }
 
 /**
- * Savaş pasifleri (Task 63): kuşanılı ateş asası Yanık İzi'ni (rakibin saldırı çizim ekranında yara izi), hava asası Sarsıntılı Rüzgâr'ı verir.
+ * Savaş pasifleri (Task 63-64): kuşanılı ateş asası Yanık İzi'ni (rakibin saldırı çizim ekranında yara izi), hava asası Sarsıntılı Rüzgâr'ı, su asası
+ * Sis Perdesi'ni, toprak asası Çamur Yaması'nı (rakibin savunma çizim ekranında sis ve çamur) verir.
  * Şiddet (1-3) asanın seviyesine bağlıdır; asa kullanılamıyorsa (seviyen yetmiyorsa) pasif yoktur. Yetenek puanı harcanmaz.
  */
 export function wandBattlePassives(wands: WandInventory): Passives {
   const w = wands.equippedWand;
-  if (!w || !wands.usable(w.id)) return { scars: 0, shake: 0 };
+  if (!w || !wands.usable(w.id)) return { scars: 0, shake: 0, fog: 0, mud: 0 };
   const tier = passiveTierForWandLevel(w.level);
-  return { scars: w.element === 'fire' ? tier : 0, shake: w.element === 'air' ? tier : 0 };
+  return { scars: w.element === 'fire' ? tier : 0, shake: w.element === 'air' ? tier : 0, fog: w.element === 'water' ? tier : 0, mud: w.element === 'earth' ? tier : 0 };
 }
 
 /** Savaş pasifinin kademe tablosu için: hangi asa seviyesinde kademe kaç ("Sv 1-9: 1 iz; 10-19: 2 iz; 20+: 3 iz"). */

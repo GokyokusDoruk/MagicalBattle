@@ -5,7 +5,7 @@ import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
 import { inMud, placeMud } from '../ui/drawingCanvas';
 import { MAX_SKILL_LEVEL, describeEffect, skillsOf } from './catalog';
-import { LIMITS, MUD_BOT_BYPASS, neutralEffects, resolveSpell } from './resolver';
+import { LIMITS, MUD_BOT_BYPASS, neutralEffects, resolvePassives, resolveSpell } from './resolver';
 import { SkillTree } from './tree';
 
 const good = () => analyzeStrokes(buildShape('circle', 128, 128, 75, 2400));
@@ -44,13 +44,14 @@ async function play(engine: BattleEngine, turns: number, opts: { defenderDraws?:
 }
 
 describe('toprak yetenekleri', () => {
-  it('katalog: 4 yetenek (12 puan); savunma yetenekleri savunmada, diğerleri saldırıda işler', () => {
+  it('katalog: 3 yetenek puanla (9 puan) + Çamur Yaması asa pasifi; savunma yetenekleri savunmada, diğerleri saldırıda işler', () => {
     expect(skillsOf('earth').map((s) => s.name)).toEqual(['Taş Kabuk', 'Sarsıntı', 'Dağ Kalkanı', 'Çamur Yaması']);
-    expect(skillsOf('earth').length * MAX_SKILL_LEVEL).toBe(12);
+    expect(skillsOf('earth').filter((s) => !s.passive).length * MAX_SKILL_LEVEL).toBe(9);
+    expect(skillsOf('earth').find((s) => s.passive)?.id).toBe('earth-mud');
     const all = new Map(skillsOf('earth').map((s) => [s.id, 3]));
     const atk = resolveSpell(all, 'earth', 'attack');
     expect(atk.stunChance).toBeCloseTo(0.8, 6);
-    expect(atk.mud).toBe(3);
+    expect(atk.mud).toBe(0); // Çamur Yaması artık pasif (asa seviyesine bağlı)
     expect(atk.armorStack).toBe(0);
     expect(atk.takenMultiplier).toBe(1);
     const def = resolveSpell(all, 'earth', 'defense');
@@ -115,10 +116,10 @@ describe('toprak yetenekleri', () => {
   });
 
   it('Çamur Yaması: savunma ekranına çamur gider; botun savunması zayıflar', async () => {
-    const tree = earthTree({ 'earth-mud': 3 });
+    const owner = { passives: resolvePassives(new Map([['earth-mud', 3]])) };
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1, { defenderDraws: true });
-    const muddy = await play(duel({ spells: tree.resolver }), 1, { defenderDraws: true, defenseExtras: extras });
+    const muddy = await play(duel({ passives: owner.passives }), 1, { defenderDraws: true, defenseExtras: extras });
     expect(extras).toEqual([{ fog: 0, mud: 3 }]);
     expect(muddy[0].breakdown!.defenseBypass).toBeCloseTo(3 * MUD_BOT_BYPASS, 6);
     expect(muddy[0].damage).toBeGreaterThan(plain[0].damage);

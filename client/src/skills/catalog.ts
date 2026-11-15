@@ -94,11 +94,11 @@ export function describeEffect(fx: SkillEffect): string[] {
   if (fx.chillSec) out.push(`yavaşlayan rakibin sonraki çizim süresi ${fx.chillSec} sn kısalır`);
   if (fx.lifesteal) out.push(`verdiğin hasarın ${pct(fx.lifesteal)} kadarı sana can olarak döner`);
   if (fx.reflect) out.push(`savunmanın tuttuğu hasarın ${pct(fx.reflect)} kadarı saldırana yansır`);
-  if (fx.fog) out.push(`rakibin savunma ekranında ${fx.fog} sis bulutu; botların savunması zayıflar`);
+  if (fx.fog) out.push(`rakibin savunma ekranında ${fx.fog} sis bulutu (görüşü örter); botların savunması zayıflar`);
   if (fx.armorStack) out.push(`her toprak savunmasında savaş boyunca kalıcı +${pct(fx.armorStack)} zırh (birikir)`);
   if (fx.stunChance) out.push(`saldırın savunmayı %80+ aşarsa ${pct(fx.stunChance)} ihtimalle rakibin sıradaki saldırısı atlanır`);
   if (fx.guard) out.push(`toprak savunmasında alınan hasar -${pct(fx.guard)}`);
-  if (fx.mud) out.push(`rakibin savunma ekranında ${fx.mud} çamur yaması; içine çizilemez, botların savunması zayıflar`);
+  if (fx.mud) out.push(`rakibin savunma ekranında ${fx.mud} çamur yaması (görüşü örter); botların savunması zayıflar`);
   if (fx.timeBonus) out.push(`büyü çizim süresi +${fx.timeBonus} sn`);
   if (fx.critBonus) out.push(`kritik vuruş şansı +${pct(fx.critBonus)}`);
   if (fx.reboundChance) out.push(`${pct(fx.reboundChance)} ihtimalle savunmanın tuttuğu hasarın ${pct(fx.reboundShare ?? 0)} kadarı saldırana geri savrulur`);
@@ -188,7 +188,8 @@ export const SKILLS: readonly SkillDef[] = [
     id: 'water-fog',
     element: 'water',
     name: 'Sis Perdesi',
-    summary: 'Su saldırısı rakibin savunma ekranını sisle kaplar; botlar sisin içinde zayıf savunur.',
+    summary: 'Pasif (puanla alınmaz): su asası kuşanınca rakibin savunma ekranında sis bulutları belirir ve görüşünü örter; botlar sisin içinde zayıf savunur. Asanın seviyesi arttıkça gelişir.',
+    passive: true,
     levels: [{ fog: 1 }, { fog: 2 }, { fog: 3 }],
   },
   {
@@ -216,7 +217,8 @@ export const SKILLS: readonly SkillDef[] = [
     id: 'earth-mud',
     element: 'earth',
     name: 'Çamur Yaması',
-    summary: 'Toprak saldırısı rakibin savunma ekranına çamur yamaları döker; içlerine çizilemez, botlar çamurda zayıf savunur.',
+    summary: 'Pasif (puanla alınmaz): toprak asası kuşanınca rakibin savunma ekranına çamur yamaları düşer ve görüşünü örter; botlar çamurda zayıf savunur. Asanın seviyesi arttıkça gelişir.',
+    passive: true,
     levels: [{ mud: 1 }, { mud: 2 }, { mud: 3 }],
   },
   {

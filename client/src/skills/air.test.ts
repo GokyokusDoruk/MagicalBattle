@@ -43,9 +43,9 @@ async function play(engine: BattleEngine, turns: number, opts: { defenderDraws?:
 }
 
 describe('hava yetenekleri', () => {
-  it('katalog: 4 yetenek (12 puan); süre ikisinde, kritik saldırıda, geri savurma savunmada, sarsıntı pasif', () => {
+  it('katalog: 3 yetenek puanla (9 puan) + 1 asa pasifi; süre ikisinde, kritik saldırıda, geri savurma savunmada, sarsıntı pasif', () => {
     expect(skillsOf('air').map((s) => s.name)).toEqual(['Fırtına Nefesi', 'Keskin Esinti', 'Geri Esen Rüzgâr', 'Sarsıntılı Rüzgâr']);
-    expect(skillsOf('air').length * MAX_SKILL_LEVEL).toBe(12);
+    expect(skillsOf('air').filter((s) => !s.passive).length * MAX_SKILL_LEVEL).toBe(9);
     const all = new Map(skillsOf('air').map((s) => [s.id, 3]));
     const atk = resolveSpell(all, 'air', 'attack');
     expect(atk.timeBonus).toBeCloseTo(0.8, 6);
@@ -57,7 +57,7 @@ describe('hava yetenekleri', () => {
     expect(def.reboundShare).toBeCloseTo(0.1, 6);
     expect(def.critBonus).toBe(0);
     expect(resolveSpell(all, 'fire', 'attack')).toEqual(neutralEffects('fire', 'attack'));
-    expect(resolvePassives(all)).toEqual({ scars: 0, shake: 3 });
+    expect(resolvePassives(all)).toEqual({ scars: 0, shake: 3, fog: 0, mud: 0 });
     for (const s of skillsOf('air')) for (const l of s.levels) expect(describeEffect(l).length).toBeGreaterThan(0);
   });
 

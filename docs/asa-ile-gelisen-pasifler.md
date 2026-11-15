@@ -17,3 +17,20 @@
 - Düşmanlar pasifleri yine kendi yetenek setiyle kullanır (Task 45b); değişmedi.
 
 Kod: `skills/catalog.ts` (`passiveTierForWandLevel`), `skills/tree.ts`, `wands/passives.ts` (`wandBattlePassives`), `ui/skillTreeUi.ts`, `game.ts`, `boss/simulate.ts` (kit ateş asasından pasif alır).
+
+## Güncelleme: Sis Perdesi ve Çamur Yaması da asa pasifi (Task 64)
+
+**Sis Perdesi** (su) ve **Çamur Yaması** (toprak) da artık yetenek puanıyla alınmaz; su asası kuşanınca Sis Perdesi, toprak asası kuşanınca Çamur Yaması gelir
+ve asa seviyesine göre 3 kademede güçlenir (asa Sv 1-9: 1 bulut/yama, 10-19: 2, 20+: 3).
+
+| Asa elementi | Savaş pasifi | Kademe 1 / 2 / 3 |
+|---|---|---|
+| Ateş | Yanık İzi | 1 / 2 / 3 yara izi |
+| Su | Sis Perdesi | 1 / 2 / 3 sis bulutu |
+| Toprak | Çamur Yaması | 1 / 2 / 3 çamur yaması |
+| Hava | Sarsıntılı Rüzgâr | şiddet 1 / 2 / 3 |
+
+- Sis ve çamur artık **hangi büyüyü seçersen seç**, sen saldırırken rakibin **savunma ekranında** belirir (eskiden yalnızca su/toprak saldırısında).
+  Botlarda bulut/yama başına savunma zayıflar (sis %10, çamur %8, toplam en çok %50).
+- Puanla alınan yetenekler: ateş 4 (12 puan), su 3 (9), toprak 3 (9), hava 3 (9), taşıyıcı 6; puanla alınanların toplamı 39 (+6 taşıyıcı).
+- Düşmanlar ve bosslar da bu pasifleri kendi setiyle kullanır; Ambargo Komutanı gibi bosslar değişmedi.
