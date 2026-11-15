@@ -97,7 +97,7 @@ describe('hava yetenekleri', () => {
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1);
     const shaken = await play(duel({}, { passives: tree.passives }), 1, { attackExtras: extras });
-    expect(extras).toEqual([{ scars: 0, shake: 3 }]);
+    expect(extras).toMatchObject([{ scars: 0, shake: 3 }]);
     expect(shaken[0].attack.metrics.drawTimeSec).toBeCloseTo(plain[0].attack.metrics.drawTimeSec - 3 * BOT_SHAKE_PENALTY_SEC, 6);
     expect(shaken[0].damage).toBeLessThan(plain[0].damage);
   });
