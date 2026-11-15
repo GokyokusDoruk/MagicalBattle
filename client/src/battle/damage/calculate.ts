@@ -4,16 +4,27 @@ import { matchDefense } from '../match/defense';
 import {
   ARMOR_CAP,
   CRIT_MULTIPLIER,
+  DEFENSE_OVERFILL_FULL,
+  DEFENSE_OVERFILL_START,
+  DEFENSE_STRENGTH_FLOOR,
   FULL_POWER_COVERAGE,
   HEAD_ZONE_FRACTION,
   HEADSHOT_MULTIPLIER,
   MIN_EFFORT_FACTOR,
+  OVERFILL_FLOOR,
+  OVERFILL_START,
+  SIZE_EXPONENT,
+  WEIGHT_CAP_MULTIPLE,
 } from './config';
 import { elementMultiplier, elementRelation, type Element, type ElementRelation } from './elements';
 
 export interface DamageInput {
   /** Büyünün taban gücü (asa ve seviyeden gelir) */
   basePower: number;
+  /** Saldırı çiziminin kalite çarpanı (karalama ve dağılım, 0.48-1); verilmezse 1 */
+  attackQuality?: number;
+  /** Savunma çiziminin karalama çarpanı (0.6-1); verilmezse 1 */
+  defenseQuality?: number;
   /** Saldırının çizimi */
   attack: { density: DensityMap; metrics: SpellMetrics };
   /** Savunmanın yoğunluk haritası; büyü yapılamadıysa null */
@@ -49,6 +60,11 @@ export interface MultiplierPart {
 }
 
 export interface DamageBreakdown {
+  /** Saldırı çiziminin kalite çarpanı (gücü zaten çarpar) ve kalite uygulanmadan önceki güç */
+  attackQuality: number;
+  powerBeforeQuality: number;
+  /** Savunmanın gücü: karalama ve fazla kaplama (1 = tam, en az ~0.27); savunma yoksa 1 */
+  defenseStrength: number;
   /** Detay ekranı için çarpan kaynakları (verilmediyse boş) */
   multiplierParts: readonly MultiplierPart[];
   /** 1) Çizim gücü */
@@ -86,9 +102,27 @@ const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 const positive = (v: number | undefined, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
 
+/**
+ * Büyüklükten güç: tam alandan küçükse doğrusaldan sert düşer ((alan/tam alan)^1.3), tam alanın %160'ına kadar tam güç,
+ * sonrası (tuvali karalayarak doldurma) en çok %15 kesilir.
+ */
+export function sizeFactor(coverage: number): number {
+  const c = Math.max(0, coverage) / FULL_POWER_COVERAGE;
+  if (c < 1) return Math.pow(c, SIZE_EXPONENT);
+  if (c <= OVERFILL_START) return 1;
+  return Math.max(OVERFILL_FLOOR, 1 - ((1 - OVERFILL_FLOOR) / 0.9) * (c - OVERFILL_START));
+}
+
+/** Savunmanın fazla kaplamadan gelen çarpanı: tuvalin %35'ine kadar tam, %70'inde en ince (×0.45). */
+export function defenseOverfill(inkCells: number, size: number): number {
+  const cov = inkCells / (size * size);
+  const t = Math.min(1, Math.max(0, (cov - DEFENSE_OVERFILL_START) / (DEFENSE_OVERFILL_FULL - DEFENSE_OVERFILL_START)));
+  return 1 - (1 - DEFENSE_STRENGTH_FLOOR) * t;
+}
+
 /** Çizimin gücü: büyüklük ve çizime harcanan süre. Küçük ya da aceleyle çizilen büyü zayıf kalır. */
 export function powerFactor(metrics: SpellMetrics, effortBonus = 0, limitSec = DRAW_TIME_MS / 1000): { size: number; effort: number; total: number } {
-  const size = clamp01(metrics.coverage / FULL_POWER_COVERAGE);
+  const size = sizeFactor(metrics.coverage);
   const timeUsed = clamp01(metrics.drawTimeSec / (limitSec > 0 ? limitSec : DRAW_TIME_MS / 1000));
   const floor = Math.min(1, MIN_EFFORT_FACTOR + positive(effortBonus, 0));
   const effort = floor + (1 - floor) * timeUsed;
@@ -111,9 +145,18 @@ function isHeadRow(row: number): boolean {
  */
 export function calculateDamage(input: DamageInput): DamageBreakdown {
   const factor = powerFactor(input.attack.metrics, input.attackerEffortBonus, input.attackerDrawTimeSec);
-  const power = Math.max(0, input.basePower) * factor.total;
+  const attackQuality = clamp01(positive(input.attackQuality, 1));
+  const powerBeforeQuality = Math.max(0, input.basePower) * factor.total;
+  const power = powerBeforeQuality * attackQuality;
 
-  const match = matchDefense(input.attack.density, input.defense);
+  // Savunma bütçesi: karalama ve tuvali fazla kaplama kalkanı inceltir
+  let defenseStrength = 1;
+  if (input.defense) {
+    let inkCells = 0;
+    for (const v of input.defense.ink) inkCells += v;
+    defenseStrength = clamp01(positive(input.defenseQuality, 1)) * defenseOverfill(inkCells, input.defense.size);
+  }
+  const match = matchDefense(input.attack.density, input.defense, defenseStrength, WEIGHT_CAP_MULTIPLE);
   const total = match.totalAttackWeight;
 
   const bypass = clamp01(positive(input.defenseBypass, 0));
@@ -147,6 +190,9 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
 
   return {
     multiplierParts: input.multiplierParts ?? [],
+    attackQuality,
+    powerBeforeQuality,
+    defenseStrength,
     powerFactor: factor,
     power,
     defendedRatio: match.defendedRatio * (1 - bypass),

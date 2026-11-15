@@ -204,8 +204,13 @@ export class BattleScreen implements BattleIO {
       for (const e of ELEMENTS) {
         const b = document.createElement('button');
         b.type = 'button';
-        b.textContent = ELEMENT_NAMES[e];
-        b.className = 'rounded-lg px-4 py-5 text-lg font-bold text-slate-900 active:scale-95';
+        // Hangi elementin neye üstün/zayıf olduğu ve o element için kaç yeteneğin işlediği yazar
+        const strong = ELEMENTS.filter((o) => elementRelation(e, o) === 'advantage').map((o) => `${ELEMENT_NAMES[o]} ×${elementMultiplier(e, o)}`);
+        const weak = ELEMENTS.filter((o) => elementRelation(e, o) === 'disadvantage').map((o) => `${ELEMENT_NAMES[o]} ×${elementMultiplier(e, o)}`);
+        const me = this.engine.all().find((f) => f.control === 'human');
+        const skills = me ? me.spells(e, 'attack').skills.length + me.spells(e, 'defense').skills.length : 0;
+        b.innerHTML = `<span class="block">${ELEMENT_NAMES[e]}</span><span class="mt-1 block text-[11px] font-normal leading-tight">Üstün: ${esc(strong.join(', ') || '-')}<br>Zayıf: ${esc(weak.join(', ') || '-')}${skills > 0 ? `<br>${skills} yetenek işler` : ''}</span>`;
+        b.className = 'rounded-lg px-3 py-3 text-lg font-bold text-slate-900 active:scale-95';
         b.style.background = css(ELEMENT_COLORS[e].main);
         b.addEventListener('click', () => {
           this.sfx.play('pick');
@@ -433,6 +438,10 @@ export class BattleScreen implements BattleIO {
       2000,
       tones[effect],
     );
+    const q = report.attack.quality.total;
+    if (q < 0.95 && this.isHuman(report.action.attacker)) {
+      void this.say(this.calc, `✏️ Çizim kalitesi ×${q.toFixed(2)}: ${report.attack.quality.scribble < 0.95 ? 'karalama gücü düşürdü' : 'büyü tuvalin küçük bir yerine yığıldı'}`, 1800, 'bg-slate-800/90 text-amber-100');
+    }
     await this.say(this.center, report.damage > 0 ? `<span class="text-4xl">-${report.damage}</span><br><span class="text-sm font-normal">hasar</span>` : 'hasar yok', 1200, tones[effect]);
     await this.resultPrompt(report);
   }

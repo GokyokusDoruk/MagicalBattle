@@ -35,7 +35,11 @@ export type SpellRejection = 'EMPTY' | 'TOO_SMALL';
 
 export type SpellValidity = { valid: true } | { valid: false; reason: SpellRejection; message: string };
 
+import type { DrawQuality } from './quality';
+
 export interface DrawingResult {
+  /** Çizim kalitesi: karalama ve dağılım çarpanları (Task 52) */
+  quality: DrawQuality;
   strokes: Stroke[];
   density: DensityMap;
   metrics: SpellMetrics;

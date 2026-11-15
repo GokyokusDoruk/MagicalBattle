@@ -54,16 +54,22 @@ export function defenseCoverage(defense: DensityMap | null): Float32Array {
  * - Savunma küçükse saldırının büyük kısmı açıkta kalır; saldırıyı tamamen kaplayan geniş savunma en fazla %100 verir.
  * - `defense` null ise (büyü yapılamadı) hiçbir şey savunulmaz.
  */
-export function matchDefense(attack: DensityMap, defense: DensityMap | null): MatchResult {
+export function matchDefense(attack: DensityMap, defense: DensityMap | null, strength = 1, weightCapMultiple = Infinity): MatchResult {
   const cover = defenseCoverage(defense && defense.size === attack.size ? defense : null);
+  const str = Math.min(1, Math.max(0, strength));
+  // Ağırlık sınırı: bir noktada bekleyerek biriken fazla ağırlık sayılmaz
+  let filled = 0;
+  let sum = 0;
+  for (let i = 0; i < attack.cells.length; i++) if (attack.cells[i] > 0) { filled++; sum += attack.cells[i]; }
+  const cap = filled > 0 && Number.isFinite(weightCapMultiple) ? (sum / filled) * weightCapMultiple : Infinity;
   const blocked = new Float32Array(attack.cells.length);
   const unblocked = new Float32Array(attack.cells.length);
   let total = 0;
   let blockedTotal = 0;
 
   for (let k = 0; k < attack.cells.length; k++) {
-    const a = attack.cells[k];
-    const c = cover.length > 0 ? cover[k] : 0;
+    const a = Math.min(attack.cells[k], cap);
+    const c = cover.length > 0 ? cover[k] * str : 0;
     blocked[k] = a * c;
     unblocked[k] = a - blocked[k];
     total += a;

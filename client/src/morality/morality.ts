@@ -77,6 +77,37 @@ export function effectsFor(score: number): MoralEffects {
   };
 }
 
+const pct = (v: number): string => `%${Math.round(v * 100)}`;
+
+/** Bir ahlak kademesinin getirdiği kazançların Türkçe satırları ("alışverişte %5 indirim"). Dengede etkisizdir. */
+export function effectLines(e: MoralEffects): string[] {
+  const out: string[] = [];
+  if (e.buyMultiplier < 1) out.push(`alışverişte ${pct(1 - e.buyMultiplier)} indirim`);
+  if (e.questGoldMultiplier > 1) out.push(`görev ödülü +${pct(e.questGoldMultiplier - 1)}`);
+  if (e.sellMultiplier > 1) out.push(`satışta +${pct(e.sellMultiplier - 1)}`);
+  if (e.dropRateMultiplier > 1) out.push(`ganimet düşme oranı +${pct(e.dropRateMultiplier - 1)}`);
+  return out;
+}
+
+/**
+ * Bir ahlak seçeneğinin sonucu (seçmeden önce gösterilir): puan değişimi, yeni kademe ve onun kazançları, final yolu.
+ * `side` iyi (+) ya da kötü (-) yön, `weight` seçeneğin puanı.
+ */
+export function describeMoralOutcome(score: number, side: Side, weight: number): string[] {
+  const next = Math.max(MIN_SCORE, Math.min(MAX_SCORE, score + (side === 'good' ? weight : -weight)));
+  const before = effectsFor(score);
+  const after = effectsFor(next);
+  const lines = [`Ahlak puanı ${score > 0 ? '+' : ''}${score} → ${next > 0 ? '+' : ''}${next} (${side === 'good' ? 'iyi yol' : 'kötü yol'}, ${side === 'good' ? '+' : '−'}${weight})`];
+  const gains = effectLines(after);
+  if (after.tier === 0) lines.push(before.tier === 0 ? 'Henüz bir etki yok (±20 puandan sonra başlar)' : `${before.label} etkilerini kaybedersin`);
+  else if (after.alignment !== before.alignment || after.tier !== before.tier) lines.push(`Yeni: ${after.label}: ${gains.join(', ')}`);
+  else lines.push(`${after.label} sürer: ${gains.join(', ')}`);
+  const was = finalPathFor(score);
+  const will = finalPathFor(next);
+  if (was !== will) lines.push(`Final yolu değişir: ${will === 'order' ? 'Düzen Bekçisi (Elysia ile 2v2)' : 'Karanlık Büyücü (tek başına)'}`);
+  return lines;
+}
+
 /** Final yolu: puan 0 ya da üstündeyse Düzen Bekçisi (Elysia ile 2v2), altındaysa Karanlık Büyücü (tek başına). */
 export type FinalPath = 'order' | 'dark';
 export const finalPathFor = (score: number): FinalPath => (score >= 0 ? 'order' : 'dark');
