@@ -492,10 +492,11 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
       spot,
       { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver },
       hero.maxHp,
-      // Rüşvet: bölgenin parasıyla; maden ve sandık muhafızlarına verilmez
-      fromMine ? undefined : bribeOption(spot),
-      // Ne kazanacağın: para, XP ve düşme şansları (maden ve sandıkta paneli kendi girişi gösterir)
-      fromMine ? undefined : enemyLootHint(spot.element, spot.tier, hero.level, lootDropRate(), CURRENCY_NAMES[regionCurrency()]),
+      {
+        // Savaş öncesi panel yok (Task 55): sabit düşmanda savaşın içinde Kaç ve Rüşvet düğmeleri çıkar; çalılık, maden ve sandıkta çıkış yok
+        escape: fromMine || intro ? undefined : { bribe: bribeOption(spot) },
+        lootHint: fromMine ? undefined : enemyLootHint(spot.element, spot.tier, hero.level, lootDropRate(), CURRENCY_NAMES[regionCurrency()]),
+      },
     );
     if (outcome === 'bribed') {
       // Sabit düşman haritadan kaybolur (yenilmiş gibi bir süre sonra geri gelir); çalılık karşılaşması hiç olmamış sayılır
