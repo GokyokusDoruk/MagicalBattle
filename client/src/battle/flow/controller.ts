@@ -6,7 +6,7 @@ import { DRAW_TIME_MS } from '../gesture/config';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
 import { FOG_BOT_BYPASS, LIMITS, MUD_BOT_BYPASS, SHIELD_BREAK_STRENGTH, STUN_HIT_RATIO } from '../../skills/resolver';
 import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
-import { matchShape } from '../gesture/shapeMatch';
+import { matchShapeWithin } from '../gesture/shapeMatch';
 import { SHAPE_NAMES, type ShapeName } from './shapes';
 
 /** Özel büyü şekli doğru çizilirse verilen hasar çarpanı */
@@ -279,7 +279,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     // Sis Perdesi: sisli ekranda bir botun savunması zayıflar (insan sisi kendi gözüyle aşmaya çalışır)
     const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attacker.passives.fog * FOG_BOT_BYPASS + attacker.passives.mud * MUD_BOT_BYPASS) : 0;
     const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0)) * (1 - fogBypass);
-    const special = matchShape(attack.strokes, specialShape);
+    const special = matchShapeWithin(attack.strokes, specialShape);
     const parts: { label: string; value: number }[] = [
       { label: 'Özel büyü şekli', value: special.ok ? SPECIAL_SHAPE_BONUS : 1 },
       { label: 'Ekipman çarpanı', value: attacker.dealtMultiplier },
