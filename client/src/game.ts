@@ -24,8 +24,7 @@ import { GearStock } from './economy/gearStock';
 import { BagUi } from './ui/bagUi';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
-import { Morality, describeMoralOutcome } from './morality/morality';
-import { getChoice } from './morality/catalog';
+import { Morality } from './morality/morality';
 import { getBoss } from './boss/bosses';
 import { moneyLoss, nearestHealer, respawnLines } from './economy/death';
 import { CURRENCIES, CURRENCY_NAMES, cityCurrency, currencyAt, type Currency } from './economy/currency';
@@ -40,6 +39,7 @@ import { MINE_DROP_BOOST, MINE_SPOTS, MineBoard, mineEnemies } from './enemies/m
 import { confirmMine } from './ui/mineUi';
 import { CHEST_SPOTS, chestGuards, rollChestLoot } from './enemies/chests';
 import { confirmChest } from './ui/chestUi';
+import { chestLootHint, enemyLootHint, mineLootHint } from './enemies/lootPreview';
 import { enemyStats } from './enemies/catalog';
 import { rollLoot } from './enemies/loot';
 import { applyLoot } from './enemies/applyLoot';
@@ -398,12 +398,6 @@ async function playChapterChoices(chapter: number): Promise<void> {
   const ctx = {
     score: () => morality.score,
     flags: new Set<string>(),
-    // Her seçeneğin yanında ne kazanacağın yazar (puan, kademe, final yolu)
-    optionHint: (o: import('./dialogue/engine').DialogueOption): string[] | null => {
-      if (o.effect?.type !== 'moral') return null;
-      const choice = getChoice(o.effect.choiceId);
-      return choice ? describeMoralOutcome(morality.score, o.effect.side, choice[o.effect.side].weight) : null;
-    },
     onEffect: (e: import('./dialogue/engine').DialogueEffect): void => {
       if (e.type !== 'moral' || !morality.choose(e.choiceId, e.side)) return;
       setDirty(true);
@@ -417,6 +411,9 @@ async function playChapterChoices(chapter: number): Promise<void> {
   }
   if (chapter === 8) await dialogueUi.run(linesTree('final', finalLines(morality.score)), ctx);
 }
+
+/** Ganimet şansı çarpanı: ahlak yolu ve ateş asası */
+const lootDropRate = (): number => morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate);
 
 /** Oyuncunun şu an bulunduğu bölgenin para birimi (en yakın şehrin birimi). */
 const regionCurrency = (): Currency => currencyAt(map.locations, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
@@ -497,6 +494,8 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
       hero.maxHp,
       // Rüşvet: bölgenin parasıyla; maden ve sandık muhafızlarına verilmez
       fromMine ? undefined : bribeOption(spot),
+      // Ne kazanacağın: para, XP ve düşme şansları (maden ve sandıkta paneli kendi girişi gösterir)
+      fromMine ? undefined : enemyLootHint(spot.element, spot.tier, hero.level, lootDropRate(), CURRENCY_NAMES[regionCurrency()]),
     );
     if (outcome === 'bribed') {
       // Sabit düşman haritadan kaybolur (yenilmiş gibi bir süre sonra geri gelir); çalılık karşılaşması hiç olmamış sayılır
@@ -548,7 +547,7 @@ async function enterMine(id: string): Promise<void> {
   mineBusy = true;
   try {
     const foes = mineEnemies(map, mine);
-    if (!(await confirmMine(mine, foes, hero.hp, hero.maxHp))) return;
+    if (!(await confirmMine(mine, foes, hero.hp, hero.maxHp, mineLootHint(foes, hero.level, lootDropRate(), CURRENCY_NAMES[regionCurrency()])))) return;
     mineBoard.start(id);
     for (let i = 0; i < foes.length; i++) {
       toast.show(`${mine.name}: savaş ${i + 1}/${foes.length}`);
@@ -571,7 +570,7 @@ async function openChest(id: string): Promise<void> {
   if (!chest || collected.has(id) || chestBusy || mineBusy || fightBusy || modalOpen()) return;
   chestBusy = true;
   try {
-    if (!(await confirmChest(chest, hero.hp, hero.maxHp))) return;
+    if (!(await confirmChest(chest, hero.hp, hero.maxHp, chestLootHint(chest, lootDropRate(), CURRENCY_NAMES[regionCurrency()])))) return;
     for (const guard of chestGuards(chest)) {
       const r = await fightSpot(guard, 1, true);
       if (r !== 'won') return;

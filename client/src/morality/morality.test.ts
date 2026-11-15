@@ -6,7 +6,7 @@ import { TEST_QUESTS } from '../quests/testQuests';
 import { elysiaFightsAlongside, elysiaStatus } from '../story/elysia';
 import { MAX_WEIGHT, MIN_WEIGHT, MORAL_CHOICES, choicesForChapter, getChoice } from './catalog';
 import { finalLines } from './final';
-import { ALIGNMENT_NAMES, describeMoralOutcome, MAX_SCORE, MIN_SCORE, Morality, choiceDelta, effectsFor, finalPathFor, tierOf } from './morality';
+import { ALIGNMENT_NAMES, MAX_SCORE, MIN_SCORE, Morality, choiceDelta, effectsFor, finalPathFor, tierOf } from './morality';
 
 describe('seçim kataloğu', () => {
   it('16 seçim, her bölümde 2, kimlikler benzersiz', () => {
@@ -213,32 +213,5 @@ describe('ekonomi ve görevlere bağlantı', () => {
     expect(buyPrice(100, e.buyMultiplier)).toBe(100);
     expect(e.questGoldMultiplier).toBe(1);
     expect(e.dropRateMultiplier).toBeGreaterThan(1);
-  });
-});
-
-describe('seçenek sonucu önizlemesi (Task 52)', () => {
-  it('puan değişimi, yeni kademe ve kazançlar yazar', () => {
-    const lines = describeMoralOutcome(10, 'good', 12);
-    expect(lines[0]).toBe('Ahlak puanı +10 → +22 (iyi yol, +12)');
-    expect(lines[1]).toContain('Yeni: Düzen Bekçisi I');
-    expect(lines[1]).toContain('alışverişte %5 indirim');
-    expect(lines[1]).toContain('görev ödülü +%10');
-  });
-
-  it('kötü yol karanlık kazançlarını ve final yolu değişimini yazar', () => {
-    const lines = describeMoralOutcome(5, 'bad', 12);
-    expect(lines[0]).toBe('Ahlak puanı +5 → -7 (kötü yol, −12)');
-    expect(lines.some((l) => l.includes('Final yolu değişir: Karanlık Büyücü'))).toBe(true);
-    expect(describeMoralOutcome(-30, 'bad', 10)[1]).toContain('ganimet düşme oranı +%10');
-  });
-
-  it('henüz etki yoksa ya da etki kaybolursa söyler; puan sınırlarda kırpılır', () => {
-    expect(describeMoralOutcome(0, 'good', 8)[1]).toContain('Henüz bir etki yok');
-    expect(describeMoralOutcome(25, 'bad', 10)[1]).toContain('etkilerini kaybedersin');
-    expect(describeMoralOutcome(98, 'good', 15)[0]).toContain('→ +100');
-  });
-
-  it('kademe sürüyorsa "sürer" der', () => {
-    expect(describeMoralOutcome(30, 'good', 8)[1]).toContain('Düzen Bekçisi I sürer');
   });
 });
