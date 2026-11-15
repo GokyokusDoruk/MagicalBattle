@@ -12,8 +12,8 @@ describe('rüşvet', () => {
       const costs = TIERS.map((t) => bribeCost(el, t));
       expect([...costs].sort((a, b) => a - b)).toEqual(costs);
     }
-    expect(bribeCost('fire', 1)).toBe(36); // (6 + 2*3) * 3
-    expect(bribeCost('fire', 4)).toBe(144); // (6 + 14*3) * 3
+    expect(bribeCost('fire', 1)).toBe(42); // (6 + 2*4) * 3
+    expect(bribeCost('fire', 4)).toBe(186); // (6 + 14*4) * 3
   });
 
   it('rüşvet yalnızca o birimden ödenir; para yetmezse ödenmez ve bakiye değişmez', () => {
