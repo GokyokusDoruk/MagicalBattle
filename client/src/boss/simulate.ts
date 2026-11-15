@@ -11,6 +11,7 @@ import { enemyFighters, type Tier } from '../enemies/catalog';
 import { skillsOf } from '../skills/catalog';
 import type { Passives, SpellResolver } from '../skills/resolver';
 import { SkillTree } from '../skills/tree';
+import { wandBattlePassives } from '../wands/passives';
 import { wandIdOf, type Rarity } from '../wands/catalog';
 import { bossFighters, getBoss, type PlayerStats } from './bosses';
 import type { FinalPath } from '../morality/morality';
@@ -69,7 +70,9 @@ export function typicalKit(level: number, options: { wand?: boolean; skills?: bo
     armor: Math.min(0.4, 0.012 * level),
     dealtMultiplier: Math.min(1.4, 1 + 0.015 * (level - 1)),
     wands: inv.resolver,
-    ...(options.skills ? typicalSkills(level) : {}),
+    // Yanık İzi ve Sarsıntılı Rüzgâr asa seviyesine bağlıdır: kitteki ateş asasından gelir (Task 63)
+    passives: wandBattlePassives(inv),
+    ...(options.skills ? { spells: typicalSkills(level).spells } : {}),
   };
 }
 

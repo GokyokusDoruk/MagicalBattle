@@ -1,6 +1,8 @@
 import type { Element } from '../battle/damage/elements';
 import { ELEMENT_NAMES } from '../battle/damage/elements';
 import type { WandInventory } from './inventory';
+import { passiveTierForWandLevel, WAND_PASSIVE_LEVEL_STEPS } from '../skills/catalog';
+import type { Passives } from '../skills/resolver';
 
 /**
  * Asa pasifleri (Task 38): kuşanılı asanın elementi oyuncuya savaş dışında geçerli bir pasif verir. Asa seviye şartını
@@ -38,6 +40,27 @@ export const passiveOf = (element: Element | null | undefined): WandPassive => (
 export function activePassive(wands: WandInventory): WandPassive {
   const w = wands.equippedWand;
   return w && wands.usable(w.id) ? passiveOf(w.element) : NO_PASSIVE;
+}
+
+/**
+ * Savaş pasifleri (Task 63): kuşanılı ateş asası Yanık İzi'ni (rakibin saldırı çizim ekranında yara izi), hava asası Sarsıntılı Rüzgâr'ı verir.
+ * Şiddet (1-3) asanın seviyesine bağlıdır; asa kullanılamıyorsa (seviyen yetmiyorsa) pasif yoktur. Yetenek puanı harcanmaz.
+ */
+export function wandBattlePassives(wands: WandInventory): Passives {
+  const w = wands.equippedWand;
+  if (!w || !wands.usable(w.id)) return { scars: 0, shake: 0 };
+  const tier = passiveTierForWandLevel(w.level);
+  return { scars: w.element === 'fire' ? tier : 0, shake: w.element === 'air' ? tier : 0 };
+}
+
+/** Savaş pasifinin kademe tablosu için: hangi asa seviyesinde kademe kaç ("Sv 1-9: 1 iz; 10-19: 2 iz; 20+: 3 iz"). */
+export function wandPassiveSteps(): readonly { from: number; to: number | null; tier: 1 | 2 | 3 }[] {
+  const [a, b, c] = WAND_PASSIVE_LEVEL_STEPS;
+  return [
+    { from: a, to: b - 1, tier: 1 },
+    { from: b, to: c - 1, tier: 2 },
+    { from: c, to: null, tier: 3 },
+  ];
 }
 
 /** Pasifin Türkçe açıklaması ("Hava asası: yürüme hızı +%25"). */

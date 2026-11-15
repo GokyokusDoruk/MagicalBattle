@@ -1,6 +1,9 @@
 import { ELEMENTS, ELEMENT_NAMES, type Element } from '../battle/damage/elements';
 import { CARRY_SKILLS, MAX_SKILL_LEVEL, SKILL_POINT_COST, describeEffect, effectAt, getCarrySkill, getSkill, skillsOf, type SkillDef, type Tier } from '../skills/catalog';
 import type { SkillTree } from '../skills/tree';
+import { passiveTierForWandLevel } from '../skills/catalog';
+import { describePassive, wandPassiveSteps } from '../wands/passives';
+import type { WandInventory } from '../wands/inventory';
 
 export interface SkillTreeUiDeps {
   tree: SkillTree;
@@ -8,6 +11,8 @@ export interface SkillTreeUiDeps {
   level: () => number;
   /** Sıfırlama bedeli: dört para biriminden her biri `each` kadar öder; verilmezse sıfırlama bedavadır */
   money?: { canPay: (each: number) => boolean; pay: (each: number) => boolean };
+  /** Pasifler bölümünde kuşanılı asaya göre "aktif" gösterimi için (verilmezse hiçbir pasif aktif görünmez) */
+  wands?: WandInventory;
   /** Yetenek alındı ya da ağaç sıfırlandı (kaydedilmemiş değişiklik) */
   onChanged?: () => void;
 }
@@ -122,11 +127,41 @@ export class SkillTreeUi {
   }
 
   private elementHtml(element: Element): string {
-    const skills = skillsOf(element);
-    if (skills.length === 0) {
-      return `<p class="rounded bg-slate-900 px-3 py-6 text-center text-sm text-slate-400" data-soon="${element}">${ELEMENT_ICON[element]} ${ELEMENT_NAMES[element]} yetenekleri yakında geliyor.</p>`;
+    const skills = skillsOf(element).filter((s) => !s.passive);
+    const grid = skills.length ? `<div class="grid gap-3 sm:grid-cols-2" data-element="${element}">${skills.map((s) => this.skillHtml(s)).join('')}</div>` : '';
+    return grid + this.passivesHtml(element);
+  }
+
+  /**
+   * Pasifler (Task 63): o elementin asa pasifi ve (ateş, hava) yetenek puanıyla alınmayan, asa seviyesine bağlı savaş pasifi. Kuşanılı asa o
+   * elementten ve kullanılabilirse "AKTİF" yazar; hangi asa seviyesinde hangi kademe işlediği tabloda görünür.
+   */
+  private passivesHtml(element: Element): string {
+    const wands = this.deps.wands;
+    const wand = wands?.equippedWand ?? null;
+    const active = Boolean(wand && wands!.usable(wand.id) && wand.element === element);
+    const badge = (on: boolean): string => (on ? '<span class="rounded bg-emerald-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">AKTİF</span>' : '<span class="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300">pasif</span>');
+    let html = `<h3 class="mb-1 mt-4 text-sm font-bold text-sky-300">Pasifler (puan harcamaz, asayla gelir)</h3>
+      <div class="rounded-lg border border-sky-400/30 bg-slate-900 p-3 text-xs" data-passive-wand="${element}">
+        <div class="flex items-center justify-between gap-2"><b class="text-amber-200">Asa pasifi</b>${badge(active)}</div>
+        <p class="mt-1 text-slate-200">${esc(describePassive(element))}</p>
+        <p class="mt-1 text-[11px] text-slate-400">Kuşanılı ${esc(ELEMENT_NAMES[element])} asası kullanılabiliyorsa (seviyen yetiyorsa) geçerlidir.</p></div>`;
+    const passive = skillsOf(element).find((s) => s.passive);
+    if (passive) {
+      const tier = active && wand ? passiveTierForWandLevel(wand.level) : 0;
+      const rows = wandPassiveSteps()
+        .map((st) => {
+          const fx = describeEffect(effectAt(passive, st.tier)).join(', ');
+          const range = st.to === null ? `Asa Sv ${st.from}+` : `Asa Sv ${st.from}-${st.to}`;
+          return `<li class="flex justify-between gap-2 ${tier === st.tier ? 'font-bold text-emerald-300' : 'text-slate-300'}"><span>${range}</span><span class="text-right">Kademe ${st.tier}: ${esc(fx)}</span></li>`;
+        })
+        .join('');
+      html += `<div class="mt-2 rounded-lg border border-sky-400/30 bg-slate-900 p-3 text-xs" data-passive-skill="${passive.id}">
+        <div class="flex items-center justify-between gap-2"><b class="text-amber-200">${esc(passive.name)}</b>${badge(tier > 0)}</div>
+        <p class="mt-1 text-slate-200">${esc(passive.summary)}</p>
+        <ul class="mt-2 flex flex-col gap-0.5">${rows}</ul></div>`;
     }
-    return `<div class="grid gap-3 sm:grid-cols-2" data-element="${element}">${skills.map((s) => this.skillHtml(s)).join('')}</div>`;
+    return html;
   }
 
   private skillHtml(skill: SkillDef): string {

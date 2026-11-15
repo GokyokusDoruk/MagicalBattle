@@ -71,6 +71,7 @@ export class SkillTree {
     }
     const skill = getSkill(id);
     if (!skill) return { ok: false, reason: 'Böyle bir yetenek yok.' };
+    if (skill.passive) return { ok: false, reason: 'Bu pasif yetenek puanla alınmaz: ilgili elementin asasını kuşan, asanın seviyesiyle gelişir.' };
     if (this.level(id) >= MAX_SKILL_LEVEL) return { ok: false, reason: 'Bu yetenek zaten en üst seviyede.' };
     if (SKILL_POINT_COST > this.pointsFree) return { ok: false, reason: `${SKILL_POINT_COST} yetenek puanı gerekiyor.` };
     return { ok: true };
@@ -124,7 +125,7 @@ export class SkillTree {
     return resolveSpell(this.levelMap, element, role);
   }
 
-  /** Pasif yetenekler (Yanık İzi gibi); büyü elementinden bağımsız. */
+  /** Puanla alınan pasif yok (Yanık İzi ve Sarsıntılı Rüzgâr asa seviyesine bağlıdır: bkz. `wandBattlePassives`). Her zaman boş. */
   get passives(): Passives {
     return resolvePassives(this.levelMap);
   }
@@ -157,7 +158,8 @@ export class SkillTree {
         continue;
       }
       const m = /^(.+)-([1-3])$/.exec(raw);
-      if (!m || !getSkill(m[1])) continue;
+      // Pasifler artık asa seviyesine bağlı: eski kayıttaki puanları iade olur
+      if (!m || !getSkill(m[1]) || getSkill(m[1])!.passive) continue;
       wantedLevels.set(m[1], Math.max(wantedLevels.get(m[1]) ?? 0, Number(m[2])));
     }
     for (const c of CARRY_SKILLS) {

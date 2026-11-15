@@ -19,7 +19,7 @@ const learnTo = (tree: SkillTree, id: string, level: number) => {
 };
 
 const learnAllFire = (tree: SkillTree) => {
-  for (const s of skillsOf('fire')) learnTo(tree, s.id, 3);
+  for (const s of skillsOf('fire').filter((x) => !x.passive)) learnTo(tree, s.id, 3);
 };
 
 describe('katalog', () => {
@@ -46,12 +46,12 @@ describe('katalog', () => {
     }
   });
 
-  it('tam ateş yeteneği 3 puan; ateşin hepsi 15 puan; taşıyıcı dalı 6 puan', () => {
-    expect(skillsOf('fire').length * MAX_SKILL_LEVEL).toBe(15);
+  it('tam yetenek 3 puan; puanla alınan ateş yetenekleri 12 puan (Yanık İzi hariç); taşıyıcı dalı 6 puan', () => {
+    expect(skillsOf('fire').filter((s) => !s.passive).length * MAX_SKILL_LEVEL).toBe(12);
     expect(CARRY_SKILLS.reduce((n, s) => n + s.cost, 0)).toBe(6);
   });
 
-  it('Yanık İzi pasiftir; yara izi sayısı 1-2-3', () => {
+  it('Yanık İzi pasiftir ve puanla alınmaz; yara izi sayısı 1-2-3 (asa seviyesine göre)', () => {
     const scars = getSkill('fire-scars')!;
     expect(scars.passive).toBe(true);
     expect([1, 2, 3].map((l) => effectAt(scars, l).scars)).toEqual([1, 2, 3]);
@@ -92,11 +92,16 @@ describe('SkillTree: puan ve alma kuralları', () => {
     expect(tree.learn('fire-burn')).toBe(false);
   });
 
-  it('ateşin hepsini almak 15 puandır; yetenekler birbirinden bağımsız seviyelenir', () => {
+  it('ateşin puanla alınan yeteneklerinin hepsi 12 puandır; Yanık İzi puanla alınamaz', () => {
     const { tree } = treeAt(30);
     learnAllFire(tree);
-    expect(tree.pointsSpent).toBe(15);
-    expect(tree.pointsFree).toBe(58 - 15);
+    expect(tree.pointsSpent).toBe(12);
+    expect(tree.pointsFree).toBe(58 - 12);
+    const c = tree.check('fire-scars');
+    expect(c.ok).toBe(false);
+    if (!c.ok) expect(c.reason).toMatch(/asa/);
+    expect(tree.learn('fire-scars')).toBe(false);
+    expect(tree.level('fire-scars')).toBe(0);
   });
 
   it('taşıyıcı kademeleri sırayla alınır ve puana eklenir', () => {
@@ -139,9 +144,9 @@ describe('SkillTree: kayıt', () => {
   it('geçerli ağaç bire bir geri yüklenir; kimlikler "<yetenek>-<seviye>"', () => {
     const { tree } = treeAt(30);
     learnTo(tree, 'fire-burn', 2);
-    learnTo(tree, 'fire-scars', 3);
+    learnTo(tree, 'fire-chain', 3);
     tree.learn('carry-1');
-    expect(tree.snapshot()).toEqual(['fire-burn-2', 'fire-scars-3', 'carry-1']);
+    expect(tree.snapshot()).toEqual(['fire-burn-2', 'fire-chain-3', 'carry-1']);
     const fresh = treeAt(30).tree;
     fresh.restore(tree.snapshot());
     expect(fresh.snapshot()).toEqual(tree.snapshot());
@@ -211,10 +216,9 @@ describe('resolveSpell: ateş yetenekleri', () => {
     expect(resolver('fire', 'attack').shieldBreak).toBe(0);
     expect(tree.passives.scars).toBe(0);
     tree.learn('fire-breaker');
-    tree.learn('fire-scars');
-    tree.learn('fire-scars');
+    tree.learn('fire-scars'); // puanla alınmaz
     expect(resolver('fire', 'attack').shieldBreak).toBeCloseTo(0.2, 6);
-    expect(tree.passives.scars).toBe(2);
+    expect(tree.passives.scars).toBe(0); // savaş pasifleri asa seviyesine bağlıdır (wandBattlePassives)
   });
 
   it('en güçlü kurulumda bile sınırlar aşılmaz', () => {
@@ -408,7 +412,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
 
   it('Yanık İzi: savunanın pasifi saldırgana yara izi gönderir; bot yara izine rastgele denk gelip süre kaybeder', async () => {
     const draws: DrawExtras[] = [];
-    const tree = treeWith({ 'fire-scars': 3 });
+    const tree = { passives: resolvePassives(new Map([['fire-scars', 3]])) };
     // A saldırır, B (izli) savunur: izli oyuncu B
     const engine = new BattleEngine([
       { name: 'A', team: 0, control: 'bot' },
@@ -423,7 +427,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
 
   it('Yanık İzi: şans tutmazsa bot izlere değmez; izi olmayana hiç ekstra gitmez', async () => {
     const draws: DrawExtras[] = [];
-    const tree = treeWith({ 'fire-scars': 2 });
+    const tree = { passives: resolvePassives(new Map([['fire-scars', 2]])) };
     const engine = new BattleEngine([
       { name: 'A', team: 0, control: 'bot' },
       { name: 'B', team: 1, control: 'bot', passives: tree.passives },
@@ -439,7 +443,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
   });
 
   it('Yanık İzi: insan oyuncunun süresini denetleyici değiştirmez (tuval kendisi keser)', async () => {
-    const tree = treeWith({ 'fire-scars': 3 });
+    const tree = { passives: resolvePassives(new Map([['fire-scars', 3]])) };
     const engine = new BattleEngine([
       { name: 'A', team: 0, control: 'human' },
       { name: 'B', team: 1, control: 'bot', passives: tree.passives },

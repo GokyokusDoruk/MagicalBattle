@@ -93,7 +93,7 @@ describe('hava yetenekleri', () => {
   });
 
   it('Sarsıntılı Rüzgâr: saldırganın ekranına sarsıntı gider, bot saldırgan süre kaybeder', async () => {
-    const tree = airTree({ 'air-tremor': 3 });
+    const tree = { passives: resolvePassives(new Map([['air-tremor', 3]])) };
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1);
     const shaken = await play(duel({}, { passives: tree.passives }), 1, { attackExtras: extras });
@@ -103,7 +103,7 @@ describe('hava yetenekleri', () => {
   });
 
   it('Sarsıntılı Rüzgâr: insan saldırganın süresini denetleyici kesmez (tuval kendisi sarsılır)', async () => {
-    const tree = airTree({ 'air-tremor': 2 });
+    const tree = { passives: resolvePassives(new Map([['air-tremor', 2]])) };
     const plain = await play(duel(), 1);
     const human = await play(duel({ control: 'human' }, { passives: tree.passives }), 1);
     expect(human[0].attack.metrics.drawTimeSec).toBe(plain[0].attack.metrics.drawTimeSec);
