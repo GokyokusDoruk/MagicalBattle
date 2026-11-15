@@ -33,7 +33,8 @@ import { runBossFight, type HealHooks } from './ui/bossFight';
 import { runWorldFight, type BribeOption } from './ui/worldFight';
 import { bribeCost } from './enemies/bribe';
 import { playEncounterIntro } from './ui/encounterIntro';
-import { ENEMY_SPOTS, EnemyBoard, type EnemySpot } from './enemies/spots';
+import { EnemyBoard, type EnemySpot } from './enemies/spots';
+import { DANGER_LOOT_BOOST, WORLD_ENEMIES, dangerZoneAt, isDangerEnemy } from './enemies/dangerZones';
 import { EncounterGuard, zoneEncounter } from './enemies/zones';
 import { MINE_DROP_BOOST, MINE_SPOTS, MineBoard, mineEnemies } from './enemies/mines';
 import { confirmMine } from './ui/mineUi';
@@ -385,6 +386,8 @@ document.body.appendChild(dialogueUi.element);
 let chapterBusy = false;
 let fightBusy = false;
 let mineBusy = false;
+/** Oyuncunun şu an içinde bulunduğu tehlikeli bölge (uyarı için) */
+let currentDangerZone: string | null = null;
 let lastQuestTile = '';
 let chestBusy = false;
 const mineBoard = new MineBoard(() => performance.now());
@@ -463,9 +466,10 @@ const healHooks: HealHooks = {
  * Yenilince (pes) boss yenilgisiyle aynı ölüm akışı. Çantaya sığmayan ganimet savaşın yapıldığı karoda yerde kalır.
  */
 async function fightEnemy(id: string): Promise<void> {
-  const spot = ENEMY_SPOTS.find((s) => s.id === id);
+  const spot = WORLD_ENEMIES.find((s) => s.id === id);
   if (!spot || !enemyBoard.isActive(id)) return;
-  await fightSpot(spot);
+  // Tehlikeli bölgedeki düşmanlar daha zengin ganimet verir
+  await fightSpot(spot, isDangerEnemy(id) ? DANGER_LOOT_BOOST : 1);
 }
 
 /** Verilen düşmanla savaşır (sabit düşman ya da bölge karşılaşması). Savaş bitince 5 saniye karşılaşma olmaz. */
@@ -806,11 +810,18 @@ void import('./world/bootWorld').then((m) =>
     mines: MINE_SPOTS,
     isMineReady: (id) => mineBoard.isReady(id),
     onMineEnter: (id) => void enterMine(id),
-    enemies: ENEMY_SPOTS,
+    enemies: WORLD_ENEMIES,
     isEnemyActive: (id) => enemyBoard.isActive(id),
     onEnemyEnter: (id) => void fightEnemy(id),
     // Bölge savaşı: açık zeminde her yeni karoda %10 şans (savaştan sonra 5 sn koruma)
     onTileEnter: (tx, ty) => {
+      // Tehlikeli bölgeye girince/çıkınca uyarı
+      const zone = dangerZoneAt(tx, ty);
+      if (zone?.id !== currentDangerZone) {
+        currentDangerZone = zone?.id ?? null;
+        if (zone) toast.show(`⚠ Tehlikeli bölge: ${zone.name}. Çok sayıda güçlü düşman burada; hazırlıksız girme!`);
+        else toast.show('Tehlikeli bölgeden çıktın.');
+      }
       if (fightBusy || modalOpen() || !encounters.roll(lootRand)) return;
       const spot = zoneEncounter(map, tx, ty);
       if (!spot) return;
