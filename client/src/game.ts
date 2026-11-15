@@ -487,7 +487,9 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
   if (fightBusy || (modalOpen() && !fromMine)) return 'skipped';
   fightBusy = true;
   try {
-    if (intro) await playEncounterIntro(enemyStats(spot.element, spot.tier).name);
+    const introHandle = intro ? await playEncounterIntro(enemyStats(spot.element, spot.tier).name) : null;
+    // Savaş ekranı açılınca (kısa süre sonra) karartma yumuşakça kalkar ve dünya eski hâline döner
+    if (introHandle) window.setTimeout(() => introHandle.release(), 200);
     const { outcome, hp: hpLeft } = await runWorldFight(
       spot,
       { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver },

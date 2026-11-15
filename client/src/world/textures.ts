@@ -22,6 +22,8 @@ export const PILE_KEY = 'ground-pile';
 /** Dünya düşmanı dokusunun anahtarı (elemente göre) */
 export const mineKey = (element: string): string => `mine-${element}`;
 export const CHEST_KEY = 'chest';
+/** Çalılıkta karakterin önüne gelen yaprak katmanı (karakterin alt yarısını örter) */
+export const BUSH_KEY = 'bush-front';
 export const enemyKey = (element: string): string => `enemy-${element}`;
 
 const ENEMY_COLORS: Record<string, [number, number]> = {
@@ -89,5 +91,13 @@ export function createWorldItemTextures(scene: Scene): void {
     g.generateTexture(mineKey(el), 40, 38);
     g.clear();
   }
+  // Çalı ön katmanı: üstü dalgalı, altı dolu, yeşil yaprak kümeleri (40x18); karakterin alt yarısını örter
+  g.fillStyle(0x3f5f1f, 1).fillEllipse(20, 12, 40, 12);
+  g.fillStyle(0x56802a, 1).fillCircle(8, 9, 6).fillCircle(20, 6, 7).fillCircle(32, 9, 6);
+  g.fillStyle(0x6f9a36, 1).fillCircle(13, 6, 4).fillCircle(27, 5, 4).fillCircle(20, 10, 5);
+  g.fillStyle(0x84b347, 0.9).fillCircle(10, 4, 2).fillCircle(24, 3, 2).fillCircle(31, 7, 2).fillCircle(17, 8, 1.6);
+  g.fillStyle(0x2f4a16, 1).fillRect(0, 14, 40, 4);
+  g.generateTexture(BUSH_KEY, 40, 18);
+  g.clear();
   g.destroy();
 }
