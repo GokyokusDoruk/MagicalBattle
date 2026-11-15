@@ -14,9 +14,11 @@ describe('tüccar yerleri', () => {
     expect(spots).toHaveLength(MERCHANTS.length);
     for (const s of spots) {
       const loc = getLocation(s.merchant.locationId);
-      expect(loc.kind).toBe('city');
-      expect(Math.abs(s.tileX - loc.x)).toBeLessThan(CITY_HALF);
-      expect(Math.abs(s.tileY - loc.y)).toBeLessThan(CITY_HALF);
+      // Şehir esnafı surların içinde, köyün görev verenı köy alanında durur
+      expect(loc.kind).toBe(s.merchant.kind === 'questgiver' ? 'village' : 'city');
+      const half = loc.kind === 'city' ? CITY_HALF : OPEN_HALF;
+      expect(Math.abs(s.tileX - loc.x)).toBeLessThan(half);
+      expect(Math.abs(s.tileY - loc.y)).toBeLessThan(half);
       expect(isBlockedTile(tileAt(map, s.tileX, s.tileY)), s.merchant.id).toBe(false);
       expect(locationAt(map.locations, s.tileX, s.tileY)).toBe(loc.id);
     }

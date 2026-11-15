@@ -1,4 +1,4 @@
-import { cityCurrency, CURRENCY_NAMES } from '../economy/currency';
+import { questCurrency, CURRENCY_NAMES } from '../economy/currency';
 import { getItem } from '../economy/items';
 import type { ChestSpot } from '../enemies/chests';
 import type { MineSpot } from '../enemies/mines';
@@ -49,7 +49,7 @@ export function objectiveText(q: QuestDef): string {
 }
 
 export function rewardText(q: QuestDef): string {
-  const parts = [`${q.reward.money} ${CURRENCY_NAMES[cityCurrency(q.giver)]}`, `${q.reward.xp} XP`];
+  const parts = [`${q.reward.money} ${CURRENCY_NAMES[questCurrency(q.giver)]}`, `${q.reward.xp} XP`];
   for (const it of q.reward.items ?? []) parts.push(`${it.count} ${getItem(it.id)?.name ?? it.id}`);
   return parts.join(', ');
 }

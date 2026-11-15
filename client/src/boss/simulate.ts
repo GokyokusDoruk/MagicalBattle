@@ -47,7 +47,7 @@ export function simulateBoss(
     },
     announceEnd: async () => {},
   };
-  return runBattle(engine, io, { showAttackToDefender: !boss.gimmick?.hideGhost }).then((winner) => ({ won: winner === 0, cycles: engine.cycle }));
+  return runBattle(engine, io, { showAttackToDefender: !boss.gimmick?.hideGhost, random: rand }).then((winner) => ({ won: winner === 0, cycles: engine.cycle }));
 }
 
 /**

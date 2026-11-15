@@ -1,9 +1,9 @@
-export type MerchantKind = 'merchant' | 'wandsmith' | 'innkeeper';
+export type MerchantKind = 'merchant' | 'wandsmith' | 'innkeeper' | 'questgiver';
 
 export interface MerchantDef {
   id: string;
   name: string;
-  /** `merchant`: ekipman, ticari mal ve ganimet. `wandsmith`: asa alır ve satar. `innkeeper` (han): bedava can, iksir ve görevler. */
+  /** `questgiver` (köy görev vereni): yalnızca yan görev verir. `merchant`: ekipman, ticari mal ve ganimet. `wandsmith`: asa alır ve satar. `innkeeper` (han): bedava can, iksir ve görevler. */
   kind: MerchantKind;
   /** Bulunduğu şehir (world/locations.ts kimliği) */
   locationId: string;
@@ -80,6 +80,10 @@ export const MERCHANTS: readonly MerchantDef[] = [
   { id: 'hanci-ayse', name: 'Hancı Ayşe', kind: 'innkeeper', locationId: 'ignis', greeting: 'Hoş geldin! Ateşin başına otur, yaraların sarılsın. Han bedava, çorba benden.' },
   { id: 'hanci-yildiz', name: 'Hancı Yıldız', kind: 'innkeeper', locationId: 'abyss', greeting: 'Tapınağın gölgesinde dinlenmek ruhu da yeniler. Odan hazır.' },
   { id: 'hanci-tolga', name: 'Hancı Tolga', kind: 'innkeeper', locationId: 'stone-heart', greeting: 'Taş duvar, kalın yorgan. Yatağa geç, sabaha dipdiri kalkarsın.' },
+  // Köylerde han ve esnaf yoktur; her köyde yalnızca yan görev veren bir kişi bulunur (Task 47)
+  { id: 'bekci-dara', name: 'Kanyon Bekçisi Dara', kind: 'questgiver', locationId: 'ash', greeting: 'Kanyonun taşları sıcak, işler de öyle. Elin boşsa bana bir iyilik yap.' },
+  { id: 'muhtar-sevgi', name: 'Muhtar Sevgi', kind: 'questgiver', locationId: 'vine', greeting: 'Surlarımız eski ama köyümüz canlı. Küçük işlerimiz var, hakkını veririz.' },
+  { id: 'kilavuz-mert', name: 'Bataklık Kılavuzu Mert', kind: 'questgiver', locationId: 'marsh', greeting: 'Sis kalkana kadar bataklıkta iş bol. İstersen bir göz at.' },
   { id: 'hanci-su', name: 'Hancı Su', kind: 'innkeeper', locationId: 'still-crystal', greeting: 'Durgun suyun sesiyle uyunur. Dinlen, can hep burada dolar.' },
 ];
 

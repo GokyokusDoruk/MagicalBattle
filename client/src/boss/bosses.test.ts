@@ -151,7 +151,7 @@ describe('denge simülasyonu (vekil oyuncu, tohumlu)', () => {
   it('seviye arttıkça kazanma oranı azalmaz (genel eğilim)', async () => {
     for (const ch of [2, 5, 8]) {
       const low = await winRate(ch, typicalKit(1), SKILL, RUNS);
-      const high = await winRate(ch, typicalKit(30), SKILL, RUNS);
+      const high = await winRate(ch, typicalKit(30, { skills: true }), SKILL, RUNS);
       expect(high, `bölüm ${ch}`).toBeGreaterThan(low);
     }
   }, 120000);

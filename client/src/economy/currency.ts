@@ -39,6 +39,15 @@ export function locationCurrency(loc: Pick<LocationDef, 'elements'>, rand: () =>
   return ELEMENT_CURRENCY[el];
 }
 
+/**
+ * Görev ödülünün para birimi: görevi veren konumun **ilk** elementinin birimi (köyde rastgele değil, böylece görev kartındaki ödül ile
+ * ödenen birim hep aynıdır).
+ */
+export function questCurrency(locationId: string): Currency {
+  const loc = LOCATIONS.find((l) => l.id === locationId);
+  return loc && loc.elements.length > 0 ? ELEMENT_CURRENCY[loc.elements[0]] : 'kor';
+}
+
 /** Bir şehrin (ya da konumun) kimliğinden para birimi; bilinmeyen kimlik Kor sayılır. */
 export function cityCurrency(locationId: string, rand: () => number = Math.random): Currency {
   const loc = LOCATIONS.find((l) => l.id === locationId);

@@ -1,5 +1,5 @@
 import { getItem } from '../economy/items';
-import { cityCurrency, type Currency } from '../economy/currency';
+import { questCurrency, type Currency } from '../economy/currency';
 import type { PlayerState } from '../economy/player';
 import { sellPrice } from '../economy/shop';
 import { SIDE_QUESTS, type QuestDef } from './catalog';
@@ -162,7 +162,7 @@ export class QuestEngine {
     rec.status = 'completed';
     rec.progress = targetOf(q);
 
-    const currency = cityCurrency(q.giver);
+    const currency = questCurrency(q.giver);
     const money = Math.round(q.reward.money * this.moneyMultiplier);
     const items = q.reward.items ?? [];
     this.player.addMoney(currency, money);
