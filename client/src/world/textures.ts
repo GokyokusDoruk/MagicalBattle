@@ -11,13 +11,18 @@ export function createPlayerTexture(scene: Scene): void {
   g.fillStyle(0xf0c8a0, 1).fillCircle(12, 11, 5); // yüz
   g.fillStyle(0x6a2fa0, 1).fillTriangle(12, 0, 5, 9, 19, 9); // şapka
   g.fillStyle(0x6a2fa0, 1).fillRect(4, 8, 16, 2); // şapka kenarı
-  g.fillStyle(0x8a5a2b, 1).fillRect(22, 10, 2, 21); // asa
-  g.fillStyle(0xd7b66d, 1).fillCircle(23, 9, 3); // asa ucu
   g.generateTexture(PLAYER_KEY, 26, 32);
+  g.clear();
+  // Asa ayrı bir dokudur (Task 61): yürürken aşağı yukarı oynar. 8x24: direk ve ucunda küre.
+  g.fillStyle(0x8a5a2b, 1).fillRect(3, 6, 2, 18); // asa
+  g.fillStyle(0xd7b66d, 1).fillCircle(4, 4, 3); // asa ucu
+  g.generateTexture(STAFF_KEY, 8, 24);
   g.destroy();
 }
 
 export const STALL_KEY = 'stall';
+/** Karakterin asası (yürürken oynayan ayrı sprite) */
+export const STAFF_KEY = 'player-staff';
 export const PILE_KEY = 'ground-pile';
 /** Dünya düşmanı dokusunun anahtarı (elemente göre) */
 export const mineKey = (element: string): string => `mine-${element}`;

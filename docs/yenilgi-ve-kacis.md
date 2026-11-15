@@ -18,6 +18,6 @@ Düğmeler yalnızca **sabit düşmanlarda** çıkar. **Çalılık karşılaşma
 
 - "Tekrar dene" yok (düşman, maden, sandık, boss hepsinde). Yenilince tek düğme "Devam" olur ve ölüm akışı başlar.
 - **Ölüm:** bulunduğun bölgenin parasından seviyene göre bir kısım kaybolur (%5 + seviye×%1, en çok %25), canın dolar.
-- **Şehirde doğarsın:** en yakın şehrin kapısının önünde, hancının yanında ayılırsın (eskiden köy şifacısı). Şifacılar artık şehir hancılarıdır (Ayşe, Yıldız, Tolga, Su; isimleri sonra değişecek).
+- **Şehirde doğarsın:** en yakın şehrin kapısının önünde, hancının yanında ayılırsın (eskiden köy şifacısı). Şifacılar artık şehir hancılarıdır (Embria, Nimbra, Obsidra, Lirien).
 
 Kod: `ui/worldFight.ts` (panel kalktı, `WorldFightOptions`), `ui/battleScreen.ts` (`escape`, `escaped`, `intro`, `noAgain`), `ui/bossFight.ts`, `economy/death.ts`, `game.ts`.
