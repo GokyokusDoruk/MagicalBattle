@@ -13,13 +13,13 @@ export interface DrawingCanvasOptions extends SessionOptions {
   showHeadZone?: boolean;
   /** Her çizgi başlarken çağrılır; kalem hızına göre sürekli ses verir (ör. `engine.beginDraw`) */
   drawSound?: () => DrawLoop;
-  /** Yanık İzi: ekranda beliren yara izi sayısı. Dokunan her iz ekranı kırmızıya boyar ve 0.2 sn süre alır. */
+  /** Yanık İzi: ekranda beliren yara izi sayısı (görüşü örter, çizimi engellemez). */
   scars?: number;
   /** Sis Perdesi: savunma ekranını kaplayan sis bulutu sayısı (altındaki çizim ve hayalet görünmez) */
   fog?: number;
   /** Sarsıntılı Rüzgâr: çizim ekranının sarsıntı şiddeti (1-3); tuval titrer, çizmek zorlaşır */
   shake?: number;
-  /** Çamur Yaması: savunma ekranındaki çamur yaması sayısı (içine çizilemez) */
+  /** Çamur Yaması: savunma ekranındaki çamur yaması sayısı (görüşü örter, çizimi engellemez) */
   mud?: number;
   /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
   random?: () => number;
@@ -30,13 +30,10 @@ interface Scar {
   x: number;
   y: number;
   angle: number;
-  hit: boolean;
 }
 
-/** Yara izinin dokunma yarıçapı (mantıksal birim) */
+/** Yara izinin boyu (mantıksal birim); yalnızca görüntüdür, çizimi engellemez */
 export const SCAR_RADIUS = 16;
-/** Dokunulan yara izinin aldığı süre (ms) */
-export const SCAR_PENALTY_MS = 200;
 
 /**
  * Yara izi konumları: kenarlardan uzak, birbirinden ayrı ve ortadaki çizim alanına rastgele serpilir.
@@ -71,17 +68,6 @@ export function placeMud(count: number, random: () => number = Math.random): { x
   return out;
 }
 
-export const inMud = (muds: readonly { x: number; y: number; r: number }[], p: { x: number; y: number }): boolean => muds.some((m) => Math.hypot(p.x - m.x, p.y - m.y) <= m.r);
-
-/** a-b doğru parçası c noktasına `r` mesafeden yakın mı */
-export function segmentNearPoint(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }, r: number): boolean {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy;
-  const t = len2 === 0 ? 0 : Math.min(1, Math.max(0, ((c.x - a.x) * dx + (c.y - a.y) * dy) / len2));
-  return Math.hypot(a.x + t * dx - c.x, a.y + t * dy - c.y) <= r;
-}
-
 /**
  * Büyü çizim tuvali: parmak ya da fare ile çizilir, süre ilk dokunuşta başlar.
  * Geri sayım çubuğu ve "Bitir" düğmesi içerir. `start()` tur bitince sonucu döndürür.
@@ -100,10 +86,8 @@ export class DrawingCanvas {
   private loop: DrawLoop | null = null;
   private lastMove: { x: number; y: number; at: number } | null = null;
   private scars: Scar[] = [];
-  private flashUntil = 0;
   private fogs: { x: number; y: number; r: number }[] = [];
   private muds: { x: number; y: number; r: number }[] = [];
-  private muddy = false;
 
   constructor(private readonly options: DrawingCanvasOptions) {
     this.session = new DrawingSession(options);
@@ -136,11 +120,9 @@ export class DrawingCanvas {
   start(): Promise<DrawingResult> {
     this.session = new DrawingSession(this.options);
     this.session.start(performance.now());
-    this.scars = placeScars(Math.max(0, Math.floor(this.options.scars ?? 0)), this.options.random).map((s) => ({ ...s, hit: false }));
-    this.flashUntil = 0;
+    this.scars = placeScars(Math.max(0, Math.floor(this.options.scars ?? 0)), this.options.random);
     this.fogs = placeFog(Math.max(0, Math.floor(this.options.fog ?? 0)), this.options.random);
     this.muds = placeMud(Math.max(0, Math.floor(this.options.mud ?? 0)), this.options.random);
-    this.muddy = false;
     this.fitCanvas();
     this.timer = window.setInterval(() => this.frame(), Math.min(DWELL_SAMPLE_MS, 16));
     this.frame();
@@ -181,36 +163,18 @@ export class DrawingCanvas {
     }
     const p = this.toLogical(e);
     const now = performance.now();
-    this.muddy = inMud(this.muds, p);
-    if (!this.muddy) this.session.pointerDown(p.x, p.y, now);
-    this.touchScars(p, p, now);
+    this.session.pointerDown(p.x, p.y, now);
     this.loop = this.options.drawSound?.() ?? null;
     this.lastMove = { x: p.x, y: p.y, at: now };
-  }
-
-  /** Kalem iki nokta arasında bir yara izine değdiyse: iz yanar, ekran kızarır, 0.2 sn gider (her iz bir kez). */
-  private touchScars(from: { x: number; y: number }, to: { x: number; y: number }, now: number): void {
-    if (this.session.currentPhase !== 'drawing') return;
-    for (const scar of this.scars) {
-      if (scar.hit || !segmentNearPoint(from, to, scar, SCAR_RADIUS)) continue;
-      scar.hit = true;
-      this.session.penalize(SCAR_PENALTY_MS);
-      this.flashUntil = now + 280;
-    }
   }
 
   private onMove(e: PointerEvent): void {
     if (e.pointerId !== this.pointerId) return;
     const p = this.toLogical(e);
     const now = performance.now();
-    // Çamura girince çizgi kesilir, çıkınca yeni çizgi başlar (çamurun içi çizilmez)
-    const nowMuddy = inMud(this.muds, p);
-    if (nowMuddy && !this.muddy) this.session.pointerUp(now);
-    else if (!nowMuddy && this.muddy) this.session.pointerDown(p.x, p.y, now);
-    else if (!nowMuddy) this.session.pointerMove(p.x, p.y, now);
-    this.muddy = nowMuddy;
+    // Çamur, sis ve yara izi yalnızca görüşü engeller: çizgiler her zaman kaydedilir
+    this.session.pointerMove(p.x, p.y, now);
     const last = this.lastMove;
-    this.touchScars(last ?? p, p, now);
     if (this.loop && last) {
       // mantıksal birim/ms; ~0.8 çok hızlı sayılır
       this.loop.update(Math.hypot(p.x - last.x, p.y - last.y) / Math.max(1, now - last.at) / 0.8);
@@ -351,10 +315,10 @@ export class DrawingCanvas {
     ctx.save();
     ctx.lineCap = 'round';
     for (const s of this.scars) {
-      ctx.globalAlpha = s.hit ? 0.25 : 0.95;
+      ctx.globalAlpha = 0.95;
       ctx.strokeStyle = '#ef4444';
       ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = s.hit ? 0 : 6 * scale;
+      ctx.shadowBlur = 6 * scale;
       ctx.lineWidth = 3 * scale;
       const dx = Math.cos(s.angle) * SCAR_RADIUS * 0.8 * scale;
       const dy = Math.sin(s.angle) * SCAR_RADIUS * 0.8 * scale;
@@ -394,14 +358,11 @@ export class DrawingCanvas {
 
     if (this.options.showHeadZone) this.drawHeadZone(scale);
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
-    this.drawScars(scale);
     this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
-    this.drawFog(scale);
+    // Görüşü engelleyenler çizginin ÜSTÜNE çizilir: yara izi, çamur ve sis çizilenin bir kısmını örter ama çizimi bozmaz
+    this.drawScars(scale);
     this.drawMud(scale);
-    if (now < this.flashUntil) {
-      ctx.fillStyle = `rgba(239,68,68,${(0.45 * (this.flashUntil - now)) / 280})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    this.drawFog(scale);
 
     const total = this.session.limitMs;
     const remaining = this.session.remainingMs(now);

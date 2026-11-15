@@ -40,15 +40,9 @@ export class DrawingSession {
     return this.phase;
   }
 
-  /** Şu anki çizim süresi sınırı (ms); `penalize` ile kısalabilir */
+  /** Çizim süresi sınırı (ms) */
   get limitMs(): number {
     return this.drawTimeMs;
-  }
-
-  /** Çizim süresini kısaltır (Yanık İzi'ne dokunmak gibi); en az 300 ms kalır. */
-  penalize(ms: number): void {
-    if (this.phase === 'finished') return;
-    this.drawTimeMs = Math.max(300, this.drawTimeMs - Math.max(0, ms));
   }
 
   /** Şu ana kadar çizilen çizgiler (canlı gösterim için). */

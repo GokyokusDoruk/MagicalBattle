@@ -3,7 +3,7 @@ import { runBattle, type BattleIO, type DrawExtras, type TurnReport } from '../b
 import { BattleEngine } from '../battle/flow/engine';
 import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
-import { inMud, placeMud } from '../ui/drawingCanvas';
+import { placeMud } from '../ui/drawingCanvas';
 import { MAX_SKILL_LEVEL, describeEffect, skillsOf } from './catalog';
 import { LIMITS, MUD_BOT_BYPASS, neutralEffects, resolvePassives, resolveSpell } from './resolver';
 import { SkillTree } from './tree';
@@ -126,11 +126,8 @@ describe('toprak yetenekleri', () => {
     expect(muddy[0].mudded).toBe(3);
   });
 
-  it('çamur yamaları tuvalin içine yerleşir ve içine girmek ölçülür', () => {
+  it('çamur yamaları tuvalin içine yerleşir', () => {
     for (let n = 0; n <= 3; n++) expect(placeMud(n)).toHaveLength(n);
-    const muds = [{ x: 100, y: 100, r: 30 }];
-    expect(inMud(muds, { x: 110, y: 100 })).toBe(true);
-    expect(inMud(muds, { x: 200, y: 200 })).toBe(false);
-    expect(inMud([], { x: 1, y: 1 })).toBe(false);
+    for (const m of placeMud(3, () => 0.5)) expect(m.x - m.r >= 0 && m.x + m.r <= 256 && m.y - m.r >= 0 && m.y + m.r <= 256).toBe(true);
   });
 });
