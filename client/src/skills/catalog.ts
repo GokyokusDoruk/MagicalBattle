@@ -89,7 +89,7 @@ export function describeEffect(fx: SkillEffect): string[] {
   if (fx.shieldBreak) out.push(`${pct(fx.shieldBreak)} ihtimalle rakibin kalkanını kırar`);
   if (fx.chainBonus) out.push(`art arda her ateş büyüsü için +${pct(fx.chainBonus)} hasar (en çok 3 kez)`);
   if (fx.scatter) out.push(`büyünün ${pct(fx.scatter)} kısmı savunmaya takılmadan geçer`);
-  if (fx.scars) out.push(`rakibin çizim ekranında ${fx.scars} yara izi; dokunursa 0.2 sn kaybeder`);
+  if (fx.scars) out.push(`rakibin saldırı çizim ekranında ${fx.scars} yara izi belirir (görüşü kısmen örter)`);
   if (fx.chillChance) out.push(`${pct(fx.chillChance)} ihtimalle rakibi yavaşlatır`);
   if (fx.chillSec) out.push(`yavaşlayan rakibin sonraki çizim süresi ${fx.chillSec} sn kısalır`);
   if (fx.lifesteal) out.push(`verdiğin hasarın ${pct(fx.lifesteal)} kadarı sana can olarak döner`);
@@ -102,8 +102,20 @@ export function describeEffect(fx: SkillEffect): string[] {
   if (fx.timeBonus) out.push(`büyü çizim süresi +${fx.timeBonus} sn`);
   if (fx.critBonus) out.push(`kritik vuruş şansı +${pct(fx.critBonus)}`);
   if (fx.reboundChance) out.push(`${pct(fx.reboundChance)} ihtimalle savunmanın tuttuğu hasarın ${pct(fx.reboundShare ?? 0)} kadarı saldırana geri savrulur`);
-  if (fx.shake) out.push(`rakip saldırı çizerken ekranı sarsılır (şiddet ${fx.shake}); botlar ${(fx.shake * 0.15).toFixed(2)} sn kaybeder`);
+  if (fx.shake) out.push(`rakip saldırı çizerken ekranı sarsılır (şiddet ${fx.shake})`);
   return out;
+}
+
+/**
+ * Asa seviyesine bağlı pasifler (Yanık İzi, Sarsıntılı Rüzgâr): yetenek puanıyla alınmaz ya da geliştirilmez; ilgili elementin asası kuşanılınca
+ * asanın seviyesine göre 3 kademeden biri işler. Asa seviyesi 1-9: kademe 1, 10-19: kademe 2, 20 ve üstü: kademe 3.
+ */
+export const WAND_PASSIVE_LEVEL_STEPS: readonly [number, number, number] = [1, 10, 20];
+
+/** Asanın seviyesinden pasif kademesi (1-3). */
+export function passiveTierForWandLevel(wandLevel: number): 1 | 2 | 3 {
+  if (wandLevel >= WAND_PASSIVE_LEVEL_STEPS[2]) return 3;
+  return wandLevel >= WAND_PASSIVE_LEVEL_STEPS[1] ? 2 : 1;
 }
 
 export const SKILLS: readonly SkillDef[] = [
@@ -143,7 +155,7 @@ export const SKILLS: readonly SkillDef[] = [
     id: 'fire-scars',
     element: 'fire',
     name: 'Yanık İzi',
-    summary: 'Pasif: rakip saldırı büyüsü çizerken ekranında küçük yara izleri belirir; izlere dokunursa ekran kızarır ve 0.2 sn kaybeder.',
+    summary: 'Pasif (puanla alınmaz): ateş asası kuşanınca rakip saldırı çizerken ekranında yara izleri belirir ve bir kısmını örter. Asanın seviyesi arttıkça gelişir.',
     passive: true,
     levels: [{ scars: 1 }, { scars: 2 }, { scars: 3 }],
   },
@@ -236,7 +248,7 @@ export const SKILLS: readonly SkillDef[] = [
     id: 'air-tremor',
     element: 'air',
     name: 'Sarsıntılı Rüzgâr',
-    summary: 'Pasif: rakip saldırı büyüsü çizerken ekranı sarsılır, çizmesi zorlaşır.',
+    summary: 'Pasif (puanla alınmaz): hava asası kuşanınca rakip saldırı çizerken ekranı sarsılır. Asanın seviyesi arttıkça gelişir.',
     passive: true,
     levels: [{ shake: 1 }, { shake: 2 }, { shake: 3 }],
   },

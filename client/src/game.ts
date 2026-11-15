@@ -18,7 +18,7 @@ import { ExitDropUi } from './ui/exitDropUi';
 import { GroundPileUi } from './ui/groundPileUi';
 import { STARTER_WAND_ID } from './wands/catalog';
 import { WandInventory } from './wands/inventory';
-import { RegenAccumulator, activePassive } from './wands/passives';
+import { RegenAccumulator, activePassive, wandBattlePassives } from './wands/passives';
 import { WandStock } from './wands/stock';
 import { GearStock } from './economy/gearStock';
 import { BagUi } from './ui/bagUi';
@@ -179,6 +179,7 @@ document.body.appendChild(minimap.element);
 const sfx = getSoundEngine();
 const skillUi = new SkillTreeUi({
   tree: skillTree,
+  wands,
   level: () => hero.level,
   money: {
     canPay: (each) => CURRENCIES.every((c) => hero.balance(c) >= each),
@@ -512,7 +513,7 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
     if (introHandle) window.setTimeout(() => introHandle.release(), 200);
     const { outcome, hp: hpLeft } = await runWorldFight(
       spot,
-      { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver },
+      { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: wandBattlePassives(wands), wands: wands.resolver },
       hero.maxHp,
       {
         // Savaş öncesi panel yok (Task 55): sabit düşmanda savaşın içinde Kaç ve Rüşvet düğmeleri çıkar; çalılık, maden ve sandıkta çıkış yok
@@ -634,7 +635,7 @@ async function playChapter(chapter: number): Promise<void> {
       await dialogueUi.run(linesTree(`boss-${chapter}`, boss.intro), ctx);
       const { outcome, hp: hpLeft } = await runBossFight(
         chapter,
-        { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver },
+        { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: wandBattlePassives(wands), wands: wands.resolver },
         morality.finalPath,
         healHooks,
       );
