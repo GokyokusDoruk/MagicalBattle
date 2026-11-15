@@ -256,7 +256,15 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     // Sis Perdesi: sisli ekranda bir botun savunması zayıflar (insan sisi kendi gözüyle aşmaya çalışır)
     const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attackFx.fog * FOG_BOT_BYPASS + attackFx.mud * MUD_BOT_BYPASS) : 0;
     const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0)) * (1 - fogBypass);
+    const parts: { label: string; value: number }[] = [
+      { label: 'Ekipman çarpanı', value: attacker.dealtMultiplier },
+      { label: 'Kuşanılan eşyalar (kendi elementinden bonus)', value: 1 + attackGear.damageBonus },
+      { label: 'Saldırı yetenekleri', value: attackFx.dealtMultiplier },
+      { label: 'Alev Zinciri', value: 1 + chainStacks * attackFx.chainBonus },
+      { label: 'Savunanın yetenek ve asası', value: defender.takenMultiplier * defenseFx.takenMultiplier * defenseWand.takenMultiplier },
+    ].filter((p) => Math.abs(p.value - 1) > 0.005);
     const input = {
+      multiplierParts: parts,
       basePower: attacker.basePower * attackWand.powerMultiplier,
       attack,
       defense: defenseFailed ? null : defense.density,

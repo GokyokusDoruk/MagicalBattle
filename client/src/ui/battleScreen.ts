@@ -6,7 +6,7 @@ import { ELEMENT_COLORS } from '../battle/arena/palette';
 import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
 import { Bot } from '../battle/flow/bot';
 import { ElysiaBot } from '../battle/flow/elysia';
-import { EFFECT_LABELS, explainDamage, spellEffect } from '../battle/damage/explain';
+import { EFFECT_LABELS, blockedPercent, explainDamage, spellEffect, type SpellEffect } from '../battle/damage/explain';
 import type { BurnEvent } from '../battle/flow/engine';
 import { runBattle, type BattleIO, type DrawExtras, type Role, type RoundChoice, type TurnElements, type TurnReport } from '../battle/flow/controller';
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
@@ -318,7 +318,7 @@ export class BattleScreen implements BattleIO {
     } else {
       void this.say(this.center, `Savunma yapılamadı! <span class="font-normal">(${this.name(action.defender)})</span>`, 1200, 'bg-red-900/80 text-red-100');
     }
-    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement, { onClash: () => void this.showFormula(report) });
+    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement);
     await this.arena.impact(action.defender, action.attacker, {
       damage: report.damage,
       blockedRatio: report.breakdown?.defendedRatio ?? 0,
@@ -360,36 +360,81 @@ export class BattleScreen implements BattleIO {
     }
   }
 
-  /** Çarpışma anında hasarın nasıl hesaplandığını gösterir: "Toprak üstün ×1.5 = 150". Büyünün rengiyle boyanır. */
-  private async showFormula(report: TurnReport): Promise<void> {
+  /** Detay ekranı: hasarın neyden ne kadar geldiği (bloklanmayan kısım, element, ekipman, yetenek, zırh...). Devam'a basınca kapanır. */
+  private showDetail(report: TurnReport): Promise<void> {
     const b = report.breakdown;
-    if (!b) return;
     const color = css(ELEMENT_COLORS[report.attackerElement].glow);
-    const rows = explainDamage(b, report.attackerElement, report.defenseFailed)
-      .map(
-        (r) =>
-          `<div class="flex justify-between gap-4"><span${r.element ? ` style="color:${color}"` : ''}>${esc(r.label)}${r.factor ? ` <b>${esc(r.factor)}</b>` : ''}</span><b class="tabular-nums">${r.value}</b></div>`,
-      )
-      .join('');
-    await this.say(
-      this.calc,
-      `<div class="min-w-[13rem] text-left text-sm font-normal"><div class="mb-1 text-center font-bold" style="color:${color}">${ELEMENT_NAMES[report.attackerElement]} büyüsü</div>${rows}<div class="mt-1 flex justify-between border-t border-white/30 pt-1 text-base font-bold"><span>Hasar</span><span class="tabular-nums">${report.damage}</span></div></div>`,
-      2200,
-      'bg-slate-900/85 text-slate-50',
-    );
+    const rows = b
+      ? explainDamage(b, report.attackerElement, report.defenseFailed)
+          .map(
+            (r) =>
+              `<div class="flex justify-between gap-4"><span${r.element ? ` style="color:${color}"` : ''}>${esc(r.label)}${r.factor ? ` <b>${esc(r.factor)}</b>` : ''}</span><b class="tabular-nums">${r.value}</b></div>`,
+          )
+          .join('')
+      : '';
+    const blocked = b ? blockedPercent(b, report.defenseFailed) : 0;
+    const panel = this.overlay('absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3');
+    panel.style.pointerEvents = 'auto';
+    panel.innerHTML = `<div class="w-full max-w-xs rounded-lg bg-slate-900/95 p-4 text-sm text-slate-50 shadow-xl">
+      <div class="mb-2 text-center font-bold" style="color:${color}">${ELEMENT_NAMES[report.attackerElement]} büyüsü: detay</div>
+      <div class="mb-2 text-center text-xs text-slate-300">Büyünün <b>%${100 - blocked}</b> kadarı bloklanmadı (%${blocked} bloklandı)</div>
+      ${rows}
+      <div class="mt-2 flex justify-between border-t border-white/30 pt-2 text-base font-bold"><span>Hasar</span><span class="tabular-nums">${report.damage}</span></div>
+      <button data-next type="button" class="mt-3 w-full rounded bg-amber-300 px-4 py-2 font-bold text-slate-900">Devam</button></div>`;
+    return new Promise((resolve) => {
+      panel.querySelector('[data-next]')!.addEventListener('click', () => {
+        panel.remove();
+        resolve();
+      });
+    });
   }
 
-  /** Vuruştan sonra büyünün etkisi: savunmayı çoğunlukla geçtiyse etkili, orta hasar verdiyse orta, iyi bloklandıysa etkisiz. */
+  /** Hasar sayısından sonra: Detay ya da Devam. Dokunulmazsa kısa süre sonra kendiliğinden devam eder. */
+  private resultPrompt(report: TurnReport): Promise<void> {
+    return new Promise((resolve) => {
+      const box = this.overlay('absolute inset-x-0 bottom-8 z-20 flex justify-center gap-3 px-2');
+      box.style.pointerEvents = 'auto';
+      box.innerHTML = `<button data-detail type="button" class="rounded bg-slate-700/90 px-5 py-2 text-sm font-bold text-amber-50">Detay</button>
+        <button data-next type="button" class="rounded bg-amber-300 px-5 py-2 text-sm font-bold text-slate-900">Devam</button>`;
+      let timer = 0;
+      const done = (): void => {
+        window.clearTimeout(timer);
+        box.remove();
+        resolve();
+      };
+      timer = window.setTimeout(done, 2500);
+      box.querySelector('[data-next]')!.addEventListener('click', done);
+      box.querySelector('[data-detail]')!.addEventListener('click', () => {
+        window.clearTimeout(timer);
+        box.remove();
+        void this.showDetail(report).then(resolve);
+      });
+    });
+  }
+
+  /**
+   * Vuruştan sonra: önce "%X bloklandı" ve etki seviyesi (çok etkisiz, etkisiz, normal, etkili, çok etkili), 2 saniye sonra hasar sayısı,
+   * sonra Detay / Devam.
+   */
   private async showEffect(report: TurnReport): Promise<void> {
     if (!report.breakdown) return;
     const effect = spellEffect(report.breakdown, report.defenseFailed);
-    const tone = effect === 'effective' ? 'bg-red-800/85 text-red-50' : effect === 'medium' ? 'bg-amber-700/85 text-amber-50' : 'bg-slate-700/85 text-slate-100';
+    const tones: Record<SpellEffect, string> = {
+      veryWeak: 'bg-slate-700/90 text-slate-200',
+      weak: 'bg-slate-600/90 text-slate-100',
+      normal: 'bg-amber-700/90 text-amber-50',
+      effective: 'bg-orange-700/90 text-orange-50',
+      veryEffective: 'bg-red-800/90 text-red-50',
+    };
+    const blocked = blockedPercent(report.breakdown, report.defenseFailed);
     await this.say(
       this.center,
-      `${report.critical ? '💥 KRİTİK! ' : ''}${EFFECT_LABELS[effect]}<br><span class="text-lg">${report.damage > 0 ? `-${report.damage} hasar` : 'hasar yok'}</span>`,
-      1500,
-      tone,
+      `<span class="text-base font-normal">%${blocked} bloklandı</span><br>${report.critical ? '💥 KRİTİK! ' : ''}${EFFECT_LABELS[effect]}`,
+      2000,
+      tones[effect],
     );
+    await this.say(this.center, report.damage > 0 ? `<span class="text-4xl">-${report.damage}</span><br><span class="text-sm font-normal">hasar</span>` : 'hasar yok', 1200, tones[effect]);
+    await this.resultPrompt(report);
   }
 
   async announceEnd(winner: Winner, engine: BattleEngine): Promise<void> {

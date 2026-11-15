@@ -36,11 +36,21 @@ export interface DamageInput {
   attackerDrawTimeSec?: number;
   /** Bu vuruş kritik mi (zarı çağıran atar): hasar ×1.5 */
   critical?: boolean;
+  /** Detay ekranı için: çarpanların kaynağı ve değeri (ekipman, yetenek, zincir...). Hesaba etkisi yoktur, hasar `attackerDealtMultiplier` ile `defenderTakenMultiplier`dan gelir. */
+  multiplierParts?: readonly MultiplierPart[];
   /** Ateş yetenekleri (Kıvılcım Saçması, kırılan kalkan): savunmanın tuttuğu kısmın bu oranı yok sayılır (0-1) */
   defenseBypass?: number;
 }
 
+/** Hasar çarpanının bir kaynağı ("Kuşanılan eşya (element bonusu)" ×1.12) */
+export interface MultiplierPart {
+  label: string;
+  value: number;
+}
+
 export interface DamageBreakdown {
+  /** Detay ekranı için çarpan kaynakları (verilmediyse boş) */
+  multiplierParts: readonly MultiplierPart[];
   /** 1) Çizim gücü */
   powerFactor: { size: number; effort: number; total: number };
   power: number;
@@ -136,6 +146,7 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
   const afterArmor = afterCrit * (1 - armorReduction);
 
   return {
+    multiplierParts: input.multiplierParts ?? [],
     powerFactor: factor,
     power,
     defendedRatio: match.defendedRatio * (1 - bypass),
