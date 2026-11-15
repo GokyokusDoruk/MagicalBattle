@@ -17,3 +17,12 @@ Her şehrin doğusunda (şehir merkezinden ~17 karo) bir arena durur: Ignis, Aby
 
 `enemies/arena.ts` (yerleşim, rakipler, ödül hesabı), `ui/arenaUi.ts` (giriş ve sonuç paneli), `game.ts` (`enterArena`), `ui/worldFight.ts` (arena modu),
 `world/WorldScene.ts` (arena çizimi ve giriş algısı), `world/textures.ts` (arena dokusu).
+
+## Güncelleme (ana dalla birleştirme)
+
+Arena, sonradan gelen değişikliklere uyarlandı:
+
+- Rakipler artık büyücü isimleriyle ("14. seviye Kadim Hava Büyücüsü") ve **savaş öncesi panel yok**: her savaş doğrudan başlar, başta "Arena: rakip 2 / 5" yazar.
+- Savaşın içinde sol altta **🏳 Çekil (ödülü al)** düğmesi vardır; rüşvet yoktur. Yenilgi arenayı bitirir (ölüm değil), "tekrar dene" yoktur.
+- Giriş panelinde **ek ganimet şansları** yazar (2, 4 ve 5 galibiyette ticari mal / ekipman / asa şansı).
+- Sonuç, kazanç varsa **ganimet paneli** ("Ganimetler toplandı", eşyalar ikonlu); hiç galibiyet yoksa kısa sonuç paneli.

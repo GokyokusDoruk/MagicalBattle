@@ -4,10 +4,10 @@ Köylerde artık tüccar yoktur. Dört şehrin her birinde surların içinde **i
 
 | Şehir | Element | Tüccar | Asacı | Asa fiyatı |
 |---|---|---|---|---|
-| Ignis Surları | Ateş | Tüccar Kazım | Asacı Ember | normal (×1.00) |
-| Abyss Tapınağı | Hava | Tüccar Nesrin | Asacı Sefa | %10 pahalı (×1.10) |
-| Stone Heart Kalesi | Toprak | Tüccar Boran | Asacı Dağdelen | %10 ucuz (×0.90) |
-| Still Crystal | Su | Tüccar Deniz | Asacı Damla | %5 pahalı (×1.05) |
+| Ignis Surları | Ateş | Tüccar Ignatius | Asacı Cinderra | normal (×1.00) |
+| Abyss Tapınağı | Hava | Tüccar Zephyron | Asacı Aelwyn | %10 pahalı (×1.10) |
+| Stone Heart Kalesi | Toprak | Tüccar Granitus | Asacı Terravin | %10 ucuz (×0.90) |
+| Still Crystal | Su | Tüccar Marenus | Asacı Aquilla | %5 pahalı (×1.05) |
 
 ## Tüccar
 

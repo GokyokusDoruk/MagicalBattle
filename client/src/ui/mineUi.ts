@@ -7,7 +7,7 @@ import type { MineSpot } from '../enemies/mines';
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** Maden girişi paneli: true = gir, false = vazgeç. */
-export function confirmMine(mine: MineSpot, foes: readonly EnemySpot[], hp: number, maxHp: number): Promise<boolean> {
+export function confirmMine(mine: MineSpot, foes: readonly EnemySpot[], hp: number, maxHp: number, lootHint?: string): Promise<boolean> {
   const panel = document.createElement('div');
   panel.className = 'fixed inset-0 z-[71] flex items-center justify-center bg-black/85 p-4';
   panel.setAttribute('role', 'dialog');
@@ -16,6 +16,7 @@ export function confirmMine(mine: MineSpot, foes: readonly EnemySpot[], hp: numb
       <h2 class="text-xl font-bold text-amber-300">⛏ ${esc(mine.name)}</h2>
       <p class="text-sm text-slate-300">${ELEMENT_NAMES[mine.element]} elementi. İçeride <b>${MINE_STAGES} düşman</b> peş peşe saldırır; can savaşlar arasında yenilenmez, her zaferde ganimet düşer, sonuncusu en güçlüsüdür.</p>
       <p class="text-sm text-slate-300">Düşman seviyeleri: <b>${foes.map((f) => enemyStats(f.element, f.tier).level).join(', ')}</b></p>
+      ${lootHint ? `<p class="text-xs text-emerald-300" data-loot>${esc(lootHint)}</p>` : ''}
       <p class="text-sm">Canın: <b class="${hp < maxHp ? 'text-amber-300' : 'text-emerald-300'}">${hp} / ${maxHp}</b></p>
       <p class="text-xs text-slate-400">Savaşlar başlayınca maden 10 dakika dinlenir.</p>
       <div class="flex gap-3">

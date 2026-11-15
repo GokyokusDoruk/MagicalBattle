@@ -53,7 +53,7 @@ export class StatusBar {
       <div class="h-1.5 overflow-hidden rounded bg-white/15"><div data-hpfill class="h-full bg-rose-400 transition-all duration-300"></div></div>
       <button type="button" data-quests-btn class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">📜 Görevler (J)</button>
       <button type="button" data-skills class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">✦ Yetenekler (K)</button>
-      <button type="button" data-wands class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🪄 Asalar (W)</button>
+      <button type="button" data-wands class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🪄 Asalar (Q)</button>
       <button type="button" data-bag class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🎒 Çanta (B)</button>
       <div data-moral class="mt-1 text-[11px] text-purple-200"></div>
       <div data-dirty class="mt-1 hidden text-[10px] text-amber-300">● Kaydedilmedi: bir şehre girince kaydedilir</div>

@@ -12,23 +12,32 @@ export interface ExplainRow {
   element?: boolean;
 }
 
-export type SpellEffect = 'effective' | 'medium' | 'weak';
+/** Büyünün etkisi, bloklanan orana göre 5 kademe: çok etkisiz, etkisiz, normal, etkili, çok etkili. */
+export type SpellEffect = 'veryWeak' | 'weak' | 'normal' | 'effective' | 'veryEffective';
 
-/** Savunmayı geçen oran bu değerin üstündeyse büyü "etkili", altındaysa "orta", çok altındaysa "etkisiz". */
-export const EFFECTIVE_AT = 0.6;
-export const MEDIUM_AT = 0.3;
+/** Savunmayı geçen oran bu eşiklerin üstündeyse (üstten alta): çok etkili ≥%90, etkili ≥%70, normal ≥%45, etkisiz ≥%20, aksi çok etkisiz. */
+export const EFFECT_THRESHOLDS = { veryEffective: 0.9, effective: 0.7, normal: 0.45, weak: 0.2 } as const;
 
-/** Savunmanın ne kadarını geçtiğine göre büyünün etkisi. Savunma yapılamadıysa her zaman etkili. */
+/** Savunmanın ne kadarını geçtiğine göre büyünün etkisi. Savunma yapılamadıysa her zaman çok etkili. */
 export function spellEffect(b: Pick<DamageBreakdown, 'unblockedRatio'>, defenseFailed: boolean): SpellEffect {
-  if (defenseFailed || b.unblockedRatio >= EFFECTIVE_AT) return 'effective';
-  return b.unblockedRatio >= MEDIUM_AT ? 'medium' : 'weak';
+  if (defenseFailed || b.unblockedRatio >= EFFECT_THRESHOLDS.veryEffective) return 'veryEffective';
+  if (b.unblockedRatio >= EFFECT_THRESHOLDS.effective) return 'effective';
+  if (b.unblockedRatio >= EFFECT_THRESHOLDS.normal) return 'normal';
+  return b.unblockedRatio >= EFFECT_THRESHOLDS.weak ? 'weak' : 'veryWeak';
 }
 
 export const EFFECT_LABELS: Record<SpellEffect, string> = {
-  effective: 'ETKİLİ BÜYÜ',
-  medium: 'ORTA HASAR',
-  weak: 'ETKİSİZ BÜYÜ',
+  veryWeak: 'ÇOK ETKİSİZ SALDIRI',
+  weak: 'ETKİSİZ SALDIRI',
+  normal: 'NORMAL SALDIRI',
+  effective: 'ETKİLİ SALDIRI',
+  veryEffective: 'ÇOK ETKİLİ SALDIRI',
 };
+
+/** Bloklanan oran, yüzde olarak (savunma yapılamadıysa 0). */
+export function blockedPercent(b: Pick<DamageBreakdown, 'unblockedRatio'>, defenseFailed: boolean): number {
+  return defenseFailed ? 0 : Math.round((1 - b.unblockedRatio) * 100);
+}
 
 const factorText = (m: number): string => `×${Math.round(m * 100) / 100}`;
 
@@ -37,8 +46,14 @@ const factorText = (m: number): string => `×${Math.round(m * 100) / 100}`;
  * Örnek: Büyü gücü 100 → Toprak üstün ×1.5 = 150.
  */
 export function explainDamage(b: DamageBreakdown, attackerElement: Element, defenseFailed: boolean): ExplainRow[] {
-  const rows: ExplainRow[] = [{ label: 'Büyü gücü', factor: '', value: Math.round(b.power) }];
+  const rows: ExplainRow[] = [{ label: 'Büyü gücü (alan ve süre)', factor: '', value: Math.round(b.powerBeforeQuality) }];
+  if (b.attackQuality < 0.995) {
+    rows.push({ label: 'Çizim kalitesi (karalama / dağılım)', factor: factorText(b.attackQuality), value: Math.round(b.power) });
+  }
   if (!defenseFailed) {
+    if (b.defenseStrength < 0.99) {
+      rows.push({ label: 'Savunma inceldi (karalama / fazla kaplama)', factor: factorText(b.defenseStrength), value: Math.round(b.power) });
+    }
     rows.push({ label: 'Savunmayı geçen', factor: `%${Math.round(b.unblockedRatio * 100)}`, value: Math.round(b.power * b.unblockedRatio) });
   }
   if (b.headShare > 0.5 && b.weightedUnblockedRatio > b.unblockedRatio) {
@@ -48,7 +63,14 @@ export function explainDamage(b: DamageBreakdown, attackerElement: Element, defe
     const rel = b.elementMultiplier > 1 ? 'üstün' : 'zayıf';
     rows.push({ label: `${ELEMENT_NAMES[attackerElement]} ${rel}`, factor: factorText(b.elementMultiplier), value: Math.round(b.afterElement), element: true });
   }
-  if (Math.abs(b.skillMultiplier - 1) > 0.005) {
+  if (b.multiplierParts.length > 0) {
+    // Her kaynağı ayrı satır: ekipman, kuşanılan eşyalar, yetenekler (değerler art arda çarpılarak ilerler)
+    let running = b.afterElement;
+    for (const p of b.multiplierParts) {
+      running *= p.value;
+      rows.push({ label: p.label, factor: factorText(p.value), value: Math.round(running) });
+    }
+  } else if (Math.abs(b.skillMultiplier - 1) > 0.005) {
     rows.push({ label: 'Yetenek ve ekipman', factor: factorText(b.skillMultiplier), value: Math.round(b.afterSkills) });
   }
   if (b.critical) rows.push({ label: 'KRİTİK vuruş', factor: factorText(b.critMultiplier), value: Math.round(b.afterCrit) });

@@ -23,7 +23,7 @@ Kuşanılı asanın **elementi** oyuncuya pasif verir. Asa seviye şartını kar
 | **Ateş** | eşya düşme şansı **+%10** | ahlak yolu çarpanıyla çarpılır; düşman ganimeti ve sandıkta geçerli |
 | **Toprak** | taşıma kapasitesi **+%25** | asa, eşya ve kuşanılabilir kapasitelerin toplamına uygulanır, aşağı yuvarlanır (3 asa → 3, 20 eşya → 25) |
 
-Asa ekranında (W) kuşanılı asanın altında yeşil "Pasif: ..." satırı görünür; asanın seviyesi yetmiyorsa "(seviyen yetmiyor)" der.
+Asa ekranında (Q) kuşanılı asanın altında yeşil "Pasif: ..." satırı görünür; asanın seviyesi yetmiyorsa "(seviyen yetmiyor)" der.
 
 ## Boss dengesi
 

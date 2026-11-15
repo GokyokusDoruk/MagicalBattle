@@ -319,7 +319,7 @@ describe('runBattle: tam savaşlar (botlara karşı)', () => {
       announceTurn: async (a) => void log.turns.push(`${a.attacker.team}${a.attacker.index}>${a.defender.team}${a.defender.index}`),
       chooseElement: async (ref) => pick(ref).chooseElement(),
       revealRound: async () => {},
-      draw: async (ref, role, ghost) => (role === 'attack' ? pick(ref).drawAttack() : pick(ref).drawDefense(ghost)),
+      draw: async (ref, role) => (role === 'attack' ? pick(ref).drawAttack() : pick(ref).drawDefense()),
       play: async (r) => {
         const key = `${r.action.defender.team}${r.action.defender.index}`;
         log.hits[key] = (log.hits[key] ?? 0) + r.damage;

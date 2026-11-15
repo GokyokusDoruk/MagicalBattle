@@ -16,7 +16,7 @@ import { GroundLoot } from './world/groundLoot';
 import { locationAt } from './save/cityEntry';
 import { ExitDropUi } from './ui/exitDropUi';
 import { GroundPileUi } from './ui/groundPileUi';
-import { STARTER_WAND_ID, getWand } from './wands/catalog';
+import { STARTER_WAND_ID } from './wands/catalog';
 import { WandInventory } from './wands/inventory';
 import { RegenAccumulator, activePassive } from './wands/passives';
 import { WandStock } from './wands/stock';
@@ -41,6 +41,8 @@ import { confirmArena, showArenaResult } from './ui/arenaUi';
 import { confirmMine } from './ui/mineUi';
 import { CHEST_SPOTS, chestGuards, rollChestLoot } from './enemies/chests';
 import { confirmChest } from './ui/chestUi';
+import { arenaLootHints, chestLootHint, enemyLootHint, mineLootHint } from './enemies/lootPreview';
+import { showLootPanel, type LootView } from './ui/lootPanel';
 import { enemyStats } from './enemies/catalog';
 import { rollLoot } from './enemies/loot';
 import { applyLoot } from './enemies/applyLoot';
@@ -415,6 +417,9 @@ async function playChapterChoices(chapter: number): Promise<void> {
   if (chapter === 8) await dialogueUi.run(linesTree('final', finalLines(morality.score)), ctx);
 }
 
+/** Ganimet şansı çarpanı: ahlak yolu ve ateş asası */
+const lootDropRate = (): number => morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate);
+
 /** Oyuncunun şu an bulunduğu bölgenin para birimi (en yakın şehrin birimi). */
 const regionCurrency = (): Currency => currencyAt(map.locations, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
 
@@ -482,18 +487,48 @@ function bribeOption(spot: EnemySpot): BribeOption {
 
 type FightResult = 'won' | 'lost' | 'retreat' | 'bribed' | 'skipped';
 
+/** Ganimet sonucundan panel görünümü (adlar ve adetler) */
+function lootView(subtitle: string, got: ReturnType<typeof applyLoot>): LootView {
+  return {
+    subtitle,
+    money: got.money,
+    moneyName: CURRENCY_NAMES[got.currency],
+    xp: got.xp,
+    levelUp: got.levelsGained > 0 ? { level: hero.level, skillPoints: skillTree.pointsFree } : undefined,
+    items: Object.entries(got.items).map(([id, count]) => ({ id, count })),
+    wands: Object.entries(got.wands).map(([id, count]) => ({ id, count })),
+    dropped: got.dropped,
+  };
+}
+
 async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro = false): Promise<FightResult> {
   const id = spot.id;
   if (fightBusy || (modalOpen() && !fromMine)) return 'skipped';
   fightBusy = true;
   try {
-    if (intro) await playEncounterIntro(enemyStats(spot.element, spot.tier).name);
+    let wonLoot: ReturnType<typeof applyLoot> | null = null;
+    const introHandle = intro ? await playEncounterIntro(enemyStats(spot.element, spot.tier).name) : null;
+    // Savaş ekranı açılınca (kısa süre sonra) karartma yumuşakça kalkar ve dünya eski hâline döner
+    if (introHandle) window.setTimeout(() => introHandle.release(), 200);
     const { outcome, hp: hpLeft } = await runWorldFight(
       spot,
       { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver },
       hero.maxHp,
-      // Rüşvet: bölgenin parasıyla; maden ve sandık muhafızlarına verilmez
-      fromMine ? undefined : bribeOption(spot),
+      {
+        // Savaş öncesi panel yok (Task 55): sabit düşmanda savaşın içinde Kaç ve Rüşvet düğmeleri çıkar; çalılık, maden ve sandıkta çıkış yok
+        escape: fromMine || intro ? undefined : { bribe: bribeOption(spot) },
+        lootHint: fromMine ? undefined : enemyLootHint(spot.element, spot.tier, hero.level, lootDropRate(), CURRENCY_NAMES[regionCurrency()]),
+        // Zaferden sonra, dünyaya dönmeden savaş ekranının üstünde ganimetler gösterilir
+        onWon: async (root, hp) => {
+          hero.setHp(hp);
+          enemyBoard.defeat(id);
+          const loot = rollLoot(spot.element, spot.tier, hero.level, lootDropRate() * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
+          wonLoot = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
+          sfx.play('victory');
+          setDirty(true);
+          await showLootPanel(root, lootView(`${enemyStats(spot.element, spot.tier).name} yenildi`, wonLoot));
+        },
+      },
     );
     if (outcome === 'bribed') {
       // Sabit düşman haritadan kaybolur (yenilmiş gibi bir süre sonra geri gelir); çalılık karşılaşması hiç olmamış sayılır
@@ -509,18 +544,8 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
       await handleDeath();
       return 'lost';
     }
-    if (hpLeft !== null) hero.setHp(hpLeft);
-    enemyBoard.defeat(id);
-    const loot = rollLoot(spot.element, spot.tier, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate) * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
-    const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
-    const names = [
-      ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
-      ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
-    ];
-    sfx.play('victory');
-    toast.show(`${enemyStats(spot.element, spot.tier).name} yenildi! +${got.money} ${CURRENCY_NAMES[got.currency]}, +${got.xp} XP${names.length ? `, ${names.join(', ')}` : ''}`);
-    if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
-    if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
+    // Ganimet zaten savaş ekranının üstünde gösterildi (onWon)
+    if (!wonLoot && hpLeft !== null) hero.setHp(hpLeft);
     setDirty(true);
     handleCompletions(sideQuests.onEvent({ type: 'battleWon' }));
     return 'won';
@@ -545,7 +570,7 @@ async function enterMine(id: string): Promise<void> {
   mineBusy = true;
   try {
     const foes = mineEnemies(map, mine);
-    if (!(await confirmMine(mine, foes, hero.hp, hero.maxHp))) return;
+    if (!(await confirmMine(mine, foes, hero.hp, hero.maxHp, mineLootHint(foes, hero.level, lootDropRate(), CURRENCY_NAMES[regionCurrency()])))) return;
     mineBoard.start(id);
     for (let i = 0; i < foes.length; i++) {
       toast.show(`${mine.name}: savaş ${i + 1}/${foes.length}`);
@@ -575,14 +600,13 @@ async function enterArena(id: string): Promise<void> {
   try {
     const foes = arenaFoes(map, arena);
     const currency = regionCurrency();
-    if (!(await confirmArena(arena, foes, hero.hp, hero.maxHp, hero.level, CURRENCY_NAMES[currency]))) return;
+    if (!(await confirmArena(arena, foes, hero.hp, hero.maxHp, hero.level, CURRENCY_NAMES[currency], arenaLootHints(foes, hero.level, lootDropRate(), CURRENCY_NAMES[currency])))) return;
     arenaBoard.start(id);
     let wins = 0;
     let note = 'tüm rakipleri yendin';
     for (let i = 0; i < foes.length; i++) {
-      toast.show(`${arena.name}: rakip ${i + 1}/${foes.length}`);
       const stats = { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: skillTree.passives, wands: wands.resolver };
-      const { outcome, hp: hpLeft } = await runWorldFight(foes[i], stats, hero.maxHp, undefined, { stage: i + 1, total: foes.length });
+      const { outcome, hp: hpLeft } = await runWorldFight(foes[i], stats, hero.maxHp, { arena: { stage: i + 1, total: foes.length }, escape: {} });
       if (outcome === 'won') {
         wins++;
         if (hpLeft !== null) hero.setHp(hpLeft);
@@ -596,15 +620,13 @@ async function enterArena(id: string): Promise<void> {
     }
     const payout = arenaPayout(foes, wins, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate), lootRand);
     const got = wins > 0 ? applyLoot(payout.loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), currency) : null;
-    const names = got
-      ? [
-          ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
-          ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
-        ]
-      : [];
-    await showArenaResult(arena, { wins, money: got?.money ?? 0, moneyName: CURRENCY_NAMES[currency], xp: got?.xp ?? 0, items: names, note });
-    if (got && got.dropped > 0) toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`);
-    if (got && got.levelsGained > 0) toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`);
+    // Sonuç: kazanç varsa ganimet paneli (eşyalar ikonlu), hiç galibiyet yoksa kısa sonuç paneli
+    if (got) {
+      sfx.play('victory');
+      await showLootPanel(document.body, lootView(`${arena.name}: ${wins} / ${foes.length} galibiyet (${note})`, got));
+    } else {
+      await showArenaResult(arena, { wins, money: 0, moneyName: CURRENCY_NAMES[currency], xp: 0, items: [], note });
+    }
     setDirty(true);
   } finally {
     arenaBusy = false;
@@ -621,7 +643,7 @@ async function openChest(id: string): Promise<void> {
   if (!chest || collected.has(id) || chestBusy || mineBusy || fightBusy || modalOpen()) return;
   chestBusy = true;
   try {
-    if (!(await confirmChest(chest, hero.hp, hero.maxHp))) return;
+    if (!(await confirmChest(chest, hero.hp, hero.maxHp, chestLootHint(chest, lootDropRate(), CURRENCY_NAMES[regionCurrency()])))) return;
     for (const guard of chestGuards(chest)) {
       const r = await fightSpot(guard, 1, true);
       if (r !== 'won') return;
@@ -629,14 +651,8 @@ async function openChest(id: string): Promise<void> {
     collected.add(id);
     const loot = rollChestLoot(chest, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate), lootRand);
     const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
-    const names = [
-      ...Object.entries(got.items).map(([i, n]) => `${n}× ${getItem(i)?.name ?? i}`),
-      ...Object.entries(got.wands).map(([w, n]) => `${n}× ${getWand(w)?.name ?? 'Asa'}`),
-    ];
     sfx.play('victory');
-    toast.show(`Sandık açıldı! +${got.money} ${CURRENCY_NAMES[got.currency]}, +${got.xp} XP, ${names.join(', ')}`);
-    if (got.dropped > 0) window.setTimeout(() => toast.show(`Çantan dolu: ${got.dropped} eşya yere düştü, 10 dakika içinde al.`), 2600);
-    if (got.levelsGained > 0) window.setTimeout(() => toast.show(`Seviye atladın! Seviye ${hero.level}. Yetenek puanın: ${skillTree.pointsFree} (K)`), 5200);
+    await showLootPanel(document.body, lootView('Sandık açıldı', got));
     setDirty(true);
     handleCompletions(sideQuests.onEvent({ type: 'chestOpened' }));
   } finally {
@@ -699,11 +715,11 @@ async function playChapter(chapter: number): Promise<void> {
     chapterBusy = false;
   }
 }
-// K: yetenek ağacı, W: asalar (sahne ya da tüccar açıkken açılmaz)
+// K: yetenek ağacı, Q: asalar (W yukarı yürümek içindir) (sahne ya da tüccar açıkken açılmaz)
 window.addEventListener('keydown', (e) => {
   if (e.repeat || story.isOpen || merchantUi.isOpen || dialogueUi.isOpen || exitDropUi.isOpen) return;
   if (e.code === 'KeyK' && !otherOpen(skillUi)) skillUi.toggle();
-  if (e.code === 'KeyW' && !otherOpen(wandUi)) wandUi.toggle();
+  if (e.code === 'KeyQ' && !otherOpen(wandUi)) wandUi.toggle();
   if (e.code === 'KeyB' && !otherOpen(bagUi)) bagUi.toggle();
   if (e.code === 'KeyJ' && !otherOpen(questLog)) questLog.toggle();
 });

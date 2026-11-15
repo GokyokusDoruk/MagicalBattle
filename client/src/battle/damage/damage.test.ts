@@ -95,7 +95,10 @@ describe('çizim gücü', () => {
       circle(128, 128, 70, 0),
       circle(128, 128, 50, 0),
     );
-    expect(powerFactor(huge.metrics).size).toBe(1);
+    // Tuvali neredeyse dolduran çizim fazladan güç vermez; hafif kesilir (en çok %15)
+    const size = powerFactor(huge.metrics).size;
+    expect(size).toBeLessThanOrEqual(1);
+    expect(size).toBeGreaterThanOrEqual(0.85);
   });
 });
 

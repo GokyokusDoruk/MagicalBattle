@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LOCATIONS } from '../world/locations';
 import { PlayerState } from './player';
+import { APPROACH_DISTANCE, CITY_HALF } from '../world/locations';
 import { HEALERS, LOSS_CAP, getHealer, moneyLoss, moneyLossFraction, healerSpots, nearestHealer, respawnLines } from './death';
 
 describe('altın kaybı', () => {
@@ -49,38 +50,35 @@ describe('altın kaybı', () => {
   });
 });
 
-describe('şifacılar', () => {
-  it('her köyde bir şifacı var', () => {
-    expect(HEALERS.map((h) => h.locationId).sort()).toEqual(LOCATIONS.filter((l) => l.kind === 'village').map((l) => l.id).sort());
+describe('şifacılar (şehir hancıları)', () => {
+  it('her şehirde bir şifacı var; köyde yok', () => {
+    expect(HEALERS.map((h) => h.locationId).sort()).toEqual(LOCATIONS.filter((l) => l.kind === 'city').map((l) => l.id).sort());
     expect(new Set(HEALERS.map((h) => h.id)).size).toBe(HEALERS.length);
     for (const h of HEALERS) {
-      expect(LOCATIONS.find((l) => l.id === h.locationId)?.kind).toBe('village');
+      expect(LOCATIONS.find((l) => l.id === h.locationId)?.kind).toBe('city');
       expect(h.line.length).toBeGreaterThan(0);
       expect(getHealer(h.id)).toBe(h);
     }
     expect(getHealer('yok')).toBeUndefined();
   });
 
-  it('ayılma noktası köy merkezidir', () => {
+  it('ayılma noktası şehrin kapısının önüdür (yürünebilir)', () => {
     for (const s of healerSpots()) {
       expect(s.tileX).toBe(s.location.x);
-      expect(s.tileY).toBe(s.location.y);
+      expect(s.tileY).toBe(s.location.y + CITY_HALF + APPROACH_DISTANCE);
     }
   });
 
-  it('en yakın şifacı: her köyün kendi merkezinde kendisi', () => {
+  it('en yakın şifacı: her şehrin kapısında kendisi', () => {
     for (const s of healerSpots()) expect(nearestHealer(s.tileX, s.tileY)?.healer.id).toBe(s.healer.id);
   });
 
-  it('şehir önünden ölünce en yakın köy seçilir', () => {
-    // Ignis (64,60) Ash (78,38)'e Bataklık (18,60)'tan çok daha yakındır
-    expect(nearestHealer(64, 60)?.location.id).not.toBe('marsh');
-    // Stone Heart (16,30): Vine (36,14) 20,16 uzak; Bataklık (18,60) 2,30 uzak => Vine
-    expect(nearestHealer(16, 30)?.location.id).toBe('vine');
-    // Still Crystal (36,80): Bataklık (18,60)
-    expect(nearestHealer(36, 80)?.location.id).toBe('marsh');
-    // Cadı Sis Geçidi (70,82): Ash (78,38) 44 uzak, Bataklık (18,60) 52+22: Ash/Bataklık arası -> yine bir köy
-    expect(nearestHealer(70, 82)).not.toBeNull();
+  it('her yerde ölünce en yakın şehir seçilir', () => {
+    for (const [x, y] of [[0, 0], [70, 82], [20, 20], [130, 130], [60, 60]]) {
+      const near = nearestHealer(x, y);
+      expect(near).not.toBeNull();
+      expect(near!.location.kind).toBe('city');
+    }
   });
 
   it('şifacı yoksa null', () => {

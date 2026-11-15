@@ -83,41 +83,49 @@ describe('Bot', () => {
     for (let i = 0; i < 50; i++) expect(bot.drawAttack().elapsedMs).toBeLessThanOrEqual(3000);
   });
 
+  /** Bot saldırıyı görmediği için savunması rastgele bir şekildir; ortalama blok oranı "şans eseri" kalır. */
   const meanDefended = (skill: number, seed: number): number => {
     const bot = new Bot(mulberry32(seed), skill);
     const attacker = new Bot(mulberry32(seed + 100));
     let total = 0;
     let n = 0;
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 200; i++) {
       const atk = attacker.drawAttack();
       if (!atk.validity.valid) continue;
-      const def = bot.drawDefense(atk.strokes);
+      const def = bot.drawDefense();
       total += matchDefense(atk.density, def.validity.valid ? def.density : null).defendedRatio;
       n++;
     }
     return total / n;
   };
 
-  it('becerili bot saldırıyı, beceriksizden belirgin şekilde daha çok savunur', () => {
-    const good = meanDefended(0.95, 11);
-    const bad = meanDefended(0.2, 11);
-    expect(good).toBeGreaterThan(0.5);
-    expect(bad).toBeLessThan(good - 0.15);
+  it('bot saldırıyı görmeden savunur: ortalama blok orta düzeyde kalır, bazen çok kötü bazen iyi', () => {
+    const avg = meanDefended(0.6, 11);
+    expect(avg).toBeGreaterThan(0.1);
+    expect(avg).toBeLessThan(0.75);
   });
 
-  it('hiçbir bot kusursuz savunma yapmaz (her zaman biraz hasar geçer)', () => {
-    expect(meanDefended(1, 21)).toBeLessThan(0.97);
+  it('savunma, saldırıdan bağımsızdır: aynı tohumla farklı saldırılara aynı savunma çizilir', () => {
+    const a = new Bot(mulberry32(3), 0.9).drawDefense();
+    const b = new Bot(mulberry32(3), 0.9).drawDefense();
+    expect(a.strokes).toEqual(b.strokes);
   });
 
-  it('saldırı bilinmiyorsa rastgele bir şekil çizer', () => {
+  it('beceri yalnızca şeklin büyüklüğünü biraz etkiler, saldırıyı kapatmayı sağlamaz', () => {
+    const good = meanDefended(1, 21);
+    const bad = meanDefended(0, 21);
+    expect(good).toBeLessThan(0.9);
+    expect(Math.abs(good - bad)).toBeLessThan(0.2);
+  });
+
+  it('savunma geçerli, rastgele bir şekildir', () => {
     const r = new Bot(mulberry32(5)).drawDefense();
     expect(r.validity.valid).toBe(true);
   });
 
   it('savunma çizimi tuval içinde ve zaman damgaları sıralı', () => {
     const bot = new Bot(mulberry32(8), 0.1);
-    const atk = new Bot(mulberry32(9)).drawAttack();
-    const def = bot.drawDefense(atk.strokes);
+    const def = bot.drawDefense();
     for (const s of def.strokes) {
       for (let i = 0; i < s.length; i++) {
         expect(s[i].x).toBeGreaterThanOrEqual(0);

@@ -3,6 +3,7 @@ import type { Axis } from '../input/axis';
 import { GridMover } from './gridMove';
 import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
+import { enemyTitle } from '../enemies/catalog';
 import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
 import type { EnemySpot } from '../enemies/spots';
@@ -10,8 +11,8 @@ import type { MineSpot } from '../enemies/mines';
 import type { ArenaSpot } from '../enemies/arena';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { ARENA_KEY, CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
-import { TILE_SIZE, isBlockedTile } from './tiles';
+import { ARENA_KEY, BUSH_KEY, STAFF_KEY, CHEST_KEY, QUEST_FLAG_KEY, QUEST_RING_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
+import { Tile, TILE_SIZE, isBlockedTile } from './tiles';
 
 const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
 const GATE_NOTICE_COOLDOWN_MS = 3000;
@@ -21,6 +22,9 @@ const PILE_RANGE = TILE_SIZE * 0.9;
 const ENEMY_RANGE = TILE_SIZE * 0.8;
 
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
+/** Düşman isim etiketlerinin rengi (elementine göre: ateş kırmızı, su mavi, toprak kahverengi, hava beyaz) */
+const ENEMY_LABEL_COLORS: Record<string, string> = { fire: '#fca5a5', water: '#93c5fd', earth: '#e0b36a', air: '#f8fafc' };
+
 export interface WorldContext {
   map: WorldMap;
   /** Yumuşak arazi görseli (world/terrainTexture.ts); harita bununla çizilir */
@@ -75,10 +79,18 @@ export interface WorldContext {
 /** Açık dünya: harita, oyuncu hareketi, çarpışma, kamera, kapılar ve ana görev işaretleri. */
 export class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
+  /** Karakterin asası: yürürken aşağı yukarı sallanır, dururken hafifçe salınır */
+  private staff!: Phaser.GameObjects.Image;
   private pos = { x: 0, y: 0 };
+  /** Asa sallanma şiddeti (0 durur, 1 yürür); yumuşak geçiş için */
+  private staffMove = 0;
+  /** Çalılıkta karakterin önünde duran yaprak kümeleri (havuz): karakterin alt yarısı çalının içinde görünür */
+  private bushes: Phaser.GameObjects.Image[] = [];
   /** Kare kare hareket (Task 39) */
   private mover!: GridMover;
-  private markerSprites = new Map<string, Phaser.GameObjects.Text>();
+  private markerSprites = new Map<string, Phaser.GameObjects.Container>();
+  /** Düşman isim etiketleri: oyuncu yaklaşınca görünür (seviye ve element) */
+  private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private insideMarkers = new Set<string>();
   private lastGateNotice = new Map<string, number>();
   private cityTracker = new CityEntryTracker();
@@ -132,6 +144,8 @@ export class WorldScene extends Phaser.Scene {
     this.locationTracker = new CityEntryTracker(locationAt(map.locations, start.x, start.y));
     this.currentLocation = locationAt(map.locations, start.x, start.y);
     this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.8).setDepth(10);
+    this.staff = this.add.image(this.pos.x, this.pos.y, STAFF_KEY).setOrigin(0.5, 1).setDepth(10.5);
+    this.placeStaff(0);
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, map.width * TILE_SIZE, map.height * TILE_SIZE);
@@ -158,19 +172,13 @@ export class WorldScene extends Phaser.Scene {
 
   /** Sarı [!] işaretleri; yalnızca aktif bölümlerinki görünür ve hafifçe sallanır. */
   private createMarkerSprites(): void {
+    // Ana görev işareti: altın bayrak, yerde nabız gibi atan halka (Task 60; eskiden sarı "!" yazısıydı)
     for (const m of MAIN_QUEST_MARKERS) {
-      const sprite = this.add
-        .text(m.px, m.py - TILE_SIZE * 0.5, '!', {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '30px',
-          fontStyle: 'bold',
-          color: '#ffd23f',
-          stroke: '#3a2a00',
-          strokeThickness: 5,
-        })
-        .setOrigin(0.5)
-        .setDepth(8);
-      this.tweens.add({ targets: sprite, y: sprite.y - 6, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const ring = this.add.image(0, 2, QUEST_RING_KEY);
+      const flag = this.add.image(0, -4, QUEST_FLAG_KEY).setOrigin(0.5, 1);
+      const sprite = this.add.container(m.px, m.py + 8, [ring, flag]).setDepth(8);
+      this.tweens.add({ targets: flag, y: -8, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.tweens.add({ targets: ring, scaleX: 1.25, scaleY: 1.25, alpha: 0.45, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.markerSprites.set(m.id, sprite);
     }
   }
@@ -189,6 +197,9 @@ export class WorldScene extends Phaser.Scene {
       this.player.setPosition(this.pos.x, this.pos.y);
     }
     this.movePlayer(delta);
+    this.placeStaff(time);
+    this.updateBushes(time);
+    this.updateEnemyLabels();
     this.checkGates(time);
     this.checkMarkers();
     this.checkCityEntry();
@@ -202,6 +213,44 @@ export class WorldScene extends Phaser.Scene {
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
   }
 
+  /**
+   * Çalılık karolarında karakterin önüne yaprak kümesi koyar (karakterin alt yarısı çalıda gibi görünür). Oyuncunun bulunduğu satır,
+   * üç karo genişliğinde taranır; çalı olan her karoya bir küme çizilir ve hafifçe sallanır. Havuz yeniden kullanılır.
+   */
+  private updateBushes(time: number): void {
+    const { map } = this.ctx;
+    const tx = Math.floor(this.pos.x / TILE_SIZE);
+    const ty = Math.floor(this.pos.y / TILE_SIZE);
+    let used = 0;
+    for (let dy = 0; dy <= 0; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = tx + dx;
+        const y = ty + dy;
+        if (x < 0 || y < 0 || x >= map.width || y >= map.height || tileAt(map, x, y) !== Tile.Thicket) continue;
+        let img = this.bushes[used];
+        if (!img) {
+          img = this.add.image(0, 0, BUSH_KEY).setOrigin(0.5, 1).setDepth(11);
+          this.bushes.push(img);
+        }
+        const sway = Math.sin(time / 420 + x * 1.7 + y) * 0.9;
+        img.setPosition(x * TILE_SIZE + TILE_SIZE / 2 + sway, y * TILE_SIZE + TILE_SIZE / 2 + 8);
+        img.setVisible(true);
+        used++;
+      }
+    }
+    for (let i = used; i < this.bushes.length; i++) this.bushes[i].setVisible(false);
+  }
+
+  /** Düşman isimleri yalnızca yaklaşınca görünür ("5. seviye Ateş Büyücüsü"); uzaktakiler ve yenilenler gizli. */
+  private updateEnemyLabels(): void {
+    for (const spot of this.ctx.enemies ?? []) {
+      const label = this.enemyLabels.get(spot.id);
+      if (!label) continue;
+      const near = Math.hypot(spot.tileX * TILE_SIZE + TILE_SIZE / 2 - this.pos.x, spot.tileY * TILE_SIZE + TILE_SIZE / 2 - this.pos.y) <= TILE_SIZE * 7;
+      label.setVisible(near && (this.ctx.isEnemyActive?.(spot.id) ?? true));
+    }
+  }
+
   /** Kare kare yürür: yön girdisi karo karo adımlara çevrilir, hız çarpanı (ayakkabı, hava asası) adımı kısaltır. */
   private movePlayer(delta: number): void {
     this.mover.update(delta, this.ctx.getAxis(), this.ctx.getSpeedMultiplier?.() ?? 1);
@@ -209,6 +258,22 @@ export class WorldScene extends Phaser.Scene {
     this.player.setPosition(this.pos.x, this.pos.y);
     if (this.mover.facing === 'left') this.player.setFlipX(true);
     else if (this.mover.facing === 'right') this.player.setFlipX(false);
+  }
+
+  /**
+   * Asa karakterin yanında durur (yüz yönüne göre sağda ya da solda). Yürürken yukarı aşağı oynar ve hafifçe sallanır; dururken yavaşça salınır.
+   * Hareket bitince asa kendi yerine döner (anlık zıplama yok: salınım sıfıra yumuşakça iner).
+   */
+  private placeStaff(time: number): void {
+    const left = this.player.flipX;
+    const walking = this.mover.moving;
+    const target = walking ? 1 : 0;
+    this.staffMove += (target - this.staffMove) * 0.2;
+    const bob = Math.sin(time / 85) * 3 * this.staffMove + Math.sin(time / 700) * 0.7 * (1 - this.staffMove);
+    const tilt = Math.sin(time / 85 + 1) * 0.16 * this.staffMove + Math.sin(time / 700) * 0.04;
+    // Doku koordinatında asa x=23 (merkezden +10), alt ucu y=31: dünyada oyuncunun 5.4 piksel aşağısı
+    this.staff.setPosition(this.pos.x + (left ? -10 : 10), this.pos.y + 5.4 + bob);
+    this.staff.setRotation(left ? -tilt : tilt);
   }
 
   /** Kilitli bir kapıya yaklaşınca (sık tekrarlamadan) uyarı verir. */
@@ -251,9 +316,16 @@ export class WorldScene extends Phaser.Scene {
     for (const spot of this.ctx.enemies ?? []) {
       const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
       const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
-      const sprite = this.add.image(x, y, enemyKey(spot.element)).setDepth(6);
-      this.tweens.add({ targets: sprite, y: y - 4, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      // Büyücü: kademe yükseldikçe biraz büyür (kadimler en büyük)
+      const sprite = this.add.image(x, y + 6, enemyKey(spot.element)).setOrigin(0.5, 0.85).setDepth(6).setScale(1 + (spot.tier - 1) * 0.1);
+      this.tweens.add({ targets: sprite, y: y + 2, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.enemySprites.set(spot.id, sprite);
+      const label = this.add
+        .text(x, y - 30, enemyTitle(spot.element, spot.tier), { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: ENEMY_LABEL_COLORS[spot.element], stroke: '#000000', strokeThickness: 3 })
+        .setOrigin(0.5)
+        .setDepth(7)
+        .setVisible(false);
+      this.enemyLabels.set(spot.id, label);
     }
   }
 

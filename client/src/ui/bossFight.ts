@@ -76,8 +76,8 @@ function confirmFight(parent: HTMLElement, chapter: number, path: FinalPath, lev
 }
 
 /**
- * Bölümün boss savaşını oynatır. Önce panel (geri çekilebilirsin), sonra savaş. Yenilince "Tekrar dene" ya da
- * "Geri çekil". Zaferde 'won', yenilgide geri çekilirse 'lost', savaşa hiç girmezse 'retreat' döner.
+ * Bölümün boss savaşını oynatır. Önce panel (geri çekilebilirsin), sonra savaş. Yenilgide "tekrar dene" yoktur (Task 55): yenilgi ölümdür.
+ * Zaferde 'won', yenilgide 'lost', savaşa hiç girmezse 'retreat' döner.
  */
 export async function runBossFight(chapter: number, player: PlayerStats, path: FinalPath = 'order', heal?: HealHooks): Promise<BossResult> {
   const boss = getBoss(chapter);
@@ -97,7 +97,7 @@ export async function runBossFight(chapter: number, player: PlayerStats, path: F
         // Sis (Morga): gelen saldırı savunurken görünmez; diğer bosslarda görünür
         showAttackToDefender: !boss.gimmick?.hideGhost,
         blurFromCycle: boss.gimmick?.blurFromCycle,
-        endLabels: { again: 'Tekrar dene', menu: 'Pes et (altın kaybı)', hideAgainOnWin: true, winMenu: 'Devam' },
+        endLabels: { again: 'Tekrar dene', menu: 'Devam', hideAgainOnWin: true, winMenu: 'Devam', noAgain: true },
         onFinish: (playAgain) => {
           again = playAgain;
         },

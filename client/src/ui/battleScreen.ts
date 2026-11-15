@@ -6,12 +6,14 @@ import { ELEMENT_COLORS } from '../battle/arena/palette';
 import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
 import { Bot } from '../battle/flow/bot';
 import { ElysiaBot } from '../battle/flow/elysia';
-import { EFFECT_LABELS, explainDamage, spellEffect } from '../battle/damage/explain';
+import { EFFECT_LABELS, blockedPercent, explainDamage, spellEffect, type SpellEffect } from '../battle/damage/explain';
 import type { BurnEvent } from '../battle/flow/engine';
 import { runBattle, type BattleIO, type DrawExtras, type Role, type RoundChoice, type TurnElements, type TurnReport } from '../battle/flow/controller';
 import type { Action, BattleEngine, Fighter, Winner } from '../battle/flow/engine';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import { DrawingCanvas } from './drawingCanvas';
+import { SHAPE_LABELS, type ShapeName } from '../battle/flow/shapes';
+import { templateStrokes } from '../battle/gesture/shapeMatch';
 import { createSoundToggle } from './soundToggle';
 
 const css = (hex: number): string => `#${hex.toString(16).padStart(6, '0')}`;
@@ -31,7 +33,11 @@ export interface BattleScreenOptions {
   /** Bu döngüden itibaren oyuncunun çizim tuvali bulanıklaşır (boss mekaniği: zihin kontrolü) */
   blurFromCycle?: number;
   /** Savaş sonu düğme yazıları ve görünürlüğü. Verilmezse "Tekrar oyna" ve "Menü". */
-  endLabels?: { again: string; menu: string; /** Yenilgide de "tekrar" düğmesi gizlenir (arena: ilk yenilgi arenayı bitirir) */ noAgain?: boolean; /** Zaferde "tekrar" düğmesi gizlenir ve kalan düğmenin yazısı bu olur (boss savaşı) */ hideAgainOnWin?: boolean; winMenu?: string };
+  /** Savaşın içinde Kaç ve (varsa) Rüşvet düğmeleri çıkar (Task 55); verilmezse savaştan çıkış yoktur */
+  escape?: { bribe?: { cost: number; currencyName: string; balance: () => number }; /** Kaç düğmesinin yazısı (arenada "Çekil") */ fleeLabel?: string };
+  /** Savaş başlarken ortada kısa süre gösterilen not (düşman adı, ganimet) */
+  intro?: string;
+  endLabels?: { again: string; menu: string; /** Yenilgide de "tekrar" düğmesi gizlenir */ noAgain?: boolean; /** Zaferde "tekrar" düğmesi gizlenir ve kalan düğmenin yazısı bu olur (boss savaşı) */ hideAgainOnWin?: boolean; winMenu?: string };
 }
 
 /**
@@ -53,6 +59,9 @@ export class BattleScreen implements BattleIO {
   /** Bu döngüde herkesin seçtiği element (anahtar: takım:sıra); çizim rengi ve etiketler için */
   private roundElements = new Map<string, Element>();
   private disposed = false;
+  /** Oyuncu savaştan çıktıysa nasıl: 'flee' (kaçtı) ya da 'bribe' (rüşvet verdi); aksi null */
+  escaped: 'flee' | 'bribe' | null = null;
+  private escapeResolve: (() => void) | null = null;
 
   constructor(
     parent: HTMLElement,
@@ -88,6 +97,27 @@ export class BattleScreen implements BattleIO {
     this.calc = this.overlay('pointer-events-none absolute inset-x-0 top-[20%] z-10 flex justify-center px-2');
     this.modals = this.overlay('absolute inset-0 z-20');
     this.modals.style.pointerEvents = 'none';
+    if (options.escape) this.buildEscape(options.escape);
+  }
+
+  /** Savaşın içinde köşede Kaç ve Rüşvet düğmeleri: kaçarsan düşman yerinde kalır, rüşvet verirsen çekilir. */
+  private buildEscape(escape: NonNullable<BattleScreenOptions['escape']>): void {
+    const bar = this.overlay('absolute bottom-2 left-2 z-40 flex gap-2');
+    bar.style.pointerEvents = 'auto';
+    const bribe = escape.bribe;
+    const canBribe = bribe ? bribe.balance() >= bribe.cost : false;
+    bar.innerHTML = `<button data-flee type="button" class="rounded bg-slate-800/90 px-3 py-2 text-xs font-bold text-amber-50 hover:bg-slate-700">${esc(escape.fleeLabel ?? '🏃 Kaç')}</button>${
+      bribe ? `<button data-bribe type="button" ${canBribe ? '' : 'disabled'} class="rounded bg-emerald-300/95 px-3 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">💰 Rüşvet (${bribe.cost} ${esc(bribe.currencyName)})</button>` : ''
+    }`;
+    const leave = (how: 'flee' | 'bribe'): void => {
+      if (this.escaped || this.disposed) return;
+      this.escaped = how;
+      this.closeModal();
+      this.abort.abort();
+      this.escapeResolve?.();
+    };
+    bar.querySelector('[data-flee]')!.addEventListener('click', () => leave('flee'));
+    bar.querySelector('[data-bribe]')?.addEventListener('click', () => leave('bribe'));
   }
 
   private overlay(cls: string): HTMLElement {
@@ -204,8 +234,13 @@ export class BattleScreen implements BattleIO {
       for (const e of ELEMENTS) {
         const b = document.createElement('button');
         b.type = 'button';
-        b.textContent = ELEMENT_NAMES[e];
-        b.className = 'rounded-lg px-4 py-5 text-lg font-bold text-slate-900 active:scale-95';
+        // Hangi elementin neye üstün/zayıf olduğu ve o element için kaç yeteneğin işlediği yazar
+        const strong = ELEMENTS.filter((o) => elementRelation(e, o) === 'advantage').map((o) => `${ELEMENT_NAMES[o]} ×${elementMultiplier(e, o)}`);
+        const weak = ELEMENTS.filter((o) => elementRelation(e, o) === 'disadvantage').map((o) => `${ELEMENT_NAMES[o]} ×${elementMultiplier(e, o)}`);
+        const me = this.engine.all().find((f) => f.control === 'human');
+        const skills = me ? me.spells(e, 'attack').skills.length + me.spells(e, 'defense').skills.length : 0;
+        b.innerHTML = `<span class="block">${ELEMENT_NAMES[e]}</span><span class="mt-1 block text-[11px] font-normal leading-tight">Üstün: ${esc(strong.join(', ') || '-')}<br>Zayıf: ${esc(weak.join(', ') || '-')}${skills > 0 ? `<br>${skills} yetenek işler` : ''}</span>`;
+        b.className = 'rounded-lg px-3 py-3 text-lg font-bold text-slate-900 active:scale-95';
         b.style.background = css(ELEMENT_COLORS[e].main);
         b.addEventListener('click', () => {
           this.sfx.play('pick');
@@ -236,10 +271,10 @@ export class BattleScreen implements BattleIO {
     const bot = this.bots.get(key(ref));
     if (bot) {
       await sleep(this.arenaPause(role));
-      return role === 'attack' ? bot.drawAttack() : bot.drawDefense(ghost);
+      return role === 'attack' ? bot.drawAttack(extras?.specialShape) : bot.drawDefense();
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
-    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined);
+    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -247,10 +282,11 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
+      ${special ? this.specialPreview(special) : ''}
       <div data-canvas class="flex w-full justify-center"></div></div>`;
     const canvas = new DrawingCanvas({
       color: role === 'attack' ? css(ELEMENT_COLORS[element].main) : '#7df0c4',
@@ -304,6 +340,28 @@ export class BattleScreen implements BattleIO {
     for (const e of events) if (e.defeated) this.arena.defeat(e.ref);
   }
 
+  /**
+   * Özel büyü şekli önizlemesi: yalnızca şeklin kendisi ve adı gösterilir; nereye çizileceği gösterilmez (tuvale hiçbir şey çizilmez).
+   * Doğru çizersen hasar ×1.25.
+   */
+  private specialPreview(shape: ShapeName): string {
+    const strokes = templateStrokes(shape);
+    const pts = strokes.flat();
+    const minX = Math.min(...pts.map((p) => p.x));
+    const maxX = Math.max(...pts.map((p) => p.x));
+    const minY = Math.min(...pts.map((p) => p.y));
+    const maxY = Math.max(...pts.map((p) => p.y));
+    const k = 80 / Math.max(maxX - minX, maxY - minY, 1);
+    const ox = 10 + (80 - (maxX - minX) * k) / 2;
+    const oy = 10 + (80 - (maxY - minY) * k) / 2;
+    const paths = strokes
+      .map((s) => `<polyline fill="none" stroke="#f0abfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${s.map((p) => `${(ox + (p.x - minX) * k).toFixed(1)},${(oy + (p.y - minY) * k).toFixed(1)}`).join(' ')}"/>`)
+      .join('');
+    return `<div class="flex items-center gap-3 rounded-lg bg-fuchsia-950/80 px-3 py-1" data-special="${shape}">
+      <svg viewBox="0 0 100 100" width="56" height="56" aria-hidden="true">${paths}</svg>
+      <div class="text-xs leading-tight text-fuchsia-100"><b class="text-sm text-fuchsia-300">Özel büyü: ${esc(SHAPE_LABELS[shape])}</b><br>Bu şekli çizersen hasar <b>×1.25</b></div></div>`;
+  }
+
   async play(report: TurnReport): Promise<void> {
     const { action } = report;
     if (report.attackFailed) {
@@ -312,13 +370,25 @@ export class BattleScreen implements BattleIO {
       return;
     }
 
+    // Özel büyü şekli: çizim şekle uydu mu?
+    if (report.specialShape) {
+      const label = SHAPE_LABELS[report.specialShape];
+      const who = this.isHuman(action.attacker) ? '' : `${this.name(action.attacker)}: `;
+      await this.say(
+        this.center,
+        report.specialOk ? `✨ ${who}Özel büyü başarılı! <span class="font-normal">${esc(label)} ×1.25</span>` : `${who}Özel büyü başarısız <span class="font-normal">(${esc(label)})</span>`,
+        1000,
+        report.specialOk ? 'bg-fuchsia-800/90 text-fuchsia-50' : 'bg-slate-700/90 text-slate-200',
+      );
+    }
+
     const defense = report.defense;
     if (!report.defenseFailed && defense) {
       await this.arena.showShield(action.defender, action.attacker, defense.strokes as Stroke[], report.defenderElement);
     } else {
       void this.say(this.center, `Savunma yapılamadı! <span class="font-normal">(${this.name(action.defender)})</span>`, 1200, 'bg-red-900/80 text-red-100');
     }
-    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement, { onClash: () => void this.showFormula(report) });
+    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement);
     await this.arena.impact(action.defender, action.attacker, {
       damage: report.damage,
       blockedRatio: report.breakdown?.defendedRatio ?? 0,
@@ -360,36 +430,85 @@ export class BattleScreen implements BattleIO {
     }
   }
 
-  /** Çarpışma anında hasarın nasıl hesaplandığını gösterir: "Toprak üstün ×1.5 = 150". Büyünün rengiyle boyanır. */
-  private async showFormula(report: TurnReport): Promise<void> {
+  /** Detay ekranı: hasarın neyden ne kadar geldiği (bloklanmayan kısım, element, ekipman, yetenek, zırh...). Devam'a basınca kapanır. */
+  private showDetail(report: TurnReport): Promise<void> {
     const b = report.breakdown;
-    if (!b) return;
     const color = css(ELEMENT_COLORS[report.attackerElement].glow);
-    const rows = explainDamage(b, report.attackerElement, report.defenseFailed)
-      .map(
-        (r) =>
-          `<div class="flex justify-between gap-4"><span${r.element ? ` style="color:${color}"` : ''}>${esc(r.label)}${r.factor ? ` <b>${esc(r.factor)}</b>` : ''}</span><b class="tabular-nums">${r.value}</b></div>`,
-      )
-      .join('');
-    await this.say(
-      this.calc,
-      `<div class="min-w-[13rem] text-left text-sm font-normal"><div class="mb-1 text-center font-bold" style="color:${color}">${ELEMENT_NAMES[report.attackerElement]} büyüsü</div>${rows}<div class="mt-1 flex justify-between border-t border-white/30 pt-1 text-base font-bold"><span>Hasar</span><span class="tabular-nums">${report.damage}</span></div></div>`,
-      2200,
-      'bg-slate-900/85 text-slate-50',
-    );
+    const rows = b
+      ? explainDamage(b, report.attackerElement, report.defenseFailed)
+          .map(
+            (r) =>
+              `<div class="flex justify-between gap-4"><span${r.element ? ` style="color:${color}"` : ''}>${esc(r.label)}${r.factor ? ` <b>${esc(r.factor)}</b>` : ''}</span><b class="tabular-nums">${r.value}</b></div>`,
+          )
+          .join('')
+      : '';
+    const blocked = b ? blockedPercent(b, report.defenseFailed) : 0;
+    const panel = this.overlay('absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3');
+    panel.style.pointerEvents = 'auto';
+    panel.innerHTML = `<div class="w-full max-w-xs rounded-lg bg-slate-900/95 p-4 text-sm text-slate-50 shadow-xl">
+      <div class="mb-2 text-center font-bold" style="color:${color}">${ELEMENT_NAMES[report.attackerElement]} büyüsü: detay</div>
+      <div class="mb-2 text-center text-xs text-slate-300">Büyünün <b>%${100 - blocked}</b> kadarı bloklanmadı (%${blocked} bloklandı)</div>
+      ${rows}
+      <div class="mt-2 flex justify-between border-t border-white/30 pt-2 text-base font-bold"><span>Hasar</span><span class="tabular-nums">${report.damage}</span></div>
+      <button data-next type="button" class="mt-3 w-full rounded bg-amber-300 px-4 py-2 font-bold text-slate-900">Devam</button></div>`;
+    return new Promise((resolve) => {
+      panel.querySelector('[data-next]')!.addEventListener('click', () => {
+        panel.remove();
+        resolve();
+      });
+    });
   }
 
-  /** Vuruştan sonra büyünün etkisi: savunmayı çoğunlukla geçtiyse etkili, orta hasar verdiyse orta, iyi bloklandıysa etkisiz. */
+  /** Hasar sayısından sonra: Detay ya da Devam. Dokunulmazsa kısa süre sonra kendiliğinden devam eder. */
+  private resultPrompt(report: TurnReport): Promise<void> {
+    return new Promise((resolve) => {
+      const box = this.overlay('absolute inset-x-0 bottom-8 z-20 flex justify-center gap-3 px-2');
+      box.style.pointerEvents = 'auto';
+      box.innerHTML = `<button data-detail type="button" class="rounded bg-slate-700/90 px-5 py-2 text-sm font-bold text-amber-50">Detay</button>
+        <button data-next type="button" class="rounded bg-amber-300 px-5 py-2 text-sm font-bold text-slate-900">Devam</button>`;
+      let timer = 0;
+      const done = (): void => {
+        window.clearTimeout(timer);
+        box.remove();
+        resolve();
+      };
+      timer = window.setTimeout(done, 2500);
+      box.querySelector('[data-next]')!.addEventListener('click', done);
+      box.querySelector('[data-detail]')!.addEventListener('click', () => {
+        window.clearTimeout(timer);
+        box.remove();
+        void this.showDetail(report).then(resolve);
+      });
+    });
+  }
+
+  /**
+   * Vuruştan sonra: önce "%X bloklandı" ve etki seviyesi (çok etkisiz, etkisiz, normal, etkili, çok etkili), 2 saniye sonra hasar sayısı,
+   * sonra Detay / Devam.
+   */
   private async showEffect(report: TurnReport): Promise<void> {
     if (!report.breakdown) return;
     const effect = spellEffect(report.breakdown, report.defenseFailed);
-    const tone = effect === 'effective' ? 'bg-red-800/85 text-red-50' : effect === 'medium' ? 'bg-amber-700/85 text-amber-50' : 'bg-slate-700/85 text-slate-100';
+    const tones: Record<SpellEffect, string> = {
+      veryWeak: 'bg-slate-700/90 text-slate-200',
+      weak: 'bg-slate-600/90 text-slate-100',
+      normal: 'bg-amber-700/90 text-amber-50',
+      effective: 'bg-orange-700/90 text-orange-50',
+      veryEffective: 'bg-red-800/90 text-red-50',
+    };
+    const blocked = blockedPercent(report.breakdown, report.defenseFailed);
     await this.say(
       this.center,
-      `${report.critical ? '💥 KRİTİK! ' : ''}${EFFECT_LABELS[effect]}<br><span class="text-lg">${report.damage > 0 ? `-${report.damage} hasar` : 'hasar yok'}</span>`,
-      1500,
-      tone,
+      `<span class="text-base font-normal">%${blocked} bloklandı</span><br>${report.critical ? '💥 KRİTİK! ' : ''}${EFFECT_LABELS[effect]}`,
+      2000,
+      tones[effect],
     );
+    const q = report.attack.quality.total;
+    if (q < 0.95 && this.isHuman(report.action.attacker)) {
+      void this.say(this.calc, `✏️ Çizim kalitesi ×${q.toFixed(2)}: ${report.attack.quality.scribble < 0.95 ? 'karalama gücü düşürdü' : 'büyü tuvalin küçük bir yerine yığıldı'}`, 1800, 'bg-slate-800/90 text-amber-100');
+    }
+    await this.say(this.center, report.damage > 0 ? `<span class="text-4xl">-${report.damage}</span><br><span class="text-sm font-normal">hasar</span>` : 'hasar yok', 1200, tones[effect]);
+    await this.resultPrompt(report);
   }
 
   async announceEnd(winner: Winner, engine: BattleEngine): Promise<void> {
@@ -424,8 +543,14 @@ export class BattleScreen implements BattleIO {
   // --- Yaşam döngüsü -----------------------------------------------------------------------
 
   /** Savaşı başlatır; bitince kazananı verir. */
-  run(): Promise<Winner> {
-    return runBattle(this.engine, this, { showAttackToDefender: this.options.showAttackToDefender, signal: this.abort.signal });
+  async run(): Promise<Winner> {
+    if (this.options.intro) void this.say(this.center, this.options.intro, 2800, 'bg-slate-800/90 text-amber-100');
+    const escape = new Promise<'escaped'>((resolve) => {
+      this.escapeResolve = () => resolve('escaped');
+    });
+    const result = await Promise.race([runBattle(this.engine, this, { showAttackToDefender: this.options.showAttackToDefender, signal: this.abort.signal }), escape]);
+    // Çıkıldıysa kazanan yoktur (savaş yarıda kaldı)
+    return result === 'escaped' ? this.engine.winner : result;
   }
 
   dispose(): void {

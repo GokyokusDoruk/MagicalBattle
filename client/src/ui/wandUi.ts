@@ -1,8 +1,6 @@
 import { ELEMENT_NAMES } from '../battle/damage/elements';
 import { describePassive } from '../wands/passives';
 import {
-  ELEMENT_COLORS,
-  ELEMENT_MATCH,
   RARITY_COLORS,
   RARITY_NAMES,
   ROLE_NAMES,
@@ -22,11 +20,22 @@ export interface WandUiDeps {
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-const title = (w: WandDef): string =>
-  `<span style="color:${ELEMENT_COLORS[w.element]}">●</span> <span style="color:${RARITY_COLORS[w.rarity]}">${esc(w.name)}</span>`;
+/**
+ * Asanın yazı rengi elementini, arka fonu okunurluğu belirler (Task 59): ateş kırmızı, su mavi, hava beyaz, toprak kahverengi.
+ * Kahverengi koyu fonda okunmadığı için toprak asaları açık krem fonda, diğerleri koyu fonda gösterilir.
+ */
+export const WAND_TEXT: Record<WandDef['element'], { text: string; sub: string; bg: string }> = {
+  fire: { text: '#f87171', sub: '#fca5a5', bg: '#2a1215' },
+  water: { text: '#60a5fa', sub: '#93c5fd', bg: '#0f1f3d' },
+  air: { text: '#f8fafc', sub: '#cbd5e1', bg: '#1f2937' },
+  earth: { text: '#7c3f06', sub: '#92571a', bg: '#f3e9d2' },
+};
+
+/** Nadirliğe göre çerçeve: rengi nadirlik rengidir; yüksek nadirlikte hafif parıltı */
+const frame = (w: WandDef): string => `border:2px solid ${RARITY_COLORS[w.rarity]};${w.rarity >= 4 ? `box-shadow:0 0 8px ${RARITY_COLORS[w.rarity]}66;` : ''}`;
 
 /**
- * Asa ekranı (W): aynı anda TEK asa kuşanılır. Sahip olunan asalar listelenir; seviyesi oyuncudan yüksek olan
+ * Asa ekranı (Q): aynı anda TEK asa kuşanılır. Sahip olunan asalar listelenir; seviyesi oyuncudan yüksek olan
  * asa kuşanılamaz.
  */
 export class WandUi {
@@ -71,19 +80,15 @@ export class WandUi {
     this.element.innerHTML = '';
   }
 
-  private equippedHtml(): string {
-    const w = this.deps.wands.equippedWand;
-    if (!w) return '<p class="text-sm text-slate-400" data-equipped>Kuşanılı asa yok: büyülerin asasız (etkisiz) çalışır.</p>';
-    const pct = (v: number): string => `${v >= 1 ? '+' : '-'}%${Math.round(Math.abs(v - 1) * 100)}`;
-    return `<div data-equipped class="flex items-start justify-between gap-2">
-      <div><div class="font-bold">${title(w)} <span class="text-slate-300">Sv ${w.level}</span></div>
-        <div class="text-[11px] text-slate-400">${esc(ELEMENT_NAMES[w.element])} · ${esc(ROLE_NAMES[w.role])} · ${esc(RARITY_NAMES[w.rarity])}</div>
-        <ul class="mt-1 list-disc pl-4 text-xs text-slate-200">
-          <li>Saldırı hasarı ${pct(w.attackMultiplier)} (${esc(ELEMENT_NAMES[w.element])} büyüsünde ${pct(w.attackMultiplier * ELEMENT_MATCH)})</li>
-          <li>Savunma gücü ${pct(w.defenseMultiplier)}</li>
-          <li>Büyü süresi +${w.timeBonusSec.toFixed(2)} sn</li>
-          <li class="text-emerald-300" data-passive>Pasif: ${esc(describePassive(w.element))}${this.deps.wands.usable(w.id) ? '' : ' (seviyen yetmiyor)'}</li></ul></div>
-      <button type="button" data-action="unequip" class="rounded bg-slate-700 px-2 py-1 text-xs">Çıkar</button></div>`;
+  /** Bir asa satırı: ad (elementin renginde), solda; seviye sağda. Çerçeve nadirlik renginde, arka fon okunurluğa göre. */
+  private rowHtml(w: WandDef, extra: string, locked: boolean, count?: number): string {
+    const c = WAND_TEXT[w.element];
+    return `<li data-wand="${w.id}" title="${esc(describeWand(w).join(' · '))}" class="flex items-center gap-2 rounded-lg px-3 py-2 ${locked ? 'opacity-60' : ''}" style="background:${c.bg};${frame(w)}">
+      <div class="min-w-0 flex-1">
+        <div class="truncate text-sm font-bold" style="color:${c.text}">${esc(w.name)}${count && count > 1 ? ` <span style="color:${c.sub}">×${count}</span>` : ''}</div>
+        <div class="truncate text-[11px]" style="color:${c.sub}">${esc(ELEMENT_NAMES[w.element])} · ${esc(ROLE_NAMES[w.role])} · ${esc(RARITY_NAMES[w.rarity])}</div></div>
+      <div class="shrink-0 text-right text-sm font-bold" style="color:${locked ? '#ef4444' : c.text}" data-level>Sv ${w.level}</div>
+      ${extra}</li>`;
   }
 
   /** Açıksa yeniden çizer (oyuncu seviyesi değişince seviye şartları güncellenir). */
@@ -95,35 +100,34 @@ export class WandUi {
     if (!this.opened) return;
     const { wands } = this.deps;
     const level = this.deps.level();
-    const rows = wands
+    const eq = wands.equippedWand;
+    const equipped = eq
+      ? `<ul data-equipped>${this.rowHtml(eq, '<button type="button" data-action="unequip" class="shrink-0 rounded bg-slate-700 px-2 py-1 text-xs font-bold text-amber-50">Çıkar</button>', false)}</ul>
+         <p class="mt-1 text-[11px] text-emerald-300" data-passive>Pasif: ${esc(describePassive(eq.element))}${wands.usable(eq.id) ? '' : ' (seviyen yetmiyor)'}</p>`
+      : '<p class="text-sm text-slate-400" data-equipped>Kuşanılan asa yok: büyülerin asasız (etkisiz) çalışır.</p>';
+    const others = wands
       .owned()
+      .filter(({ id }) => !wands.isEquipped(id))
       .map(({ id, count }) => {
         const w = getWand(id)!;
-        const isEq = wands.isEquipped(id);
         const locked = w.level > level;
-        return `<li data-wand="${id}" class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900 p-2">
-          <div class="min-w-0">
-            <div class="text-sm font-bold">${title(w)} <span class="${locked ? 'text-red-300' : 'text-slate-300'}">Sv ${w.level}</span> <span class="text-slate-400">×${count}</span>${isEq ? ' <span class="text-[11px] text-sky-300">(kuşanılı)</span>' : ''}</div>
-            <div class="text-[11px] text-slate-400">${esc(describeWand(w).join(' · '))}</div>
-            ${locked ? `<div class="text-[11px] text-red-300">${w.level}. seviyeye gelene kadar kullanılamaz</div>` : ''}</div>
-          <div class="flex gap-1">
-            ${isEq ? '' : `<button type="button" data-action="equip" data-id="${id}" ${locked ? 'disabled' : ''} class="rounded bg-sky-400 px-2 py-1 text-xs font-bold text-slate-900 disabled:opacity-40">Kuşan</button>`}
-          </div></li>`;
+        const button = `<button type="button" data-action="equip" data-id="${id}" ${locked ? 'disabled' : ''} class="shrink-0 rounded bg-sky-400 px-2 py-1 text-xs font-bold text-slate-900 disabled:opacity-40">Kuşan</button>`;
+        return this.rowHtml(w, button, locked, count);
       })
       .join('');
 
     this.element.innerHTML = `
-      <div class="flex max-h-full w-full max-w-xl flex-col gap-3 rounded-xl border border-amber-300/40 bg-slate-950 p-4 text-amber-50 shadow-2xl">
+      <div class="flex max-h-full w-full max-w-md flex-col gap-3 rounded-xl border border-amber-300/40 bg-slate-950 p-4 text-amber-50 shadow-2xl">
         <div class="flex items-start justify-between gap-2">
           <div><h2 class="text-lg font-bold text-amber-300">Asalar</h2>
-            <p class="text-xs italic text-slate-300" data-message>${esc(this.message || `Aynı anda tek asa kuşanılır. Asa, seviyene (${level}) gelene kadar kullanılamaz.`)}</p></div>
+            <p class="text-xs italic text-slate-300" data-message>${esc(this.message || `Asanın seviyesi senin seviyenden (${level}) büyük olamaz.`)}</p></div>
           <button type="button" data-action="close" class="rounded bg-white/10 px-2 py-1 text-sm hover:bg-white/20" aria-label="Kapat">✕</button>
         </div>
-        <div class="rounded-lg bg-slate-900 p-3"><h3 class="mb-1 text-sm font-bold text-amber-200">Kuşanılı asa</h3>${this.equippedHtml()}</div>
-        <div data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
-          <h3 class="mb-1 text-sm font-bold text-amber-200">Asaların</h3>
-          ${rows ? `<ul class="flex flex-col gap-2">${rows}</ul>` : '<p class="text-sm text-slate-400">Hiç asan yok. Tüccarlar asa satar.</p>'}
-        </div>
+        <section><h3 class="mb-1 text-sm font-bold text-amber-200">Kuşanılan asa</h3>${equipped}</section>
+        <section data-scrollable style="touch-action:pan-y" class="min-h-0 flex-1 overflow-y-auto pr-1">
+          <h3 class="mb-1 text-sm font-bold text-amber-200">Sahip olduğun diğer asalar</h3>
+          ${others ? `<ul class="flex flex-col gap-2">${others}</ul>` : '<p class="text-sm text-slate-400">Başka asan yok. Tüccarlar asa satar.</p>'}
+        </section>
       </div>`;
   }
 

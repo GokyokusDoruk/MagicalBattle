@@ -303,17 +303,27 @@ export class ArenaView {
     // 2) Yüklenir (parlama)
     await this.tweens.add(0.3, (t) => visual.group.scale.setScalar(0.9 + Math.sin(t * Math.PI) * 0.2));
 
-    // 3) Fırlar
+    // 3) Fırlar. Savunma varsa iki büyü ARENANIN ORTASINDA, tam aynı noktada buluşur: kalkan da öne gelir
     this.sounds?.launch(element);
-    const end = this.shield && slotKey(this.shield.owner) === slotKey(to)
-      ? this.shield.visual.group.position.clone()
-      : targetPos.clone().add(new THREE.Vector3(0, 1.7, 0));
-    const mid = hold.clone().lerp(end, 0.5).add(new THREE.Vector3(0, 1.8, 0));
+    const hasShield = Boolean(this.shield && slotKey(this.shield.owner) === slotKey(to));
+    const shieldVisual = hasShield ? this.shield!.visual : null;
+    const shieldStart = shieldVisual ? shieldVisual.group.position.clone() : null;
+    const meet = casterPos.clone().lerp(targetPos, 0.5).add(new THREE.Vector3(0, 2.4, 0));
+    const end = hasShield ? meet : targetPos.clone().add(new THREE.Vector3(0, 1.7, 0));
+    const mid = hold.clone().lerp(end, 0.5).add(new THREE.Vector3(0, hasShield ? 1.2 : 1.8, 0));
     await this.tweens.add(0.8, (t) => {
       const k = easeInOut(t);
       const p = quadBezier(hold, mid, end, k);
       visual.group.position.copy(p);
-      visual.group.scale.setScalar(0.9 - 0.4 * k);
+      visual.group.scale.setScalar(hasShield ? 0.9 - 0.1 * k : 0.9 - 0.4 * k);
+      // Kalkan, büyüyü karşılamak için ortaya ilerler; ikisi aynı noktada, aynı boyda buluşur
+      if (shieldVisual && shieldStart) {
+        const m = easeInOut(clamp01((t - 0.1) / 0.8));
+        shieldVisual.group.position.lerpVectors(shieldStart, end, m);
+        shieldVisual.group.scale.setScalar(0.95 - 0.15 * m);
+      }
+      // Yaklaşırken zaman yavaşlar: çarpışma anına doğru her şey ağırlaşır
+      this.timeScale = hasShield ? 1 - 0.65 * clamp01((t - 0.6) / 0.4) : 1;
       this.particles.emit(p, { color: colors.glow, count: 5, speed: 1.1, life: 0.55 });
       // Yatay ekranda yandan geniş çekim, dikeyde düello ekseninin arkasından
       this.director.setShot({
@@ -323,17 +333,27 @@ export class ArenaView {
         lookAt: p.clone().add(new THREE.Vector3(0, 0.2, 0)),
       });
     });
-    // 4) Çarpışma: savunma varsa iki büyü birbirine girer, yavaş çekimde (1-2 sn) kıvılcımlar saçılır
-    const hasShield = Boolean(this.shield && slotKey(this.shield.owner) === slotKey(to));
+    // 4) Çarpışma: savunma varsa iki büyü birbirine girer; kamera yandan yaklaşır, zaman çok yavaşlar (~3.5 sn) ve kıvılcımlar saçılır
     hooks.onClash?.();
-    this.timeScale = hasShield ? 0.2 : 0.3;
-    const shieldVisual = hasShield ? this.shield!.visual : null;
+    if (hasShield) {
+      this.timeScale = 0.09;
+      this.director.setShot({
+        position: meet.clone().add(side.clone().multiplyScalar(5.2 * this.closeScale)).add(new THREE.Vector3(0, 0.6, 0)),
+        lookAt: meet.clone(),
+      });
+    } else {
+      this.timeScale = 0.3;
+    }
     await this.tweens.add(hasShield ? 0.32 : 0.2, (t) => {
       const pulse = Math.sin(t * Math.PI * 6) * 0.05;
-      visual.group.scale.setScalar(0.5 + t * 0.1 + pulse);
-      shieldVisual?.group.scale.setScalar(0.95 + pulse * 1.6);
-      this.particles.emit(end, { color: colors.glow, count: 4, speed: 3.2, life: 0.7 });
-      if (hasShield) this.particles.emit(end, { color: SHIELD_COLORS.glow, count: 2, speed: 2.4, life: 0.7 });
+      // İki büyü birbirine bastırır: hafif titreşim ve büyüyen parıltı
+      const shake = hasShield ? Math.sin(t * 90) * 0.035 * (0.4 + t) : 0;
+      visual.group.scale.setScalar(hasShield ? 0.8 + t * 0.08 + pulse : 0.5 + t * 0.1 + pulse);
+      visual.group.position.set(end.x + shake, end.y + shake * 0.6, end.z);
+      shieldVisual?.group.scale.setScalar(0.8 + t * 0.08 + pulse * 1.4);
+      shieldVisual?.group.position.set(end.x - shake, end.y - shake * 0.6, end.z);
+      this.particles.emit(end, { color: colors.glow, count: hasShield ? 7 : 4, speed: hasShield ? 4.2 : 3.2, life: hasShield ? 1.1 : 0.7 });
+      if (hasShield) this.particles.emit(end, { color: SHIELD_COLORS.glow, count: 4, speed: 3.4, life: 1.1 });
     });
     this.timeScale = 1;
     this.removeSpell(visual);

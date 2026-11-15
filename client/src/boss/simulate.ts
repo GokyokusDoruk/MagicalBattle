@@ -37,11 +37,12 @@ export function simulateBoss(
     else bots.set(k, new Bot(rand, f.ai?.skill ?? 0.5, f.ai ?? {}));
   }
   const botFor = (ref: SlotRef): Bot => bots.get(`${ref.team}:${ref.index}`)!;
+  const isPlayerProxy = (ref: SlotRef): boolean => engine.fighter(ref).control === 'human';
   const io: BattleIO = {
     announceTurn: async () => {},
     chooseElement: async (ref) => botFor(ref).chooseElement(),
     revealRound: async () => {},
-    draw: async (ref, role, ghost) => (role === 'attack' ? botFor(ref).drawAttack() : botFor(ref).drawDefense(boss.gimmick?.hideGhost ? undefined : ghost)),
+    draw: async (ref, role, ghost, _limit, extras) => (role === 'attack' ? botFor(ref).drawAttack(extras?.specialShape) : isPlayerProxy(ref) ? botFor(ref).drawDefenseSeeing(ghost) : botFor(ref).drawDefense()),
     play: async (r) => {
       botFor(r.action.defender).onDamaged(r.damage, engine.fighter(r.action.defender).maxHp);
     },
@@ -108,11 +109,12 @@ export async function simulateEnemy(
     else bots.set(k, new Bot(rand, f.ai?.skill ?? 0.5, f.ai ?? {}));
   }
   const botFor = (ref: SlotRef): Bot => bots.get(`${ref.team}:${ref.index}`)!;
+  const isPlayerProxy = (ref: SlotRef): boolean => engine.fighter(ref).control === 'human';
   const io: BattleIO = {
     announceTurn: async () => {},
     chooseElement: async (ref) => botFor(ref).chooseElement(),
     revealRound: async () => {},
-    draw: async (ref, role, ghost) => (role === 'attack' ? botFor(ref).drawAttack() : botFor(ref).drawDefense(ghost)),
+    draw: async (ref, role, ghost, _limit, extras) => (role === 'attack' ? botFor(ref).drawAttack(extras?.specialShape) : isPlayerProxy(ref) ? botFor(ref).drawDefenseSeeing(ghost) : botFor(ref).drawDefense()),
     play: async (r) => void botFor(r.action.defender).onDamaged(r.damage, engine.fighter(r.action.defender).maxHp),
     announceEnd: async () => {},
   };
