@@ -26,7 +26,7 @@ const title = (w: WandDef): string =>
   `<span style="color:${ELEMENT_COLORS[w.element]}">●</span> <span style="color:${RARITY_COLORS[w.rarity]}">${esc(w.name)}</span>`;
 
 /**
- * Asa ekranı (W): aynı anda TEK asa kuşanılır. Sahip olunan asalar listelenir; seviyesi oyuncudan yüksek olan
+ * Asa ekranı (Q): aynı anda TEK asa kuşanılır. Sahip olunan asalar listelenir; seviyesi oyuncudan yüksek olan
  * asa kuşanılamaz.
  */
 export class WandUi {

@@ -642,11 +642,11 @@ async function playChapter(chapter: number): Promise<void> {
     chapterBusy = false;
   }
 }
-// K: yetenek ağacı, W: asalar (sahne ya da tüccar açıkken açılmaz)
+// K: yetenek ağacı, Q: asalar (W yukarı yürümek içindir) (sahne ya da tüccar açıkken açılmaz)
 window.addEventListener('keydown', (e) => {
   if (e.repeat || story.isOpen || merchantUi.isOpen || dialogueUi.isOpen || exitDropUi.isOpen) return;
   if (e.code === 'KeyK' && !otherOpen(skillUi)) skillUi.toggle();
-  if (e.code === 'KeyW' && !otherOpen(wandUi)) wandUi.toggle();
+  if (e.code === 'KeyQ' && !otherOpen(wandUi)) wandUi.toggle();
   if (e.code === 'KeyB' && !otherOpen(bagUi)) bagUi.toggle();
   if (e.code === 'KeyJ' && !otherOpen(questLog)) questLog.toggle();
 });
