@@ -22,6 +22,9 @@ export const PILE_KEY = 'ground-pile';
 /** Dünya düşmanı dokusunun anahtarı (elemente göre) */
 export const mineKey = (element: string): string => `mine-${element}`;
 export const CHEST_KEY = 'chest';
+/** Ana görev işareti: altın bayrak ve yerde parlayan halka (eskiden sarı "!" yazısıydı) */
+export const QUEST_FLAG_KEY = 'quest-flag';
+export const QUEST_RING_KEY = 'quest-ring';
 /** Çalılıkta karakterin önüne gelen yaprak katmanı (karakterin alt yarısını örter) */
 export const BUSH_KEY = 'bush-front';
 export const enemyKey = (element: string): string => `enemy-${element}`;
@@ -58,17 +61,40 @@ export function createWorldItemTextures(scene: Scene): void {
   g.generateTexture(PILE_KEY, 28, 30);
   g.clear();
 
-  // Dünya düşmanları: elementin renginde yuvarlak yaratık, kızgın gözler ve dikenler
+  // Dünya düşmanları (Task 60): elementin renginde cüppeli büyücüler: sivri şapka, yüz, cüppe ve ucunda elementin küresi olan asa (34x44)
   for (const [el, [body, light]] of Object.entries(ENEMY_COLORS)) {
-    g.fillStyle(0x000000, 0.25).fillEllipse(16, 29, 22, 6);
-    g.fillStyle(body, 1).fillCircle(16, 17, 12);
-    g.fillTriangle(8, 9, 11, 1, 14, 8).fillTriangle(18, 8, 21, 1, 24, 9);
-    g.fillStyle(light, 1).fillCircle(13, 14, 3).fillCircle(20, 14, 3);
-    g.fillStyle(0x111111, 1).fillCircle(13, 15, 1.5).fillCircle(20, 15, 1.5);
-    g.fillStyle(0x111111, 1).fillRect(12, 21, 9, 2);
-    g.generateTexture(enemyKey(el), 32, 32);
+    g.fillStyle(0x000000, 0.25).fillEllipse(16, 40, 24, 6);
+    // cüppe
+    g.fillStyle(body, 1).fillTriangle(16, 16, 4, 40, 28, 40);
+    g.fillStyle(0x000000, 0.18).fillTriangle(16, 16, 16, 40, 28, 40);
+    g.fillStyle(light, 0.9).fillRect(9, 30, 14, 2);
+    // yüz ve gözler
+    g.fillStyle(0xf0c8a0, 1).fillCircle(16, 15, 6);
+    g.fillStyle(0x111111, 1).fillCircle(14, 15, 1).fillCircle(18.5, 15, 1);
+    // şapka (sivri uçlu, geniş kenarlı)
+    g.fillStyle(body, 1).fillTriangle(16, 0, 8, 12, 24, 12);
+    g.fillStyle(light, 1).fillRect(6, 11, 20, 2.5);
+    g.fillStyle(0x000000, 0.2).fillTriangle(16, 0, 16, 12, 24, 12);
+    // asa ve küre
+    g.fillStyle(0x8a5a2b, 1).fillRect(27, 12, 2, 28);
+    g.fillStyle(light, 1).fillCircle(28, 10, 3.5);
+    g.fillStyle(0xffffff, 0.7).fillCircle(27, 9, 1.2);
+    g.generateTexture(enemyKey(el), 34, 44);
     g.clear();
   }
+
+  // Ana görev işareti: altın bayrak (direk, dalgalı bayrak, yıldız) ve yerde altın halka
+  g.fillStyle(0x6b4423, 1).fillRect(11, 6, 2.5, 32);
+  g.fillStyle(0xfbbf24, 1).fillTriangle(13.5, 7, 30, 13, 13.5, 21);
+  g.fillStyle(0xf59e0b, 1).fillTriangle(13.5, 15, 30, 13, 13.5, 21);
+  g.fillStyle(0xfff7c2, 1).fillCircle(12, 5, 3.2);
+  g.lineStyle(1.5, 0x92400e, 1).strokeTriangle(13.5, 7, 30, 13, 13.5, 21);
+  g.generateTexture(QUEST_FLAG_KEY, 34, 40);
+  g.clear();
+  g.lineStyle(3, 0xfde047, 0.9).strokeEllipse(20, 8, 34, 12);
+  g.lineStyle(1.5, 0xffffff, 0.6).strokeEllipse(20, 8, 26, 8);
+  g.generateTexture(QUEST_RING_KEY, 40, 16);
+  g.clear();
 
   // Korumalı sandık: ahşap gövde, altın kaplama ve kilit
   g.fillStyle(0x000000, 0.25).fillEllipse(16, 27, 26, 6);
