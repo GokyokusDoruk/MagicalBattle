@@ -32,6 +32,8 @@ export interface WorldFightOptions {
   escape?: { bribe?: BribeOption };
   /** Savaş başlarken gösterilen ganimet satırı */
   lootHint?: string;
+  /** Zaferden sonra, savaş ekranı kapanıp dünyaya dönülmeden önce çağrılır (ganimet paneli burada gösterilir) */
+  onWon?: (root: HTMLElement, hp: number) => Promise<void>;
 }
 
 /**
@@ -65,7 +67,11 @@ export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp:
     screen.dispose();
     if (escaped === 'bribe') return bribe?.pay() ? { outcome: 'bribed', hp: null } : { outcome: 'retreat', hp: null };
     if (escaped === 'flee') return { outcome: 'retreat', hp: null };
-    if (winner === 0) return { outcome: 'won', hp: engine.fighter({ team: 0, index: 0 }).hp };
+    if (winner === 0) {
+      const hp = engine.fighter({ team: 0, index: 0 }).hp;
+      await options.onWon?.(root, hp);
+      return { outcome: 'won', hp };
+    }
     return { outcome: 'lost', hp: null };
   } finally {
     root.remove();
