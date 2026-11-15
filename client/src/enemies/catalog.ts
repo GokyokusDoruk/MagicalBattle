@@ -20,10 +20,10 @@ export interface EnemyKind {
 }
 
 export const ENEMY_KINDS: Readonly<Record<Element, EnemyKind>> = {
-  fire: { element: 'fire', name: 'Köz Cini', material: 'kor-baharati' },
-  water: { element: 'water', name: 'Dalga Hayaleti', material: 'derin-inci' },
-  earth: { element: 'earth', name: 'Taş Bekçi', material: 'tas-cevheri' },
-  air: { element: 'air', name: 'Fırtına Kurdu', material: 'bulut-ipegi' },
+  fire: { element: 'fire', name: 'Ateş Büyücüsü', material: 'kor-baharati' },
+  water: { element: 'water', name: 'Su Büyücüsü', material: 'derin-inci' },
+  earth: { element: 'earth', name: 'Toprak Büyücüsü', material: 'tas-cevheri' },
+  air: { element: 'air', name: 'Hava Büyücüsü', material: 'bulut-ipegi' },
 };
 
 /** Kademeye göre düşmanın seviyesi (can, güç ve ödül buradan gelir) */
@@ -51,11 +51,17 @@ export const ENEMY_TUNING: Readonly<Record<Tier, { hp: number; power: number }>>
   4: { hp: 1.9, power: 1.55 },
 };
 
+/** Düşmanın görünen adı: "5. seviye Ateş Büyücüsü"; en güçlü kademe "14. seviye Kadim Ateş Büyücüsü". */
+export function enemyTitle(element: Element, tier: Tier): string {
+  const kind = ENEMY_KINDS[element].name;
+  return `${TIER_LEVEL[tier]}. seviye ${tier === 4 ? 'Kadim ' : ''}${kind}`;
+}
+
 /** Bir düşmanın sayıları. Boss'lardan belirgin zayıftır (Vael: 310 can, 115 güç). */
 export function enemyStats(element: Element, tier: Tier): EnemyStats {
   const level = TIER_LEVEL[tier];
   return {
-    name: tier === 4 ? `Kadim ${ENEMY_KINDS[element].name}` : ENEMY_KINDS[element].name,
+    name: enemyTitle(element, tier),
     level,
     hp: Math.round((90 + level * 12) * ENEMY_TUNING[tier].hp),
     basePower: Math.round((60 + level * 2) * ENEMY_TUNING[tier].power),

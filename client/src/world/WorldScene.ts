@@ -3,13 +3,14 @@ import type { Axis } from '../input/axis';
 import { GridMover } from './gridMove';
 import { isLockedGateAt, type GateRegistry } from './gates';
 import { tileAt, type WorldMap } from './generateMap';
+import { enemyTitle } from '../enemies/catalog';
 import { CityEntryTracker, cityAt, locationAt } from '../save/cityEntry';
 import type { MerchantSpot } from './merchantSpots';
 import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
-import { BUSH_KEY, CHEST_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
+import { BUSH_KEY, CHEST_KEY, QUEST_FLAG_KEY, QUEST_RING_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
 import { Tile, TILE_SIZE, isBlockedTile } from './tiles';
 
 const GATE_NOTICE_RANGE = TILE_SIZE * 1.6;
@@ -20,6 +21,9 @@ const PILE_RANGE = TILE_SIZE * 0.9;
 const ENEMY_RANGE = TILE_SIZE * 0.8;
 
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
+/** Düşman isim etiketlerinin rengi (elementine göre: ateş kırmızı, su mavi, toprak kahverengi, hava beyaz) */
+const ENEMY_LABEL_COLORS: Record<string, string> = { fire: '#fca5a5', water: '#93c5fd', earth: '#e0b36a', air: '#f8fafc' };
+
 export interface WorldContext {
   map: WorldMap;
   /** Yumuşak arazi görseli (world/terrainTexture.ts); harita bununla çizilir */
@@ -75,7 +79,9 @@ export class WorldScene extends Phaser.Scene {
   private bushes: Phaser.GameObjects.Image[] = [];
   /** Kare kare hareket (Task 39) */
   private mover!: GridMover;
-  private markerSprites = new Map<string, Phaser.GameObjects.Text>();
+  private markerSprites = new Map<string, Phaser.GameObjects.Container>();
+  /** Düşman isim etiketleri: oyuncu yaklaşınca görünür (seviye ve element) */
+  private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private insideMarkers = new Set<string>();
   private lastGateNotice = new Map<string, number>();
   private cityTracker = new CityEntryTracker();
@@ -152,19 +158,13 @@ export class WorldScene extends Phaser.Scene {
 
   /** Sarı [!] işaretleri; yalnızca aktif bölümlerinki görünür ve hafifçe sallanır. */
   private createMarkerSprites(): void {
+    // Ana görev işareti: altın bayrak, yerde nabız gibi atan halka (Task 60; eskiden sarı "!" yazısıydı)
     for (const m of MAIN_QUEST_MARKERS) {
-      const sprite = this.add
-        .text(m.px, m.py - TILE_SIZE * 0.5, '!', {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '30px',
-          fontStyle: 'bold',
-          color: '#ffd23f',
-          stroke: '#3a2a00',
-          strokeThickness: 5,
-        })
-        .setOrigin(0.5)
-        .setDepth(8);
-      this.tweens.add({ targets: sprite, y: sprite.y - 6, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const ring = this.add.image(0, 2, QUEST_RING_KEY);
+      const flag = this.add.image(0, -4, QUEST_FLAG_KEY).setOrigin(0.5, 1);
+      const sprite = this.add.container(m.px, m.py + 8, [ring, flag]).setDepth(8);
+      this.tweens.add({ targets: flag, y: -8, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.tweens.add({ targets: ring, scaleX: 1.25, scaleY: 1.25, alpha: 0.45, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.markerSprites.set(m.id, sprite);
     }
   }
@@ -184,6 +184,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.movePlayer(delta);
     this.updateBushes(time);
+    this.updateEnemyLabels();
     this.checkGates(time);
     this.checkMarkers();
     this.checkCityEntry();
@@ -222,6 +223,16 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     for (let i = used; i < this.bushes.length; i++) this.bushes[i].setVisible(false);
+  }
+
+  /** Düşman isimleri yalnızca yaklaşınca görünür ("5. seviye Ateş Büyücüsü"); uzaktakiler ve yenilenler gizli. */
+  private updateEnemyLabels(): void {
+    for (const spot of this.ctx.enemies ?? []) {
+      const label = this.enemyLabels.get(spot.id);
+      if (!label) continue;
+      const near = Math.hypot(spot.tileX * TILE_SIZE + TILE_SIZE / 2 - this.pos.x, spot.tileY * TILE_SIZE + TILE_SIZE / 2 - this.pos.y) <= TILE_SIZE * 7;
+      label.setVisible(near && (this.ctx.isEnemyActive?.(spot.id) ?? true));
+    }
   }
 
   /** Kare kare yürür: yön girdisi karo karo adımlara çevrilir, hız çarpanı (ayakkabı, hava asası) adımı kısaltır. */
@@ -273,9 +284,16 @@ export class WorldScene extends Phaser.Scene {
     for (const spot of this.ctx.enemies ?? []) {
       const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
       const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
-      const sprite = this.add.image(x, y, enemyKey(spot.element)).setDepth(6);
-      this.tweens.add({ targets: sprite, y: y - 4, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      // Büyücü: kademe yükseldikçe biraz büyür (kadimler en büyük)
+      const sprite = this.add.image(x, y + 6, enemyKey(spot.element)).setOrigin(0.5, 0.85).setDepth(6).setScale(1 + (spot.tier - 1) * 0.1);
+      this.tweens.add({ targets: sprite, y: y + 2, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.enemySprites.set(spot.id, sprite);
+      const label = this.add
+        .text(x, y - 30, enemyTitle(spot.element, spot.tier), { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: ENEMY_LABEL_COLORS[spot.element], stroke: '#000000', strokeThickness: 3 })
+        .setOrigin(0.5)
+        .setDepth(7)
+        .setVisible(false);
+      this.enemyLabels.set(spot.id, label);
     }
   }
 
