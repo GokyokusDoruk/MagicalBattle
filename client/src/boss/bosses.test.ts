@@ -132,7 +132,7 @@ describe('denge simülasyonu (vekil oyuncu, tohumlu)', () => {
 
   it('hedef seviyede boss yenilebilir ama kolay değil', async () => {
     for (const b of BOSSES) {
-      const rate = await winRate(b.chapter, typicalKit(b.targetLevel), SKILL, RUNS);
+      const rate = await winRate(b.chapter, typicalKit(b.targetLevel, { skills: true }), SKILL, RUNS);
       expect(rate, `bölüm ${b.chapter} hedef seviyede`).toBeGreaterThanOrEqual(0.3);
       expect(rate, `bölüm ${b.chapter} hedef seviyede`).toBeLessThanOrEqual(0.99);
     }
@@ -164,8 +164,8 @@ describe('denge simülasyonu (vekil oyuncu, tohumlu)', () => {
   }, 60000);
 
   it('Karanlık yolda tek başına Malakor, Düzen yolundaki 2v2 kadar zor olmayacak şekilde ayarlı', async () => {
-    const order = await winRate(8, typicalKit(20), SKILL, RUNS, 'order');
-    const dark = await winRate(8, typicalKit(20), SKILL, RUNS, 'dark');
+    const order = await winRate(8, typicalKit(20, { skills: true }), SKILL, RUNS, 'order');
+    const dark = await winRate(8, typicalKit(20, { skills: true }), SKILL, RUNS, 'dark');
     expect(dark).toBeGreaterThan(0.2);
     expect(order).toBeGreaterThan(0.2);
   }, 60000);

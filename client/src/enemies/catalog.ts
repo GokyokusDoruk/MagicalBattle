@@ -40,17 +40,28 @@ export interface EnemyStats {
   xp: number;
 }
 
+/**
+ * Denge turu (Task 46): yetenekli vekil oyuncuya (tipik kit, beceri 0.6) karşı hedefler: kademe 1 ~%95 galibiyet / ~%25 can kaybı,
+ * kademe 2 ~%92 / %40, kademe 3 ~%85 / %55, kademe 4 ~%75 / %65. Çarpanlar can ve güce uygulanır.
+ */
+export const ENEMY_TUNING: Readonly<Record<Tier, { hp: number; power: number }>> = {
+  1: { hp: 1.5, power: 1.3 },
+  2: { hp: 1.6, power: 1.35 },
+  3: { hp: 1.75, power: 1.45 },
+  4: { hp: 1.9, power: 1.55 },
+};
+
 /** Bir düşmanın sayıları. Boss'lardan belirgin zayıftır (Vael: 310 can, 115 güç). */
 export function enemyStats(element: Element, tier: Tier): EnemyStats {
   const level = TIER_LEVEL[tier];
   return {
     name: tier === 4 ? `Kadim ${ENEMY_KINDS[element].name}` : ENEMY_KINDS[element].name,
     level,
-    hp: 90 + level * 12,
-    basePower: 60 + level * 2,
+    hp: Math.round((90 + level * 12) * ENEMY_TUNING[tier].hp),
+    basePower: Math.round((60 + level * 2) * ENEMY_TUNING[tier].power),
     armor: Math.min(0.2, 0.01 * level),
     skill: Math.min(0.55, 0.2 + level * 0.02),
-    money: 6 + level * 3,
+    money: 6 + level * 4,
     xp: 12 + level * 6,
   };
 }

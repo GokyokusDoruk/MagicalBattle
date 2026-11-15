@@ -6,6 +6,11 @@ import { MAX_CYCLES } from '../battle/flow/config';
 import { BattleEngine } from '../battle/flow/engine';
 import { ElysiaBot } from '../battle/flow/elysia';
 import { WandInventory } from '../wands/inventory';
+import type { Element } from '../battle/damage/elements';
+import { enemyFighters, type Tier } from '../enemies/catalog';
+import { skillsOf } from '../skills/catalog';
+import type { Passives, SpellResolver } from '../skills/resolver';
+import { SkillTree } from '../skills/tree';
 import { wandIdOf, type Rarity } from '../wands/catalog';
 import { bossFighters, getBoss, type PlayerStats } from './bosses';
 import type { FinalPath } from '../morality/morality';
@@ -50,7 +55,7 @@ export function simulateBoss(
  * başına %1.2 (en çok %40) ve bir **saldırı asası** (ateş; nadirlik seviyeyle artar: her 6 seviyede bir, seviyesi oyuncu seviyesi).
  * Gerçek oyuncu bunu farklı yollardan elde eder; amaç bossların birbirine göre zorluğunu ölçmektir.
  */
-export function typicalKit(level: number, options: { wand?: boolean } = {}): PlayerStats {
+export function typicalKit(level: number, options: { wand?: boolean; skills?: boolean } = {}): PlayerStats {
   const inv = new WandInventory();
   inv.setLevelProvider(() => level);
   if (options.wand !== false) {
@@ -63,6 +68,7 @@ export function typicalKit(level: number, options: { wand?: boolean } = {}): Pla
     armor: Math.min(0.4, 0.012 * level),
     dealtMultiplier: Math.min(1.4, 1 + 0.015 * (level - 1)),
     wands: inv.resolver,
+    ...(options.skills ? typicalSkills(level) : {}),
   };
 }
 
@@ -72,4 +78,44 @@ export async function winRate(chapter: number, player: PlayerStats, playerSkill:
     if ((await simulateBoss(chapter, player, { playerSkill, seed: 1000 + i * 7, path })).won) wins++;
   }
   return wins / runs;
+}
+
+/**
+ * Seviyeye göre tipik yetenek dağılımı: puanlar (2 × (seviye−1)) önce ateşe (oyuncu vekili en çok ateş seçer), sonra su, toprak ve havaya
+ * dağıtılır; her yeteneğin bir seviyesi önce, sonra ikinci, sonra üçüncü alınır. Gerçek oyuncu farklı dağıtır; amaç ortalama gücü ölçmektir.
+ */
+export function typicalSkills(level: number): { spells: SpellResolver; passives: Passives } {
+  const tree = new SkillTree(() => level);
+  const order = (['fire', 'water', 'earth', 'air'] as const).flatMap((el) => skillsOf(el).map((s) => s.id));
+  for (let round = 0; round < 3; round++) for (const id of order) if (tree.level(id) === round) tree.learn(id);
+  return { spells: tree.resolver, passives: tree.passives };
+}
+
+/** Dünya düşmanına karşı vekil oyuncu simülasyonu: oyuncunun kalan canı ve savaş süresi de döner. */
+export async function simulateEnemy(
+  element: Element,
+  tier: Tier,
+  player: PlayerStats,
+  options: { playerSkill: number; seed: number; tune?: { hp?: number; power?: number } },
+): Promise<{ won: boolean; cycles: number; hpLeft: number; maxHp: number }> {
+  const rand = mulberry32(options.seed);
+  const inits = enemyFighters(element, tier, player).map((f) => (f.team === 1 ? { ...f, maxHp: Math.round((f.maxHp ?? 0) * (options.tune?.hp ?? 1)), basePower: (f.basePower ?? 0) * (options.tune?.power ?? 1) } : f));
+  const engine = new BattleEngine(inits, { maxCycles: MAX_CYCLES });
+  const bots = new Map<string, Bot>();
+  for (const f of engine.all()) {
+    const k = `${f.team}:${f.index}`;
+    if (f.control === 'human') bots.set(k, new Bot(rand, options.playerSkill, { elements: { fire: 2, water: 1, earth: 1, air: 1 } }));
+    else bots.set(k, new Bot(rand, f.ai?.skill ?? 0.5, f.ai ?? {}));
+  }
+  const botFor = (ref: SlotRef): Bot => bots.get(`${ref.team}:${ref.index}`)!;
+  const io: BattleIO = {
+    announceTurn: async () => {},
+    chooseElement: async (ref) => botFor(ref).chooseElement(),
+    revealRound: async () => {},
+    draw: async (ref, role, ghost) => (role === 'attack' ? botFor(ref).drawAttack() : botFor(ref).drawDefense(ghost)),
+    play: async (r) => void botFor(r.action.defender).onDamaged(r.damage, engine.fighter(r.action.defender).maxHp),
+    announceEnd: async () => {},
+  };
+  const winner = await runBattle(engine, io, { random: rand });
+  return { won: winner === 0, cycles: engine.cycle, hpLeft: engine.fighter({ team: 0, index: 0 }).hp, maxHp: engine.fighter({ team: 0, index: 0 }).maxHp };
 }

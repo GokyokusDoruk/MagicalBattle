@@ -4,6 +4,7 @@ import type { FighterInit } from '../battle/flow/engine';
 import type { GearResolver } from '../economy/gearEffects';
 import type { WandResolver } from '../wands/inventory';
 import type { Passives, SpellResolver } from '../skills/resolver';
+import { skillResolvers } from '../enemies/skills';
 import type { ChoiceLine } from '../morality/catalog';
 import { elysiaFightsAlongside } from '../story/elysia';
 import type { FinalPath } from '../morality/morality';
@@ -24,6 +25,8 @@ export interface BossFoe {
   skill: number;
   elements?: Partial<Record<Element, number>>;
   attackScale?: number;
+  /** Bossun yetenekleri (yetenek kimliği → seviye); oyuncuya karşı kullanılır. Verilmezse yeteneksiz. */
+  skills?: Readonly<Record<string, number>>;
 }
 
 export interface BossGimmick {
@@ -54,6 +57,9 @@ export interface BossDef {
   maxCycles?: number;
 }
 
+/** Malakor dört elementin sahibidir: her elementten iki yetenek, Sv 2 */
+const MALAKOR_SKILLS = { 'fire-burn': 2, 'fire-scars': 2, 'water-chill': 2, 'earth-quake': 2, 'air-tremor': 2, 'air-edge': 2 } as const;
+
 export const BOSSES: readonly BossDef[] = [
   {
     chapter: 1,
@@ -68,7 +74,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 2,
     id: 'ambargo-komutani',
     title: 'Ambargo Komutanı',
-    foes: [{ name: 'Ambargo Komutanı', hp: 300, basePower: 85, armor: 0.2, skill: 0.7, elements: { earth: 2, water: 1 } }],
+    foes: [{ name: 'Ambargo Komutanı', hp: 330, basePower: 85, armor: 0.2, skill: 0.7, elements: { earth: 2, water: 1 }, skills: { 'earth-mud': 1, 'water-fog': 1 } }],
     intro: [{ speaker: 'Ambargo Komutanı', text: 'Kervan yolu benim. Geçmek istiyorsan önce beni aşacaksın.' }],
     reward: { money: 160, xp: 150 },
     targetLevel: 4,
@@ -78,8 +84,8 @@ export const BOSSES: readonly BossDef[] = [
     id: 'tapinak-bekcisi',
     title: 'Tapınak Bekçisi (2v2)',
     foes: [
-      { name: 'Tapınak Bekçisi', hp: 420, basePower: 110, armor: 0.15, skill: 0.55, elements: { air: 3, water: 1 } },
-      { name: 'Rüzgâr Çırağı', hp: 320, basePower: 100, armor: 0.05, skill: 0.5, elements: { air: 2, fire: 1 } },
+      { name: 'Tapınak Bekçisi', hp: 462, basePower: 110, armor: 0.15, skill: 0.55, elements: { air: 3, water: 1 }, skills: { 'air-tremor': 1, 'air-gale': 1 } },
+      { name: 'Rüzgâr Çırağı', hp: 352, basePower: 100, armor: 0.05, skill: 0.5, elements: { air: 2, fire: 1 }, skills: { 'air-edge': 1 } },
     ],
     intro: [
       { speaker: 'Tapınak Bekçisi', text: 'Kutsal toprağa iki yabancı! Rüzgâr sizi geri üfleyecek.' },
@@ -92,7 +98,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 4,
     id: 'soylu-sampiyonu',
     title: 'Soylu Şampiyonu',
-    foes: [{ name: 'Soylu Şampiyonu', hp: 510, basePower: 85, armor: 0.3, skill: 0.55, elements: { earth: 2, air: 1 } }],
+    foes: [{ name: 'Soylu Şampiyonu', hp: 561, basePower: 85, armor: 0.3, skill: 0.55, elements: { earth: 2, air: 1 }, skills: { 'earth-quake': 1, 'earth-bulwark': 1, 'earth-mud': 1 } }],
     intro: [{ speaker: 'Soylu Şampiyonu', text: 'Ailemi tehdit eden sensin. Zırhımı delecek büyü henüz doğmadı.' }],
     reward: { money: 280, xp: 250 },
     targetLevel: 7,
@@ -101,7 +107,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 5,
     id: 'kaelen',
     title: 'General Kaelen',
-    foes: [{ name: 'General Kaelen', hp: 580, basePower: 95, armor: 0.25, skill: 0.6, elements: { earth: 4, fire: 1 } }],
+    foes: [{ name: 'General Kaelen', hp: 609, basePower: 95, armor: 0.25, skill: 0.6, elements: { earth: 4, fire: 1 }, skills: { 'earth-quake': 2, 'earth-mud': 2, 'earth-bulwark': 2, 'earth-armor': 1 } }],
     intro: [{ speaker: 'General Kaelen', text: 'Taş çökmez. Sabrım, senin gücünden uzun sürer.' }],
     reward: { money: 360, xp: 330 },
     targetLevel: 10,
@@ -111,7 +117,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 6,
     id: 'morga',
     title: 'Cadı Morga',
-    foes: [{ name: 'Cadı Morga', hp: 560, basePower: 110, armor: 0.15, skill: 0.6, elements: { water: 2, earth: 2 } }],
+    foes: [{ name: 'Cadı Morga', hp: 784, basePower: 110, armor: 0.15, skill: 0.6, elements: { water: 2, earth: 2 }, skills: { 'water-fog': 2, 'water-chill': 2, 'water-mirror': 1, 'earth-mud': 1 } }],
     gimmick: { hideGhost: true, note: 'Sis yanılsama yaratıyor: gelen saldırıyı savunurken göremezsin.' },
     intro: [{ speaker: 'Cadı Morga', text: 'Sis her şeyi gizler, çırak. Sınavımı geç, o zaman konuşuruz.' }],
     reward: { money: 420, xp: 400 },
@@ -121,7 +127,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 7,
     id: 'morwenna',
     title: 'General Morwenna',
-    foes: [{ name: 'General Morwenna', hp: 560, basePower: 108, armor: 0.2, skill: 0.65, elements: { water: 4, air: 1 } }],
+    foes: [{ name: 'General Morwenna', hp: 784, basePower: 108, armor: 0.2, skill: 0.65, elements: { water: 4, air: 1 }, skills: { 'water-fog': 2, 'water-chill': 2, 'water-mirror': 2, 'water-bubble': 2 } }],
     gimmick: { blurFromCycle: 3, note: 'Zihin kontrolü: savaş ilerledikçe çizim tuvali bulanıklaşır.' },
     intro: [{ speaker: 'General Morwenna', text: 'Zihnin benim oyuncağım olacak. Elysia gibi...' }],
     reward: { money: 500, xp: 480 },
@@ -132,10 +138,10 @@ export const BOSSES: readonly BossDef[] = [
     id: 'malakor',
     title: 'Malakor, Gölge Hükümdarı',
     foes: [
-      { name: 'Malakor', hp: 760, basePower: 115, armor: 0.2, skill: 0.75, attackScale: 1.1 },
-      { name: 'Gölge', hp: 340, basePower: 95, armor: 0.1, skill: 0.55 },
+      { name: 'Malakor', hp: 1064, basePower: 115, armor: 0.2, skill: 0.75, attackScale: 1.1, skills: MALAKOR_SKILLS },
+      { name: 'Gölge', hp: 476, basePower: 95, armor: 0.1, skill: 0.55, skills: { 'fire-burn': 1, 'air-tremor': 1 } },
     ],
-    foesDark: [{ name: 'Malakor', hp: 560, basePower: 110, armor: 0.2, skill: 0.7, attackScale: 1.1 }],
+    foesDark: [{ name: 'Malakor', hp: 784, basePower: 110, armor: 0.2, skill: 0.7, attackScale: 1.1, skills: MALAKOR_SKILLS }],
     intro: [{ speaker: 'Malakor', text: 'Dört elementin sahibi karşında. Gel, gölgeme katıl ya da sön.' }],
     reward: { money: 900, xp: 900 },
     targetLevel: 20,
@@ -204,7 +210,8 @@ export function bossFighters(chapter: number, player: PlayerStats, path: FinalPa
   }
   for (const foe of bossFoes(boss, path)) {
     const ai: BotProfile = { skill: foe.skill, elements: foe.elements, attackScale: foe.attackScale };
-    fighters.push({ name: foe.name, team: 1, control: 'bot', maxHp: foe.hp, basePower: foe.basePower, armor: foe.armor, ai });
+    const skills = foe.skills ? skillResolvers(new Map(Object.entries(foe.skills))) : null;
+    fighters.push({ name: foe.name, team: 1, control: 'bot', maxHp: foe.hp, basePower: foe.basePower, armor: foe.armor, ai, ...(skills ? { spells: skills.spells, passives: skills.passives } : {}) });
   }
   return fighters;
 }

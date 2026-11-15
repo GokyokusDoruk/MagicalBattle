@@ -37,6 +37,11 @@ export function enemySkillLevels(element: Element, tier: Tier): Map<string, numb
   return levels;
 }
 
+/** Yetenek seviyelerinden savaşçıya verilecek çözücüler (bosslar elle seçilmiş yeteneklerle kullanır). */
+export function skillResolvers(levels: ReadonlyMap<string, number>): { spells: SpellResolver; passives: Passives } {
+  return { passives: resolvePassives(levels), spells: (el, role) => resolveSpell(levels, el, role) };
+}
+
 export interface EnemySkills {
   spells: SpellResolver;
   passives: Passives;
@@ -47,5 +52,5 @@ export interface EnemySkills {
 /** Savaşçıya verilecek çözücüler. Düşman başka bir element seçerse o elementin yeteneği olmadığı için etkisizdir. */
 export function enemySkills(element: Element, tier: Tier): EnemySkills {
   const levels = enemySkillLevels(element, tier);
-  return { levels, passives: resolvePassives(levels), spells: (el, role) => resolveSpell(levels, el, role) };
+  return { levels, ...skillResolvers(levels) };
 }
