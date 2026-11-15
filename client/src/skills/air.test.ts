@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOT_SHAKE_PENALTY_SEC, runBattle, type BattleIO, type DrawExtras, type TurnReport } from '../battle/flow/controller';
+import { runBattle, type BattleIO, type DrawExtras, type TurnReport } from '../battle/flow/controller';
 import { BattleEngine } from '../battle/flow/engine';
 import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
@@ -92,20 +92,21 @@ describe('hava yetenekleri', () => {
     expect(noDef[0].rebounded).toBe(0);
   });
 
-  it('Sarsıntılı Rüzgâr: saldırganın ekranına sarsıntı gider, bot saldırgan süre kaybeder', async () => {
+  it('Sarsıntılı Rüzgâr: saldırganın ekranına sarsıntı gider, bot saldırgan büyüyü yanlış çizer', async () => {
     const tree = { passives: resolvePassives(new Map([['air-tremor', 3]])) };
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1);
     const shaken = await play(duel({}, { passives: tree.passives }), 1, { attackExtras: extras });
     expect(extras).toMatchObject([{ scars: 0, shake: 3 }]);
-    expect(shaken[0].attack.metrics.drawTimeSec).toBeCloseTo(plain[0].attack.metrics.drawTimeSec - 3 * BOT_SHAKE_PENALTY_SEC, 6);
+    expect(shaken[0].attack.strokes).not.toEqual(plain[0].attack.strokes); // çizim bozuldu (kaydı, titredi, boşluk kaldı)
     expect(shaken[0].damage).toBeLessThan(plain[0].damage);
   });
 
-  it('Sarsıntılı Rüzgâr: insan saldırganın süresini denetleyici kesmez (tuval kendisi sarsılır)', async () => {
+  it('Sarsıntılı Rüzgâr: insan saldırganın çizimini denetleyici bozmaz (yalnızca görüş engeli)', async () => {
     const tree = { passives: resolvePassives(new Map([['air-tremor', 2]])) };
     const plain = await play(duel(), 1);
     const human = await play(duel({ control: 'human' }, { passives: tree.passives }), 1);
-    expect(human[0].attack.metrics.drawTimeSec).toBe(plain[0].attack.metrics.drawTimeSec);
+    expect(human[0].attack.strokes).toEqual(plain[0].attack.strokes);
+    expect(human[0].damage).toBe(plain[0].damage);
   });
 });

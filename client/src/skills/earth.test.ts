@@ -5,7 +5,7 @@ import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
 import { placeMud } from '../ui/drawingCanvas';
 import { MAX_SKILL_LEVEL, describeEffect, skillsOf } from './catalog';
-import { LIMITS, MUD_BOT_BYPASS, neutralEffects, resolvePassives, resolveSpell } from './resolver';
+import { LIMITS, neutralEffects, resolvePassives, resolveSpell } from './resolver';
 import { SkillTree } from './tree';
 
 const good = () => analyzeStrokes(buildShape('circle', 128, 128, 75, 2400));
@@ -115,13 +115,13 @@ describe('toprak yetenekleri', () => {
     expect(unlucky[0].stunned).toBe(false);
   });
 
-  it('Çamur Yaması: savunma ekranına çamur gider; botun savunması zayıflar', async () => {
+  it('Çamur Yaması: savunma ekranına çamur gider; botun savunması yanlış çizilir', async () => {
     const owner = { passives: resolvePassives(new Map([['earth-mud', 3]])) };
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1, { defenderDraws: true });
     const muddy = await play(duel({ passives: owner.passives }), 1, { defenderDraws: true, defenseExtras: extras });
     expect(extras).toEqual([{ fog: 0, mud: 3 }]);
-    expect(muddy[0].breakdown!.defenseBypass).toBeCloseTo(3 * MUD_BOT_BYPASS, 6);
+    expect(muddy[0].defense!.strokes).not.toEqual(plain[0].defense!.strokes);
     expect(muddy[0].damage).toBeGreaterThan(plain[0].damage);
     expect(muddy[0].mudded).toBe(3);
   });

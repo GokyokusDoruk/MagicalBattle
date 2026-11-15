@@ -23,11 +23,8 @@ export const LIMITS = {
 
 /** Sarsıntı: saldırının savunmayı bu oranda ve üstü aşması gerekir */
 export const STUN_HIT_RATIO = 0.8;
-/** Çamurlu ekranda bir botun savunması yama başına bu oranda zayıflar */
-export const MUD_BOT_BYPASS = 0.08;
 
 /** Sisli savunma ekranında botun savunması bulut başına bu oranda zayıflar (savunmanın o kısmı geçer) */
-export const FOG_BOT_BYPASS = 0.1;
 
 /** Kırılan kalkanın savunma etkisinin ne kadarı gider (0.6: savunmanın %60'ı geçersiz sayılır) */
 export const SHIELD_BREAK_STRENGTH = 0.6;
