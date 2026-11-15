@@ -17,7 +17,7 @@ export const CRIT_CAP = 0.75;
 export const CRIT_MULTIPLIER = 1.5;
 
 /** Tam güç için gereken kaplanan alan oranı (tuvale göre). Daha büyük çizim fazladan güç vermez. */
-export const FULL_POWER_COVERAGE = 0.18;
+export const FULL_POWER_COVERAGE = 0.145;
 /** Küçük büyü doğrusaldan daha sert düşer: güç = (alan / tam alan) ^ bu üs (1 = doğrusal) */
 export const SIZE_EXPONENT = 1.3;
 /** Tuvalin aşırı kaplanması (karalayarak doldurma) hafif güç keser: tam alanın bu katından sonra güç düşmeye başlar... */
@@ -25,9 +25,9 @@ export const OVERFILL_START = 1.6;
 /** ...ve en çok bu çarpana kadar iner */
 export const OVERFILL_FLOOR = 0.85;
 /** Savunma bütçesi: savunma tuvalin bu oranından fazlasını kaplarsa kalkan incelir (herkesin her şeyi karalamasını engeller) */
-export const DEFENSE_OVERFILL_START = 0.35;
+export const DEFENSE_OVERFILL_START = 0.28;
 /** Savunma tuvalin bu oranını kaplayınca kalkan en ince hâlindedir */
-export const DEFENSE_OVERFILL_FULL = 0.7;
+export const DEFENSE_OVERFILL_FULL = 0.56;
 /** En ince kalkanın gücü (çarpan) */
 export const DEFENSE_STRENGTH_FLOOR = 0.45;
 /** Saldırıda tek hücrenin ağırlığı, dolu hücrelerin ortalama ağırlığının en çok bu katı sayılır (bir noktada bekleyerek ağırlık yığılmaz) */

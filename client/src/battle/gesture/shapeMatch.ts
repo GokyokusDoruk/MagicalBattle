@@ -82,9 +82,9 @@ function meanNearest(a: readonly P[], b: readonly P[]): number {
 }
 
 /** İki çizim arasındaki uzaklık (küçük = benzer). Birinde nokta yoksa sonsuz. Küçük dönmeler tolere edilir (en iyi açı alınır). */
-export function shapeDistance(a: readonly Stroke[], b: readonly Stroke[]): number {
-  const ca = normalizeCloud(resample(a));
-  const cb = normalizeCloud(resample(b));
+export function shapeDistance(a: readonly Stroke[], b: readonly Stroke[], samples = SAMPLES): number {
+  const ca = normalizeCloud(resample(a, samples));
+  const cb = normalizeCloud(resample(b, samples));
   if (ca.length === 0 || cb.length === 0) return Infinity;
   let best = Infinity;
   for (let t = -MAX_TILT; t <= MAX_TILT + 1e-9; t += TILT_STEP) {
@@ -115,4 +115,70 @@ export interface ShapeMatch {
 export function matchShape(strokes: readonly Stroke[], name: ShapeName): ShapeMatch {
   const distance = shapeDistance(strokes, templateStrokes(name));
   return { distance, ok: distance <= MATCH_THRESHOLD };
+}
+
+/** Aday ararken kullanılan hafif ayarlar (hız için): daha az örnek */
+const SEARCH_SAMPLES = 64;
+const WINDOW_FRACTIONS = [0.35, 0.5, 0.65, 0.8];
+const MAX_POOL = 6;
+
+const strokeLength = (s: Stroke): number => s.reduce((m, p, i) => (i ? m + Math.hypot(p.x - s[i - 1].x, p.y - s[i - 1].y) : m), 0);
+
+/** Çizginin yay uzunluğuna göre [from, to) oranları arasındaki parçası. */
+function strokeWindow(s: Stroke, from: number, to: number): Stroke {
+  const total = strokeLength(s);
+  if (total === 0) return s;
+  const a = from * total;
+  const b = to * total;
+  const out: Stroke = [];
+  let walked = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (i > 0) walked += Math.hypot(s[i].x - s[i - 1].x, s[i].y - s[i - 1].y);
+    if (walked >= a && walked <= b) out.push(s[i]);
+  }
+  return out;
+}
+
+/**
+ * Aday alt çizimler: tüm çizim; her çizgi tek başına; en uzun 6 çizginin 2'li ve 3'lü birleşimleri (çok çizgili şekiller: artı, çarpı, güneş...);
+ * ve her çizginin farklı boy ve başlangıçlardaki parçaları (uzun bir çizginin içinde saklı şekil: ekstra çizilmiş kuyruklar, süsler).
+ */
+export function candidateDrawings(strokes: readonly Stroke[]): Stroke[][] {
+  const out: Stroke[][] = [strokes.map((s) => s)];
+  const usable = strokes.filter((s) => s.length > 1);
+  const pool = [...usable].sort((a, b) => strokeLength(b) - strokeLength(a)).slice(0, MAX_POOL);
+  for (const s of pool) out.push([s]);
+  for (let i = 0; i < pool.length; i++) {
+    for (let j = i + 1; j < pool.length; j++) {
+      out.push([pool[i], pool[j]]);
+      for (let k = j + 1; k < pool.length; k++) out.push([pool[i], pool[j], pool[k]]);
+    }
+  }
+  for (const s of pool) {
+    if (strokeLength(s) < 60) continue;
+    for (const w of WINDOW_FRACTIONS) {
+      const step = Math.max(0.1, (1 - w) / 3);
+      for (let from = 0; from + w <= 1 + 1e-9; from += step) {
+        const part = strokeWindow(s, from, from + w);
+        if (part.length > 3) out.push([part]);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Çizimin **içinde** şekil var mı (Task 67): tüm çizim ve alt parçalar (tek çizgi, çizgi birleşimleri, çizgi parçaları) şablonla karşılaştırılır;
+ * herhangi biri eşiği geçerse başarılıdır. Böylece şekle ek olarak başka çizgiler çizmek özel büyü puanını bozmaz.
+ * \`distance\` en iyi adayın uzaklığıdır.
+ */
+export function matchShapeWithin(strokes: readonly Stroke[], name: ShapeName): ShapeMatch {
+  const template = templateStrokes(name);
+  let best = Infinity;
+  for (const cand of candidateDrawings(strokes)) {
+    const d = shapeDistance(cand, template, SEARCH_SAMPLES);
+    if (d < best) best = d;
+    if (best <= MATCH_THRESHOLD) break;
+  }
+  return { distance: best, ok: best <= MATCH_THRESHOLD };
 }

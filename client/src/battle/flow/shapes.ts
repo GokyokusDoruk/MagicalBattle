@@ -123,13 +123,31 @@ const UNIT_SHAPES: Record<string, () => Pt[][]> = {
   drop: () => [curve(60, (t) => [0.8 * Math.sin(t) * Math.sin(t / 2), -Math.cos(t)])],
   target: () => [curve(48, (t) => [Math.cos(t), Math.sin(t)]), curve(32, (t) => [0.45 * Math.cos(t), 0.45 * Math.sin(t)])],
   semicircle: () => [[...curve(40, (t) => [Math.cos(t), Math.sin(t) - 0.15], Math.PI, Math.PI * 2), [-1, -0.15]]],
-  bowtie: () => [[[-0.95, -0.7], [0.95, 0.7], [0.95, -0.7], [-0.95, 0.7], [-0.95, -0.7]]],
   tower: () => [[[-0.5, 1], [-0.5, -0.2], [-0.75, -0.2], [-0.75, -0.9], [-0.3, -0.9], [-0.3, -0.5], [0.3, -0.5], [0.3, -0.9], [0.75, -0.9], [0.75, -0.2], [0.5, -0.2], [0.5, 1], [-0.5, 1]]],
-  hook: () => [[[0.6, -1], [0.6, 0.3], ...curve(24, (t) => [0.6 * Math.cos(t), 0.3 + 0.6 * Math.sin(t)], 0, Math.PI).slice(1), [-0.6, -0.2]]],
+  house: () => [[[-0.8, 0.85], [-0.8, -0.1], [0, -0.95], [0.8, -0.1], [0.8, 0.85], [-0.8, 0.85]]],
+  tree: () => [[[0, -1], [0.62, 0.2], [0.26, 0.2], [0.26, 0.9], [-0.26, 0.9], [-0.26, 0.2], [-0.62, 0.2], [0, -1]]],
+  sailboat: () => [[[0, -1], [0, 0.45], [0.8, 0.45], [0, -1]], [[-0.85, 0.62], [0.85, 0.62], [0.55, 0.95], [-0.55, 0.95], [-0.85, 0.62]]],
+  flag: () => [[[-0.6, -1], [-0.6, 1]], [[-0.6, -0.9], [0.85, -0.5], [-0.6, -0.1]]],
+  crown: () => [[[-0.9, 0.7], [-0.9, -0.5], [-0.45, 0.1], [0, -0.75], [0.45, 0.1], [0.9, -0.5], [0.9, 0.7], [-0.9, 0.7]]],
+  sword: () => [[[0, -1], [0.13, -0.7], [0.13, 0.35], [-0.13, 0.35], [-0.13, -0.7], [0, -1]], [[-0.5, 0.35], [0.5, 0.35]], [[0, 0.35], [0, 0.95]]],
+  shield: () => [[[-0.8, -0.8], [0.8, -0.8], [0.8, 0.1], [0, 1], [-0.8, 0.1], [-0.8, -0.8]]],
+  cloud: () => [curve(90, (t) => [(0.9 + 0.12 * Math.cos(6 * t)) * Math.cos(t), (0.9 + 0.12 * Math.cos(6 * t)) * Math.sin(t) * 0.6])],
+  flower: () => [curve(90, (t) => [Math.cos(2 * t) * Math.cos(t), Math.cos(2 * t) * Math.sin(t)])],
+  leaf: () => [[...curve(30, (t) => [0.55 * Math.sin(t), -Math.cos(t)], 0, Math.PI), ...curve(30, (t) => [-0.55 * Math.sin(t), -Math.cos(t)], Math.PI, 0)], [[0, -0.9], [0, 1.15]], [[0, 0.1], [0.3, -0.25]], [[0, 0.1], [-0.3, -0.25]]],
+  fish: () => [[...curve(30, (t) => [-0.75 + (1.25 * t) / Math.PI, -0.45 * Math.sin(t)], 0, Math.PI), ...curve(30, (t) => [0.5 - (1.25 * t) / Math.PI, 0.45 * Math.sin(t)], 0, Math.PI), [0.5, 0], [0.95, -0.42], [0.95, 0.42], [0.5, 0]]],
+  eye: () => [[...curve(30, (t) => [-1 + (2 * t) / Math.PI, -0.5 * Math.sin(t)], 0, Math.PI), ...curve(30, (t) => [1 - (2 * t) / Math.PI, 0.5 * Math.sin(t)], 0, Math.PI)], curve(24, (t) => [0.25 * Math.cos(t), 0.25 * Math.sin(t)])],
+  bell: () => [[...curve(30, (t) => [-0.7 * Math.cos(t), -0.15 - 0.75 * Math.sin(t)], 0, Math.PI), [-0.7, -0.15], [-0.7, 0.45], [-0.95, 0.65], [0.95, 0.65], [0.7, 0.45], [0.7, -0.15]], curve(16, (t) => [0.17 * Math.cos(t), 0.88 + 0.12 * Math.sin(t)])],
+  key: () => [curve(24, (t) => [-0.6 + 0.3 * Math.cos(t), 0.3 * Math.sin(t)]), [[-0.3, 0], [0.9, 0]], [[0.6, 0], [0.6, 0.35]], [[0.85, 0], [0.85, 0.3]]],
+  hourglass: () => [[[-0.7, -0.9], [0.7, -0.9], [0, 0], [0.7, 0.9], [-0.7, 0.9], [0, 0], [-0.7, -0.9]]],
+  sun: () => [Array.from({ length: 17 }, (_, i) => { const a = (i * Math.PI) / 8; const r = i % 2 === 0 ? 1 : 0.5; return [r * Math.cos(a), r * Math.sin(a)] as Pt; })],
+  hexagram: () => [[[0, -1], [0.87, 0.5], [-0.87, 0.5], [0, -1]], [[0, 1], [0.87, -0.5], [-0.87, -0.5], [0, 1]]],
+  spear: () => [[[0, -0.3], [0, 1]], [[0, -1], [0.25, -0.3], [-0.25, -0.3], [0, -1]]],
 };
 
 export const SHAPE_NAMES = [
   'circle', 'star', 'spiral', 'wave', 'zigzag', 'triangle', 'diamond', 'heart', 'lightning', 'crescent', 'plus', 'infinity', 'arrow', 'cross', 'semicircle', 'tower',
+  // Task 67: 20 yeni şekil
+  'drop', 'target', 'house', 'tree', 'sailboat', 'flag', 'crown', 'sword', 'shield', 'cloud', 'flower', 'leaf', 'fish', 'eye', 'bell', 'key', 'hourglass', 'sun', 'hexagram', 'spear',
 ] as const;
 export type ShapeName = (typeof SHAPE_NAMES)[number];
 
@@ -137,6 +155,7 @@ export type ShapeName = (typeof SHAPE_NAMES)[number];
 export const SHAPE_LABELS: Record<ShapeName, string> = {
   circle: 'Daire', star: 'Yıldız', spiral: 'Spiral', wave: 'Dalga', zigzag: 'Zikzak', triangle: 'Üçgen', diamond: 'Elmas', heart: 'Kalp', lightning: 'Yıldırım',
   crescent: 'Hilal', plus: 'Artı', infinity: 'Sonsuzluk', arrow: 'Ok', cross: 'Çarpı', semicircle: 'Yarım daire', tower: 'Kale',
+  drop: 'Damla', target: 'Hedef', house: 'Ev', tree: 'Ağaç', sailboat: 'Yelkenli', flag: 'Bayrak', crown: 'Taç', sword: 'Kılıç', shield: 'Kalkan', cloud: 'Bulut', flower: 'Çiçek', leaf: 'Yaprak', fish: 'Balık', eye: 'Göz', bell: 'Çan', key: 'Anahtar', hourglass: 'Kum saati', sun: 'Güneş', hexagram: 'Altıgen yıldız', spear: 'Mızrak',
 };
 
 export function buildShape(name: ShapeName, cx: number, cy: number, size: number, ms: number): Stroke[] {

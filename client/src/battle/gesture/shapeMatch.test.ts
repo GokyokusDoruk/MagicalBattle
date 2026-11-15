@@ -5,7 +5,7 @@ import { BattleEngine } from '../flow/engine';
 import { SHAPE_LABELS, SHAPE_NAMES, buildShape } from '../flow/shapes';
 import { Bot } from '../flow/bot';
 import { analyzeStrokes } from './analyze';
-import { MATCH_THRESHOLD, matchShape, normalizeCloud, resample, shapeDistance, templateStrokes } from './shapeMatch';
+import { MATCH_THRESHOLD, matchShape, matchShapeWithin, normalizeCloud, resample, shapeDistance, templateStrokes } from './shapeMatch';
 import type { Stroke } from './types';
 
 /** İnsan benzeri bozulma: titreme (yavaş dalga + rastgelelik), eksenlere farklı ölçek, hafif dönme, kayma */
@@ -25,8 +25,8 @@ const human = (strokes: Stroke[], amp: number, sx: number, sy: number, rot: numb
 
 describe('şekil kütüphanesi', () => {
   it('16 farklı şekil, hepsinin Türkçe adı var ve hepsi geçerli bir büyü olarak çizilebilir', () => {
-    expect(SHAPE_NAMES).toHaveLength(16);
-    expect(new Set(SHAPE_NAMES).size).toBe(16);
+    expect(SHAPE_NAMES).toHaveLength(36);
+    expect(new Set(SHAPE_NAMES).size).toBe(36);
     for (const n of SHAPE_NAMES) {
       expect(SHAPE_LABELS[n].length).toBeGreaterThan(0);
       const r = analyzeStrokes(buildShape(n, 128, 128, 75, 2200));
@@ -67,7 +67,8 @@ describe('şekil tanıma', () => {
         if (shapeDistance(buildShape(a, 128, 128, 75, 2000), templateStrokes(b)) <= MATCH_THRESHOLD) close.push(`${a}/${b}`);
       }
     }
-    expect(close.length).toBeLessThanOrEqual(6);
+    expect(close.length).toBeLessThanOrEqual(24); // 36 şekilde 1260 çiftin en fazla ~%2'si eşiğin altında
+    for (const a of SHAPE_NAMES) for (const b of SHAPE_NAMES) if (a !== b) expect(shapeDistance(buildShape(a, 128, 128, 75, 2000), templateStrokes(b))).toBeGreaterThan(0.085);
   });
 
   it('rastgele karalama ve boş çizim hiçbir şekle uymaz', () => {
@@ -152,5 +153,15 @@ describe('bot özel şekli dener', () => {
 
   it('özel şekil verilmezse eskisi gibi rastgele şekil çizer', () => {
     expect(new Bot(mulberry32(2), 0.6).drawAttack().strokes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('çizimin içinde şekil arama', () => {
+  it('şekil çizimin bir parçasıysa, ekstra çizgiler olsa da bulunur; karalama bulunmaz', () => {
+    const extra: Stroke[] = [Array.from({ length: 60 }, (_, i) => ({ x: 200 + Math.cos(i / 5) * 25, y: 200 + Math.sin(i / 5) * 25, t: i * 10 }))];
+    for (const n of SHAPE_NAMES) expect(matchShapeWithin([...buildShape(n, 100, 100, 55, 2000), ...extra], n).ok).toBe(true);
+    const rand = mulberry32(3);
+    const noise: Stroke[] = [Array.from({ length: 300 }, (_, i) => ({ x: 40 + rand() * 170, y: 40 + rand() * 170, t: i * 10 }))];
+    for (const n of SHAPE_NAMES) expect(matchShapeWithin(noise, n).ok).toBe(false);
   });
 });

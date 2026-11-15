@@ -9,7 +9,7 @@ export const LOGICAL_SIZE = 256;
 export const GRID = 32;
 export const CELL = LOGICAL_SIZE / GRID;
 /** Fırça yarıçapı (mantıksal birim): çizgi bu kadar kalınlık sayılır */
-export const BRUSH_RADIUS = 10;
+export const BRUSH_RADIUS = 8;
 
 /** Bir büyüyü çizmek için verilen süre (ilk dokunuştan itibaren) */
 export const DRAW_TIME_MS = 3000;
@@ -21,6 +21,6 @@ export const MAX_SEGMENT_DT_MS = 200;
 export const DWELL_SAMPLE_MS = 30;
 
 /** Minimum hacim: kaplanan hücre sayısı (toplam GRID*GRID) */
-export const MIN_INKED_CELLS = 24;
+export const MIN_INKED_CELLS = 20;
 /** Minimum hacim: çizimin en uzun kenarı (mantıksal birim) */
 export const MIN_EXTENT = 64;
