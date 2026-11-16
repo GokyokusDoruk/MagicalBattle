@@ -245,6 +245,7 @@ export function startArenaLab(root: HTMLElement): void {
         arena.defeat(O);
         status.textContent = 'Rakip yenildi.';
       }),
+      make('Bitiriş', false, () => void run('Bitiriş büyüsü...', () => arena.finisher(P, O, demoStrokes(), playerElement))),
       make('Sıfırla', false, () => {
         arena.resetCombatants();
         status.textContent = 'Sıfırlandı.';

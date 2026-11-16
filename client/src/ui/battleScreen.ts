@@ -421,7 +421,10 @@ export class BattleScreen implements BattleIO {
       await this.say(this.center, `🌊 Yansıyan dalga! ${this.name(action.attacker)} -${report.reflected}`, 1200, 'bg-sky-900/80 text-sky-100');
     }
     if (report.defeated) {
-      this.arena.defeat(action.defender);
+      // Savaşı insan tarafı kazandıysa: bitiriş büyüsü (rakip dev bir büyüyle yıkılır); aksi halde sade yenilgi
+      const playerWon = this.engine.winner === action.attacker.team && this.engine.all().some((f: Fighter) => f.control === 'human' && f.team === action.attacker.team);
+      if (playerWon) await this.arena.finisher(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement);
+      else this.arena.defeat(action.defender);
       await this.say(this.center, `${this.name(action.defender)} yenildi!`, 1400, 'bg-amber-700/80 text-amber-50');
     }
     if (report.attackerDefeated) {

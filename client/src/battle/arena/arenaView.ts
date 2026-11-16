@@ -473,6 +473,123 @@ export class ArenaView {
     this.director.setShot(null);
   }
 
+  /**
+   * Bitiriş büyüsü (savaşı kazandıran vuruştan sonra): kazanan asayı kaldırır, son vuruşta çizilen mühür dev bir rün olarak
+   * rakibin tepesine yükselir, gökten bir ışık sütunu iner, yer sarsılır, şok dalgası yayılır ve rakip yıkılır.
+   * Zaman yavaşlar; bittiğinde savaşçı yenilmiş (yere yığılmış) olur ve zaman normale döner.
+   */
+  async finisher(from: SlotRef, to: SlotRef, strokes: readonly Stroke[], element: Element): Promise<void> {
+    const caster = this.combatant(from);
+    const victim = this.combatant(to);
+    const casterPos = this.position(from);
+    const targetPos = this.position(to);
+    const colors = ELEMENT_COLORS[element];
+    const paths = strokesToPaths(strokes);
+    const rune = this.addSpell(new SpellVisual(paths.length > 0 ? paths : DEFAULT_RING, colors.main, colors.glow));
+    const dir = targetPos.clone().sub(casterPos).setY(0).normalize();
+    const side = UP.clone().cross(dir);
+    const hold = casterPos.clone().add(dir.clone().multiplyScalar(1.4)).add(new THREE.Vector3(0, 2.7, 0));
+    const sky = targetPos.clone().add(new THREE.Vector3(0, 6.8, 0));
+    rune.group.position.copy(hold);
+    rune.group.scale.setScalar(0.9);
+    rune.setOpacity(0);
+
+    // Işık sütunu ve yerdeki şok dalgası (bitince atılır)
+    const beamMat = new THREE.MeshBasicMaterial({ color: colors.glow, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 8, 20, 1, true), beamMat);
+    beam.position.set(targetPos.x, 4, targetPos.z);
+    beam.scale.set(0.01, 1, 0.01);
+    const waveMat = new THREE.MeshBasicMaterial({ color: colors.glow, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+    const wave = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), waveMat);
+    wave.rotation.x = -Math.PI / 2;
+    wave.position.set(targetPos.x, 0.12, targetPos.z);
+    wave.scale.setScalar(0.01);
+    this.scene.add(beam, wave);
+
+    // 1) Kazanan asayı kaldırır, mühür havada çizilir (yavaş çekim)
+    this.timeScale = 0.6;
+    caster.cast(3.4);
+    this.sounds?.charge(element);
+    this.director.setShot({
+      position: casterPos.clone().add(dir.clone().multiplyScalar(-5.2 * this.closeScale)).add(side.clone().multiplyScalar(2.6 * this.closeScale)).setY(3.4 + (this.closeScale - 1)),
+      lookAt: hold.clone().add(dir.clone().multiplyScalar(1.5)).setY(2.4),
+    });
+    await this.tweens.add(1.0, (t) => {
+      rune.setReveal(easeInOut(t));
+      rune.setOpacity(Math.min(1, t * 4));
+      const tip = rune.tipWorld();
+      if (tip) this.particles.emit(tip, { color: colors.glow, count: 4, speed: 1.8, life: 0.6, gravity: -0.4 });
+    });
+
+    // 2) Mühür büyür ve rakibin tepesine yükselir
+    this.sounds?.launch(element);
+    await this.tweens.add(1.1, (t) => {
+      const k = easeInOut(t);
+      const p = hold.clone().lerp(sky, k).add(new THREE.Vector3(0, Math.sin(k * Math.PI) * 1.4, 0));
+      rune.group.position.copy(p);
+      rune.group.scale.setScalar(0.9 + k * 2.2);
+      this.particles.emit(p, { color: colors.glow, count: 6, speed: 1.4, life: 0.7 });
+      this.director.setShot({
+        position: this.closeScale > 1 ? casterPos.clone().add(dir.clone().multiplyScalar(-9)).setY(5.2) : new THREE.Vector3(side.x * 4, 4.8, 12),
+        lookAt: p.clone().lerp(targetPos.clone().add(new THREE.Vector3(0, 1.6, 0)), 0.4),
+      });
+    });
+
+    // 3) Tepede toplanır: kamera rakibe iner, sütun belirmeye başlar
+    this.director.setShot({
+      position: targetPos.clone().add(dir.clone().multiplyScalar(-6.4 * this.closeScale)).add(side.clone().multiplyScalar(2.2 * this.closeScale)).setY(1.8 + (this.closeScale - 1)),
+      lookAt: targetPos.clone().add(new THREE.Vector3(0, 3.6, 0)),
+    });
+    await this.tweens.add(0.9, (t) => {
+      rune.group.scale.setScalar(3.1 + Math.sin(t * Math.PI * 5) * 0.12 + t * 0.4);
+      beam.scale.set(0.05 + t * 0.25, 1, 0.05 + t * 0.25);
+      beamMat.opacity = t * 0.35;
+      this.particles.emit(targetPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 5, (Math.random() - 0.5) * 3)), { color: colors.glow, count: 4, speed: 0.6, life: 0.9, gravity: 6 });
+    });
+
+    // 4) Vuruş: sütun gürler, yer sarsılır, rakip yıkılır
+    this.timeScale = 0.25;
+    this.sounds?.impact(element, 1, true);
+    this.impactLight.color.setHex(colors.glow);
+    this.impactLight.position.copy(targetPos).add(new THREE.Vector3(0, 2.4, 0));
+    this.director.shake(1);
+    victim.hit(1);
+    victim.defeat();
+    this.sounds?.defeat();
+    const burst = targetPos.clone().add(new THREE.Vector3(0, 1.4, 0));
+    this.particles.emit(burst, { color: colors.glow, count: 140, speed: 9, life: 1.4, gravity: 4 });
+    this.particles.emit(burst, { color: 0xffffff, count: 70, speed: 6, life: 1.1, gravity: 3 });
+    this.particles.emit(burst, { color: colors.main, count: 60, speed: 3.5, life: 1.2 });
+    this.floatPopup('BİTİRİŞ!', '#ffd23f', burst.clone().add(new THREE.Vector3(0, 2.2, 0)));
+    await this.tweens.add(1.0, (t) => {
+      this.impactLight.intensity = (1 - t) * 18;
+      beam.scale.set(0.3 + t * 0.9, 1, 0.3 + t * 0.9);
+      beamMat.opacity = (1 - t) * 0.9;
+      rune.setOpacity(1 - t);
+      rune.group.scale.setScalar(3.5 + t * 2);
+      wave.scale.setScalar(0.5 + t * 9);
+      waveMat.opacity = (1 - t) * 0.85;
+      if (t > 0.4) this.timeScale = 0.25 + (t - 0.4) * 1.25;
+    });
+    this.timeScale = 1;
+    this.impactLight.intensity = 0;
+    this.removeSpell(rune);
+    for (const m of [beam, wave]) {
+      this.scene.remove(m);
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
+
+    // 5) Kamera geri çekilip yıkılan rakibi gösterir
+    caster.endDefend();
+    this.director.setShot({
+      position: casterPos.clone().lerp(targetPos, 0.5).add(side.clone().multiplyScalar(4 * this.closeScale)).add(new THREE.Vector3(0, 3.6 + (this.closeScale - 1) * 2, 7.5 * this.closeScale)),
+      lookAt: targetPos.clone().add(new THREE.Vector3(0, 0.8, 0)),
+    });
+    await this.tweens.wait(1.2);
+    this.director.setShot(null);
+  }
+
   /** Savaşçı yenildi: yere yığılır, kıvılcım saçar. */
   defeat(ref: SlotRef): void {
     const c = this.combatant(ref);
