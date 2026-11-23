@@ -40,3 +40,9 @@ Kod: `battle/flow/shapes.ts`, `battle/gesture/shapeMatch.ts`, `battle/flow/contr
 - **Şekil çizimin herhangi bir yerindeyse bonus verilir.** `matchShapeWithin` tüm çizimi, en uzun çizgileri, 2-3 çizgilik birleşimleri ve uzun çizgilerin yay parçalarını dener; en iyi eşleşme sayılır. Ekstra çizgiler özel şekil bonusunu (x1.25) bozmaz. Rastgele karalama eşleşmez.
 - **36 şekil** (20 yeni: damla, hedef, ev, ağaç, yelkenli, bayrak, taç, kılıç, kalkan, bulut, çiçek, yaprak, balık, göz, çan, anahtar, kum saati, güneş, altıgen yıldız, mızrak). Hiçbir şekil çifti 0.085 altında değildir; normal insan titremesi 0.08 altında kalır.
 - **Kalem %20 inceldi:** `BRUSH_RADIUS` 10 → 8. Tam güç kaplaması 0.18 → 0.145, savunma doluluk eşikleri 0.35/0.7 → 0.28/0.56, `MIN_INKED_CELLS` 24 → 20 olarak ölçeklendi; böylece aynı çizim aynı gücü verir. Özel şekil ve savunma çizimleri dahil tüm çizimler aynı kalemi kullanır.
+
+## Görev 69: 14 yeni şekil (toplam 50)
+
+- Yeni şekiller: çapa, şemsiye, merdiven, kelebek, nota, mantar, üç dişli mızrak, yılan, basamak, tik, kanca, bumerang, şeker, mum. Yeni şekillerin hiçbiri başka bir şekille eşik altında karışmaz; ilk denemede karışan adaylar (alev, kapı, kupa, dağ, papyon, sekiz, tarak) elendi.
+- Özel şekil seçimi `(döngü×7 + takım×3 + sıra×11) % şekilSayısı` oldu. Eski adım (5) 50 ile ortak bölen taşıdığı için bir savaşçıya yalnızca 10 şekil çıkıyordu; 7, 50 ile aralarında asaldır, 50 döngüde 50 şeklin hepsi gelir.
+- Testler: `battle/flow/shapes.test.ts` (liste, tuval sınırı, tanıma, seçim); `boss/balance.test.ts` 3. bölüm alt sınırı 0.55 → 0.4 (şekil dizisi değişince 40 koşuluk örnekte 0.45 çıktı).
