@@ -44,3 +44,15 @@ Yara izi, çamur, sis ve sarsıntı **insan oyuncunun çizimini asla engellemez*
 - **Sis Perdesi:** yalnızca görüş (değişmedi). **Sarsıntılı Rüzgâr:** ekran sarsılır (görüntü), çizgiler yine kaydedilir.
 - Yara izi, çamur ve sis çizginin **üstüne** çizilir (altına değil), böylece gerçekten görüşü örter.
 - **Botlar** görmedikleri için bu pasiflerden zayıflar: sis ve çamur savunmayı zayıflatır, yara izi ve sarsıntı saldırı çizim süresinden düşer (değişmedi).
+
+## Güncelleme: pasifler botların çizimini bozar (Task 66b)
+
+İnsan oyuncuda pasifler yalnızca görüş engeli; **botlara karşı** ise botların çizimini belli oranda **yanlış** yaptırır (süre kaybı ve savunma deliği kalktı):
+
+- **Yara izi ve sarsıntı** (saldırı çizerken): botun saldırı büyüsü yanlış yere kayar, titrer ve çizgilerinde boşluklar kalır (yara izi başına %5, sarsıntı şiddeti başına %4 bozulma).
+- **Sis ve çamur** (savunma çizerken): botun savunma büyüsü yanlış yeri kapatır (bulut başına %5, yama başına %4).
+- Şiddet en çok %50'dir. Bozulma: tüm çizim rastgele bir yöne kayar (şiddet×34 birime kadar), her nokta titrer (şiddet×26 birime kadar) ve her çizgiden şiddet×%55 oranında parça silinir.
+  Özel şekil denemesi de bozulan çizim üzerinden değerlendirildiği için başarısız olabilir.
+- Boss ve düşman pasifleri insan oyuncuya yalnızca görsel etki yapar. Denge: Kaelen 677 → 718, Morga 775 → 730, Morwenna 1100 → 1166 can.
+
+Kod: `battle/flow/degrade.ts`, `battle/flow/controller.ts`.
