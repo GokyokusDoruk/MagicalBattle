@@ -286,6 +286,7 @@ export class BattleScreen implements BattleIO {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
+      ${role === 'attack' ? '<p class="text-center text-xs text-slate-300">Büyük çiz ve süreyi doldur: aceleyle çizilen büyü zayıf kalır (en fazla %60 daha zayıf).</p>' : ''}
       ${special ? this.specialPreview(special) : ''}
       <div data-canvas class="flex w-full justify-center"></div></div>`;
     const canvas = new DrawingCanvas({

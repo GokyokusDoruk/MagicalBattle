@@ -5,7 +5,7 @@ import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
 import { placeFog } from '../ui/drawingCanvas';
 import { MAX_SKILL_LEVEL, describeEffect, skillsOf } from './catalog';
-import { FOG_BOT_BYPASS, neutralEffects, resolvePassives, resolveSpell } from './resolver';
+import { neutralEffects, resolvePassives, resolveSpell } from './resolver';
 import { SkillTree } from './tree';
 
 const good = () => analyzeStrokes(buildShape('circle', 128, 128, 75, 2400));
@@ -96,16 +96,17 @@ describe('su yetenekleri', () => {
     expect(missed[0].chilled).toBe(false);
   });
 
-  it('Sis Perdesi: savunma ekranına sis gider; botun savunması zayıflar, insanınki otomatik zayıflamaz', async () => {
+  it('Sis Perdesi: savunma ekranına sis gider; botun savunması yanlış çizilir, insanınki bozulmaz', async () => {
     const owner = { passives: resolvePassives(new Map([['water-fog', 3]])) };
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1, { defenderDraws: true });
     const fogged = await play(duel({ passives: owner.passives }), 1, { defenderDraws: true, defenseExtras: extras });
     expect(extras).toEqual([{ fog: 3, mud: 0 }]);
-    expect(fogged[0].breakdown!.defenseBypass).toBeCloseTo(3 * FOG_BOT_BYPASS, 6);
+    expect(fogged[0].defense!.strokes).not.toEqual(plain[0].defense!.strokes); // sisli bot savunmasını yanlış çizdi
     expect(fogged[0].damage).toBeGreaterThan(plain[0].damage);
     const human = await play(duel({ passives: owner.passives }, { control: 'human' }), 1, { defenderDraws: true });
-    expect(human[0].breakdown!.defenseBypass).toBe(0);
+    expect(human[0].defense!.strokes).toEqual(plain[0].defense!.strokes);
+    expect(human[0].damage).toBe(plain[0].damage);
     expect(human[0].fogged).toBe(3);
   });
 

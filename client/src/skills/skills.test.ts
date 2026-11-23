@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateDamage } from '../battle/damage/calculate';
-import { runBattle, SCAR_PENALTY_SEC, type BattleIO, type DrawExtras, type TurnReport } from '../battle/flow/controller';
+import { runBattle, type BattleIO, type DrawExtras, type TurnReport } from '../battle/flow/controller';
 import { BattleEngine, type BurnEvent } from '../battle/flow/engine';
 import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
@@ -410,7 +410,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
     expect(engine.fighter({ team: 0, index: 0 }).fireChain).toBe(0);
   });
 
-  it('Yanık İzi: savunanın pasifi saldırgana yara izi gönderir; bot yara izine rastgele denk gelip süre kaybeder', async () => {
+  it('Yanık İzi: savunanın pasifi saldırgana yara izi gönderir; bot saldırgan büyüyü yanlış çizer', async () => {
     const draws: DrawExtras[] = [];
     const tree = { passives: resolvePassives(new Map([['fire-scars', 3]])) };
     // A saldırır, B (izli) savunur: izli oyuncu B
@@ -421,11 +421,11 @@ describe('savaş akışı: ateş yetenekleri', () => {
     const plain = await play(fighters(), 1);
     const scarred = await play(engine, 1, { draws, random: () => 0 });
     expect(draws).toMatchObject([{ scars: 3, shake: 0 }]);
-    expect(scarred.reports[0].attack.metrics.drawTimeSec).toBeCloseTo(plain.reports[0].attack.metrics.drawTimeSec - 3 * SCAR_PENALTY_SEC, 6);
+    expect(scarred.reports[0].attack.strokes).not.toEqual(plain.reports[0].attack.strokes);
     expect(scarred.reports[0].damage).toBeLessThan(plain.reports[0].damage);
   });
 
-  it('Yanık İzi: şans tutmazsa bot izlere değmez; izi olmayana hiç ekstra gitmez', async () => {
+  it('Yanık İzi: yara izi gönderilir; izi olmayana hiç ekstra gitmez', async () => {
     const draws: DrawExtras[] = [];
     const tree = { passives: resolvePassives(new Map([['fire-scars', 2]])) };
     const engine = new BattleEngine([
@@ -435,14 +435,14 @@ describe('savaş akışı: ateş yetenekleri', () => {
     const plain = await play(fighters(), 1);
     const safe = await play(engine, 1, { draws, random: () => 0.99 });
     expect(draws).toMatchObject([{ scars: 2, shake: 0 }]);
-    expect(safe.reports[0].attack.metrics.drawTimeSec).toBe(plain.reports[0].attack.metrics.drawTimeSec);
+    expect(safe.reports[0].damage).toBeLessThan(plain.reports[0].damage); // iki yara izi de çizimi bozar
 
     const none: DrawExtras[] = [];
     await play(fighters(), 1, { draws: none });
     expect(none.every((e) => !e.scars && !e.shake)).toBe(true); // yalnızca özel şekil gider, yara izi ya da sarsıntı yok
   });
 
-  it('Yanık İzi: insan oyuncunun süresini denetleyici değiştirmez (tuval kendisi keser)', async () => {
+  it('Yanık İzi: insan oyuncunun çizimini denetleyici bozmaz (yalnızca görüş engeli)', async () => {
     const tree = { passives: resolvePassives(new Map([['fire-scars', 3]])) };
     const engine = new BattleEngine([
       { name: 'A', team: 0, control: 'human' },
@@ -450,6 +450,6 @@ describe('savaş akışı: ateş yetenekleri', () => {
     ]);
     const plain = await play(fighters(), 1);
     const human = await play(engine, 1, { random: () => 0 });
-    expect(human.reports[0].attack.metrics.drawTimeSec).toBe(plain.reports[0].attack.metrics.drawTimeSec);
+    expect(human.reports[0].attack.strokes).toEqual(plain.reports[0].attack.strokes);
   });
 });

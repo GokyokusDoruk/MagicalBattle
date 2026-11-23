@@ -4,7 +4,8 @@ import type { Element } from '../damage/elements';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { DRAW_TIME_MS } from '../gesture/config';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
-import { FOG_BOT_BYPASS, LIMITS, MUD_BOT_BYPASS, SHIELD_BREAK_STRENGTH, STUN_HIT_RATIO } from '../../skills/resolver';
+import { LIMITS, SHIELD_BREAK_STRENGTH, STUN_HIT_RATIO } from '../../skills/resolver';
+import { attackDegrade, defenseDegrade, degradeDrawing } from './degrade';
 import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
 import { matchShapeWithin } from '../gesture/shapeMatch';
 import { SHAPE_NAMES, type ShapeName } from './shapes';
@@ -88,12 +89,6 @@ export interface DrawExtras {
   mud?: number;
 }
 
-/** Yara izine dokunmanın çizim süresinden aldığı */
-export const SCAR_PENALTY_SEC = 0.2;
-/** Botlar yara izine rastgele denk gelir: iz başına dokunma ihtimali */
-export const BOT_SCAR_HIT_CHANCE = 0.5;
-/** Sarsıntılı Rüzgâr: bot saldırgan şiddet başına bu kadar çizim süresi kaybeder */
-export const BOT_SHAKE_PENALTY_SEC = 0.15;
 /** Kritik şansının üst sınırı (ekipman + yetenek toplamı) */
 export const CRIT_CAP_TOTAL = 0.75;
 
@@ -221,18 +216,10 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const shake = defender.passives.shake;
     const specialShape = specialShapeFor(engine.cycle, action.attacker);
     let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
-    if (shake > 0 && attacker.control === 'bot' && attack.validity.valid) {
-      attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - shake * BOT_SHAKE_PENALTY_SEC) } };
-    }
+    // Yara izi ve sarsıntı botun saldırı çizimini bozar (insanda yalnızca görüş engelidir): büyü kayar, titrer, boşluklar kalır
+    if (attacker.control === 'bot') attack = degradeDrawing(attack, attackDegrade({ scars, shake }), random);
     if (attackChill > 0 && attacker.control === 'bot' && attack.validity.valid) {
       attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - attackChill) } };
-    }
-    if (scars > 0 && attacker.control === 'bot' && attack.validity.valid) {
-      let hits = 0;
-      for (let i = 0; i < scars; i++) if (random() < BOT_SCAR_HIT_CHANCE) hits++;
-      if (hits > 0) {
-        attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - hits * SCAR_PENALTY_SEC) } };
-      }
     }
 
     // Alev Zinciri: art arda ateş saldırıları sayılır; başka element ya da başarısız büyü zinciri keser
@@ -267,7 +254,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       continue;
     }
 
-    const defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attacker.passives.fog > 0 || attacker.passives.mud > 0 ? { fog: attacker.passives.fog, mud: attacker.passives.mud } : undefined);
+    let defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attacker.passives.fog > 0 || attacker.passives.mud > 0 ? { fog: attacker.passives.fog, mud: attacker.passives.mud } : undefined);
+    // Sis ve çamur botun savunma çizimini bozar: kalkan yanlış yeri kapatır
+    if (defender.control === 'bot') defense = degradeDrawing(defense, defenseDegrade(attacker.passives), random);
     const defenseFailed = !defense.validity.valid;
 
     // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
@@ -277,8 +266,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const chainStacks = attackFx.chainBonus > 0 ? Math.min(LIMITS.maxChainStacks, chainBefore) : 0;
     const shieldBroken = !defenseFailed && attackFx.shieldBreak > 0 && random() < attackFx.shieldBreak;
     // Sis Perdesi: sisli ekranda bir botun savunması zayıflar (insan sisi kendi gözüyle aşmaya çalışır)
-    const fogBypass = defender.control === 'bot' && !defenseFailed ? Math.min(0.5, attacker.passives.fog * FOG_BOT_BYPASS + attacker.passives.mud * MUD_BOT_BYPASS) : 0;
-    const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0)) * (1 - fogBypass);
+    const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0));
     const special = matchShapeWithin(attack.strokes, specialShape);
     const parts: { label: string; value: number }[] = [
       { label: 'Özel büyü şekli', value: special.ok ? SPECIAL_SHAPE_BONUS : 1 },
