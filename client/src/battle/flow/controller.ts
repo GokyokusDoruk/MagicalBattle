@@ -18,7 +18,7 @@ export const SPECIAL_SHAPE_BONUS = 1.25;
  * saldıran farklı bir şekil alır; şekiller dönüşümlü gezer.
  */
 export function specialShapeFor(cycle: number, ref: SlotRef): ShapeName {
-  return SHAPE_NAMES[(cycle * 5 + ref.team * 3 + ref.index * 7) % SHAPE_NAMES.length];
+  return SHAPE_NAMES[(cycle * 7 + ref.team * 3 + ref.index * 11) % SHAPE_NAMES.length];
 }
 
 export type Role = 'attack' | 'defense';

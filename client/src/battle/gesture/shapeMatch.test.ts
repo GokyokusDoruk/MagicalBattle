@@ -24,9 +24,9 @@ const human = (strokes: Stroke[], amp: number, sx: number, sy: number, rot: numb
 };
 
 describe('şekil kütüphanesi', () => {
-  it('16 farklı şekil, hepsinin Türkçe adı var ve hepsi geçerli bir büyü olarak çizilebilir', () => {
-    expect(SHAPE_NAMES).toHaveLength(36);
-    expect(new Set(SHAPE_NAMES).size).toBe(36);
+  it('50 farklı şekil, hepsinin Türkçe adı var ve hepsi geçerli bir büyü olarak çizilebilir', () => {
+    expect(SHAPE_NAMES).toHaveLength(50);
+    expect(new Set(SHAPE_NAMES).size).toBe(50);
     for (const n of SHAPE_NAMES) {
       expect(SHAPE_LABELS[n].length).toBeGreaterThan(0);
       const r = analyzeStrokes(buildShape(n, 128, 128, 75, 2200));
