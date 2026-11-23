@@ -142,12 +142,29 @@ const UNIT_SHAPES: Record<string, () => Pt[][]> = {
   sun: () => [Array.from({ length: 17 }, (_, i) => { const a = (i * Math.PI) / 8; const r = i % 2 === 0 ? 1 : 0.5; return [r * Math.cos(a), r * Math.sin(a)] as Pt; })],
   hexagram: () => [[[0, -1], [0.87, 0.5], [-0.87, 0.5], [0, -1]], [[0, 1], [0.87, -0.5], [-0.87, -0.5], [0, 1]]],
   spear: () => [[[0, -0.3], [0, 1]], [[0, -1], [0.25, -0.3], [-0.25, -0.3], [0, -1]]],
+  // Task 69: 14 yeni şekil
+  anchor: () => [curve(16, (t) => [0.2 * Math.cos(t), -0.8 + 0.2 * Math.sin(t)]), [[0, -0.6], [0, 0.9]], [[-0.35, -0.35], [0.35, -0.35]], curve(30, (t) => [0.8 * Math.cos(t), 0.2 + 0.7 * Math.sin(t)], 0, Math.PI)],
+  umbrella: () => [curve(30, (t) => [Math.cos(t), -0.1 - 0.8 * Math.sin(t)], 0, Math.PI), [[0, -0.1], [0, 0.8], [-0.15, 0.95], [-0.3, 0.8]]],
+  ladder: () => [[[-0.45, -1], [-0.45, 1]], [[0.45, -1], [0.45, 1]], [[-0.45, -0.6], [0.45, -0.6]], [[-0.45, -0.2], [0.45, -0.2]], [[-0.45, 0.2], [0.45, 0.2]], [[-0.45, 0.6], [0.45, 0.6]]],
+  butterfly: () => [[[0, -0.2], [0.9, -0.9], [0.95, 0.1], [0, 0.1], [-0.95, 0.1], [-0.9, -0.9], [0, -0.2]], [[0, 0.1], [0.6, 0.9], [0, 0.5], [-0.6, 0.9], [0, 0.1]]],
+  note: () => [curve(16, (t) => [-0.4 + 0.3 * Math.cos(t), 0.7 + 0.22 * Math.sin(t)]), [[-0.1, 0.7], [-0.1, -0.9], [0.5, -0.55], [0.5, -0.1]]],
+  mushroom: () => [[...curve(30, (t) => [Math.cos(t), 0.1 - 0.9 * Math.sin(t)], Math.PI, 0), [0.3, 0.1], [0.3, 0.9], [-0.3, 0.9], [-0.3, 0.1], [-1, 0.1]]],
+  snake: () => [curve(60, (t) => [0.7 * Math.sin(t), (t - Math.PI) / Math.PI], 0, Math.PI * 2)],
+  stairs: () => [[[-1, 0.9], [-1, 0.3], [-0.35, 0.3], [-0.35, -0.3], [0.3, -0.3], [0.3, -0.9], [1, -0.9]]],
+  check: () => [[[-0.9, 0.1], [-0.3, 0.8], [0.9, -0.8]]],
+  hook: () => [[[0.3, -1], [0.3, 0.3], ...curve(20, (t) => [0.3 * Math.cos(t), 0.3 + 0.6 * Math.sin(t)], 0, Math.PI), [-0.3, -0.1]]],
+  boomerang: () => [[[-0.9, -0.6], [0, 0.8], [0.9, -0.6]]],
+  lollipop: () => [curve(32, (t) => [0.5 * Math.cos(t), -0.45 + 0.5 * Math.sin(t)]), [[0, 0.05], [0, 1]]],
+  candle: () => [[[-0.35, -0.3], [0.35, -0.3], [0.35, 1], [-0.35, 1], [-0.35, -0.3]], [[0, -0.3], [0, -0.6]], curve(16, (t) => [0.12 * Math.cos(t), -0.78 + 0.18 * Math.sin(t)])],
+  trident: () => [[[-0.6, -0.9], [-0.6, -0.1], [0.6, -0.1], [0.6, -0.9]], [[0, -1], [0, 0.95]]],
 };
 
 export const SHAPE_NAMES = [
   'circle', 'star', 'spiral', 'wave', 'zigzag', 'triangle', 'diamond', 'heart', 'lightning', 'crescent', 'plus', 'infinity', 'arrow', 'cross', 'semicircle', 'tower',
   // Task 67: 20 yeni şekil
   'drop', 'target', 'house', 'tree', 'sailboat', 'flag', 'crown', 'sword', 'shield', 'cloud', 'flower', 'leaf', 'fish', 'eye', 'bell', 'key', 'hourglass', 'sun', 'hexagram', 'spear',
+  // Task 69: 14 yeni şekil
+  'anchor', 'umbrella', 'ladder', 'butterfly', 'note', 'mushroom', 'trident', 'snake', 'stairs', 'check', 'hook', 'boomerang', 'lollipop', 'candle',
 ] as const;
 export type ShapeName = (typeof SHAPE_NAMES)[number];
 
@@ -156,6 +173,7 @@ export const SHAPE_LABELS: Record<ShapeName, string> = {
   circle: 'Daire', star: 'Yıldız', spiral: 'Spiral', wave: 'Dalga', zigzag: 'Zikzak', triangle: 'Üçgen', diamond: 'Elmas', heart: 'Kalp', lightning: 'Yıldırım',
   crescent: 'Hilal', plus: 'Artı', infinity: 'Sonsuzluk', arrow: 'Ok', cross: 'Çarpı', semicircle: 'Yarım daire', tower: 'Kale',
   drop: 'Damla', target: 'Hedef', house: 'Ev', tree: 'Ağaç', sailboat: 'Yelkenli', flag: 'Bayrak', crown: 'Taç', sword: 'Kılıç', shield: 'Kalkan', cloud: 'Bulut', flower: 'Çiçek', leaf: 'Yaprak', fish: 'Balık', eye: 'Göz', bell: 'Çan', key: 'Anahtar', hourglass: 'Kum saati', sun: 'Güneş', hexagram: 'Altıgen yıldız', spear: 'Mızrak',
+  anchor: 'Çapa', umbrella: 'Şemsiye', ladder: 'Merdiven', butterfly: 'Kelebek', note: 'Nota', mushroom: 'Mantar', trident: 'Üç dişli mızrak', snake: 'Yılan', stairs: 'Basamak', check: 'Tik', hook: 'Kanca', boomerang: 'Bumerang', lollipop: 'Şeker', candle: 'Mum',
 };
 
 export function buildShape(name: ShapeName, cx: number, cy: number, size: number, ms: number): Stroke[] {

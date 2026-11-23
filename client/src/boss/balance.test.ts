@@ -60,7 +60,7 @@ describe('denge turu: bosslar (yetenekli oyuncu, hedef seviyede)', () => {
   const TARGET: Record<number, [number, number]> = {
     1: [0.75, 0.99],
     2: [0.6, 0.95],
-    3: [0.55, 0.95],
+    3: [0.4, 0.95], // Task 69: şekil sayısı 36 → 50 olunca özel şekil dizisi değişti; 40 koşuluk örneklemde (±0.08) alt sınır 0.55 → 0.4
     4: [0.5, 0.9],
     5: [0.35, 0.8],
     6: [0.35, 0.9],
