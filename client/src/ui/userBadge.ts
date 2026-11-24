@@ -1,8 +1,19 @@
-/** Sol üstte oyuncu adı ve "Çıkış" düğmesi. `onLogout` null ise (kayıtsız mod) çıkış düğmesi yoktur. */
+import { createHomeLink } from './homeLink';
+
+/**
+ * Sol üstte "← dorukplays" bağlantısı, oyuncu adı ve "Çıkış" düğmesi. `onLogout` null ise (kayıtsız mod)
+ * çıkış düğmesi yoktur.
+ */
 export function createUserBadge(label: string, onLogout: (() => void) | null): HTMLDivElement {
   const el = document.createElement('div');
   el.className =
     'fixed left-3 top-3 z-40 flex items-center gap-2 rounded-lg bg-black/60 px-3 py-1.5 text-sm text-amber-100 shadow';
+  el.appendChild(
+    createHomeLink(
+      'rounded bg-white/15 px-2 py-0.5 text-xs text-amber-200 no-underline hover:bg-white/30',
+      "dorukplays'e dönülsün mü? Son kayıt noktasından sonraki ilerleme kaybolabilir.",
+    ),
+  );
   const name = document.createElement('span');
   name.textContent = label;
   el.appendChild(name);
