@@ -22,5 +22,7 @@ if (lab === 'draw') {
   const { startBattleLab } = await import('./ui/battleLab');
   startBattleLab(app);
 } else {
-  await import('./game');
+  // "dorukplays sunar" açılışı oynarken oyun arkada yüklenir; açılış en üstte durur
+  const { playIntro } = await import('./ui/introSplash');
+  await Promise.all([playIntro(), import('./game')]);
 }

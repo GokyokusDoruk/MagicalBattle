@@ -1,4 +1,5 @@
 import { ApiError, type ApiClient, type ApiUser } from '../api/client';
+import { DORUKPLAYS_URL } from './homeLink';
 
 type Mode = 'login' | 'register' | 'guest';
 
@@ -77,6 +78,7 @@ export function showAuthScreen(api: ApiClient): Promise<ApiUser | null> {
             <button type="submit" class="rounded bg-amber-300 px-4 py-3 font-bold text-slate-900 disabled:opacity-50">${form.submit}</button>
           </form>
           <button type="button" data-offline class="text-sm text-slate-400 underline">Kayıtsız oyna (ilerleme kaydedilmez)</button>
+          <a href="${DORUKPLAYS_URL}" class="text-center text-sm text-amber-200/80 hover:text-amber-200">← dorukplays'e dön</a>
         </div>`;
 
       root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) =>
