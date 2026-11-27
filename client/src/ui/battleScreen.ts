@@ -3,7 +3,10 @@ import { createArenaSounds } from '../audio/sfx/arenaSounds';
 import { ArenaView, type CombatantSpec } from '../battle/arena/arenaView';
 import type { SlotRef } from '../battle/arena/layout';
 import { ELEMENT_COLORS } from '../battle/arena/palette';
-import { elementMultiplier, elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
+import { elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
+
+/** Elementlerin simgesi: savaş ekranında element adı yazılmaz, yalnız simge ve renk görünür (Faz 1) */
+const ELEMENT_ICON: Record<Element, string> = { fire: '🔥', water: '💧', earth: '⛰️', air: '🌪️' };
 import { Bot } from '../battle/flow/bot';
 import { ElysiaBot } from '../battle/flow/elysia';
 import { EFFECT_LABELS, blockedPercent, explainDamage, spellEffect, type SpellEffect } from '../battle/damage/explain';
@@ -194,17 +197,12 @@ export class BattleScreen implements BattleIO {
   /** Bu turun element ilişkisi: saldıran üstünse hasar artar, savunan üstünse azalır. */
   private async showRelation(attackerElement: Element, defenderElement: Element): Promise<void> {
     const rel = elementRelation(attackerElement, defenderElement);
-    const mult = elementMultiplier(attackerElement, defenderElement);
     this.sfx.play(rel === 'advantage' ? 'revealAdvantage' : rel === 'disadvantage' ? 'revealDisadvantage' : 'revealNeutral');
-    const [tone, label] =
-      rel === 'advantage'
-        ? ['bg-emerald-700/80 text-emerald-100', `saldırı üstün ×${mult}`]
-        : rel === 'disadvantage'
-          ? ['bg-red-800/80 text-red-100', `savunma üstün ×${mult}`]
-          : ['bg-slate-700/80 text-slate-100', 'etkisiz ×1'];
+    // Faz 1: yazı yok, yalnız görüntü: iki elementin simgesi; arka plan rengi (yeşil/kırmızı/gri) üstünlüğü hissettirir
+    const tone = rel === 'advantage' ? 'bg-emerald-700/80 text-emerald-100' : rel === 'disadvantage' ? 'bg-red-800/80 text-red-100' : 'bg-slate-700/80 text-slate-100';
     await this.say(
       this.center,
-      `<span style="color:${css(ELEMENT_COLORS[attackerElement].glow)}">${ELEMENT_NAMES[attackerElement]}</span> ⚔ <span style="color:${css(ELEMENT_COLORS[defenderElement].glow)}">${ELEMENT_NAMES[defenderElement]}</span><br><span class="text-xs font-normal">${label}</span>`,
+      `<span class="text-4xl" style="filter:drop-shadow(0 0 8px ${css(ELEMENT_COLORS[attackerElement].glow)})">${ELEMENT_ICON[attackerElement]}</span> <span class="text-2xl">⚔</span> <span class="text-4xl" style="filter:drop-shadow(0 0 8px ${css(ELEMENT_COLORS[defenderElement].glow)})">${ELEMENT_ICON[defenderElement]}</span>`,
       1200,
       tone,
     );
@@ -234,13 +232,11 @@ export class BattleScreen implements BattleIO {
       for (const e of ELEMENTS) {
         const b = document.createElement('button');
         b.type = 'button';
-        // Hangi elementin neye üstün/zayıf olduğu ve o element için kaç yeteneğin işlediği yazar
-        const strong = ELEMENTS.filter((o) => elementRelation(e, o) === 'advantage').map((o) => `${ELEMENT_NAMES[o]} ×${elementMultiplier(e, o)}`);
-        const weak = ELEMENTS.filter((o) => elementRelation(e, o) === 'disadvantage').map((o) => `${ELEMENT_NAMES[o]} ×${elementMultiplier(e, o)}`);
-        const me = this.engine.all().find((f) => f.control === 'human');
-        const skills = me ? me.spells(e, 'attack').skills.length + me.spells(e, 'defense').skills.length : 0;
-        b.innerHTML = `<span class="block">${ELEMENT_NAMES[e]}</span><span class="mt-1 block text-[11px] font-normal leading-tight">Üstün: ${esc(strong.join(', ') || '-')}<br>Zayıf: ${esc(weak.join(', ') || '-')}${skills > 0 ? `<br>${skills} yetenek işler` : ''}</span>`;
-        b.className = 'rounded-lg px-3 py-3 text-lg font-bold text-slate-900 active:scale-95';
+        // Faz 1: kartta yazı yok (ne adı ne de neye üstün olduğu), yalnız elementin simgesi ve rengi
+        b.innerHTML = `<span class="block text-5xl leading-none" aria-hidden="true">${ELEMENT_ICON[e]}</span>`;
+        b.setAttribute('aria-label', ELEMENT_NAMES[e]);
+        b.dataset.element = e;
+        b.className = 'flex h-28 items-center justify-center rounded-xl text-slate-900 shadow-lg active:scale-95';
         b.style.background = css(ELEMENT_COLORS[e].main);
         b.addEventListener('click', () => {
           this.sfx.play('pick');
@@ -262,7 +258,7 @@ export class BattleScreen implements BattleIO {
     this.roundElements = new Map(round.map((c) => [key(c.ref), c.element]));
     this.sfx.play('turn');
     const rows = round
-      .map((c) => `<span style="color:${css(ELEMENT_COLORS[c.element].glow)}">${esc(this.name(c.ref))}: ${ELEMENT_NAMES[c.element]}</span>`)
+      .map((c) => `<span style="color:${css(ELEMENT_COLORS[c.element].glow)}">${esc(this.name(c.ref))} <span class="text-xl">${ELEMENT_ICON[c.element]}</span></span>`)
       .join('<br>');
     await this.say(this.center, `Bu döngünün elementleri<br><span class="text-sm font-normal">${rows}</span>`, 1800, 'bg-slate-800/85 text-slate-100');
   }
@@ -487,12 +483,12 @@ export class BattleScreen implements BattleIO {
   }
 
   /**
-   * Vuruştan sonra: önce "%X bloklandı" ve etki seviyesi (çok etkisiz, etkisiz, normal, etkili, çok etkili), 2 saniye sonra hasar sayısı,
+   * Vuruştan sonra: önce "%X bloklandı" ve hasara göre etki seviyesi (çok etkisiz, etkisiz, normal, etkili, çok etkili), 2 saniye sonra hasar sayısı,
    * sonra Detay / Devam.
    */
   private async showEffect(report: TurnReport): Promise<void> {
     if (!report.breakdown) return;
-    const effect = spellEffect(report.breakdown, report.defenseFailed);
+    const effect = spellEffect(report.breakdown);
     const tones: Record<SpellEffect, string> = {
       veryWeak: 'bg-slate-700/90 text-slate-200',
       weak: 'bg-slate-600/90 text-slate-100',

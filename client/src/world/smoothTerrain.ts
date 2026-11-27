@@ -165,6 +165,11 @@ export interface RenderOptions {
   pixelsPerTile: number;
   /** Kenar gürültüsü: sınırların ne kadar dalgalı olduğu (varsayılan 0.34) */
   wobble?: number;
+  /**
+   * Karo karo görünüm (Faz 1): her karo kendi alanını tam doldurur, komşu türler birbirine taşmaz. Karolar belli olur
+   * ama ızgara çizgisi çizilmez (aynı türün dokusu karo sınırında kesintisiz akar). Suyun kıyıya değen kenarında ince köpük kalır.
+   */
+  tileAligned?: boolean;
   /** Çizilecek bölge (karo, yarı açık); verilmezse tüm harita */
   region?: { x0: number; y0: number; x1: number; y1: number };
 }
@@ -176,7 +181,7 @@ export interface RenderedImage {
   data: Uint8ClampedArray;
 }
 
-/** Karo haritasını yumuşak arazi görseline çevirir. */
+/** Karo haritasını arazi görseline çevirir (varsayılan yumuşak kenarlı, `tileAligned` ile karo karo). */
 export function renderSmoothTerrain(tiles: readonly (readonly Tile[])[], opts: RenderOptions): RenderedImage {
   const H = tiles.length;
   const W = tiles[0]?.length ?? 0;
@@ -206,7 +211,20 @@ export function renderSmoothTerrain(tiles: readonly (readonly Tile[])[], opts: R
 
       if (t === Tile.Wall) rgb = texWall(Math.floor((u - tx) * S), Math.floor((v - ty) * S), S);
       else if (t === Tile.Gate) rgb = texGate(Math.floor((u - tx) * S), Math.floor((v - ty) * S), S);
-      else {
+      else if (opts.tileAligned) {
+        w.fill(0);
+        w[softIndex(tx, ty)] = 1;
+        rgb = texture(t, u, v, w);
+        if (t === Tile.Water) {
+          // Kıyı köpüğü yalnızca su karosunun içinde, kara komşusuna bakan kenarda
+          const fu = u - tx;
+          const fv = v - ty;
+          const land = (dx: number, dy: number): boolean => tileAt(tx + dx, ty + dy) !== Tile.Water;
+          const edge = Math.min(land(-1, 0) ? fu : 1, land(1, 0) ? 1 - fu : 1, land(0, -1) ? fv : 1, land(0, 1) ? 1 - fv : 1);
+          const foam = Math.exp(-Math.pow(edge / 0.09, 2)) * (0.45 + 0.55 * vnoise(u * 8, v * 8, 121));
+          rgb = mix(rgb, [236, 246, 252], clamp(foam * 0.8));
+        }
+      } else {
         // Karo merkezlerine göre bilineer ağırlıklar
         const fu = u - 0.5;
         const fv = v - 0.5;

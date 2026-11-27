@@ -346,15 +346,7 @@ export class DrawingCanvas {
     const scale = canvas.width / LOGICAL_SIZE;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Kılavuz: ortada soluk artı
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(canvas.width / 2, 0);
-    ctx.lineTo(canvas.width / 2, canvas.height);
-    ctx.moveTo(0, canvas.height / 2);
-    ctx.lineTo(canvas.width, canvas.height / 2);
-    ctx.stroke();
+    // Faz 1: ortadaki kılavuz artı kaldırıldı (tuvalin ortasında nokta gibi görünüyordu)
 
     if (this.options.showHeadZone) this.drawHeadZone(scale);
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);

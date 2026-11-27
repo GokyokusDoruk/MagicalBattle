@@ -1,7 +1,7 @@
 import { createHomeLink } from './homeLink';
 
 /**
- * Sol üstte "← dorukplays" bağlantısı, oyuncu adı ve "Çıkış" düğmesi. `onLogout` null ise (kayıtsız mod)
+ * Sol üstte "← dorukplays" bağlantısı, oyuncu adı ve "Çıkış" düğmesi. `onLogout` null ise
  * çıkış düğmesi yoktur.
  */
 export function createUserBadge(label: string, onLogout: (() => void) | null): HTMLDivElement {

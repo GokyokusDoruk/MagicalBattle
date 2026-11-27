@@ -15,8 +15,8 @@ export interface EnemySpot {
 }
 
 export const ENEMY_COUNT = 88;
-/** Yenilen düşmanın geri gelme süresi (oyun süresiyle) */
-export const ENEMY_RESPAWN_MS = 4 * 60 * 1000;
+/** Yenilen düşmanın geri gelme süresi (oyun süresiyle): madenler gibi 10 dakika (Faz 1) */
+export const ENEMY_RESPAWN_MS = 10 * 60 * 1000;
 
 /** Düşman kademelerinin dağılımı (10 düşmanda): 2 x kademe 1, 3 x kademe 2, 2 x kademe 3, 3 x kademe 4 */
 const TIER_QUOTA: readonly Tier[] = [1, 2, 3, 4, 2, 4, 1, 3, 2, 4];

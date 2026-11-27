@@ -137,7 +137,7 @@ export class WorldScene extends Phaser.Scene {
     this.cityTracker = new CityEntryTracker(cityAt(map.locations, start.x, start.y));
     this.locationTracker = new CityEntryTracker(locationAt(map.locations, start.x, start.y));
     this.currentLocation = locationAt(map.locations, start.x, start.y);
-    this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.8).setDepth(10);
+    this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.5).setDepth(10);
     this.staff = this.add.image(this.pos.x, this.pos.y, STAFF_KEY).setOrigin(0.5, 1).setDepth(10.5);
     this.placeStaff(0);
 
@@ -226,7 +226,7 @@ export class WorldScene extends Phaser.Scene {
           this.bushes.push(img);
         }
         const sway = Math.sin(time / 420 + x * 1.7 + y) * 0.9;
-        img.setPosition(x * TILE_SIZE + TILE_SIZE / 2 + sway, y * TILE_SIZE + TILE_SIZE / 2 + 8);
+        img.setPosition(x * TILE_SIZE + TILE_SIZE / 2 + sway, (y + 1) * TILE_SIZE);
         img.setVisible(true);
         used++;
       }
@@ -300,8 +300,8 @@ export class WorldScene extends Phaser.Scene {
     this.staffMove += (target - this.staffMove) * 0.2;
     const bob = Math.sin(time / 85) * 3 * this.staffMove + Math.sin(time / 700) * 0.7 * (1 - this.staffMove);
     const tilt = Math.sin(time / 85 + 1) * 0.16 * this.staffMove + Math.sin(time / 700) * 0.04;
-    // Doku koordinatında asa x=23 (merkezden +10), alt ucu y=31: dünyada oyuncunun 5.4 piksel aşağısı
-    this.staff.setPosition(this.pos.x + (left ? -10 : 10), this.pos.y + 5.4 + bob);
+    // Karakter karoyu doldurur; asa karonun kenarında, alt ucu karonun dibinde (karodan taşmaz)
+    this.staff.setPosition(this.pos.x + (left ? -11 : 11), this.pos.y + 14 + bob * 0.6);
     this.staff.setRotation(left ? -tilt : tilt);
   }
 
@@ -350,9 +350,9 @@ export class WorldScene extends Phaser.Scene {
     for (const spot of this.ctx.enemies ?? []) {
       const x = spot.tileX * TILE_SIZE + TILE_SIZE / 2;
       const y = spot.tileY * TILE_SIZE + TILE_SIZE / 2;
-      // Büyücü: kademe yükseldikçe biraz büyür (kadimler en büyük)
-      const sprite = this.add.image(x, y + 6, enemyKey(spot.element)).setOrigin(0.5, 0.85).setDepth(6).setScale(1 + (spot.tier - 1) * 0.1);
-      this.tweens.add({ targets: sprite, y: y + 2, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      // Büyücü tam bir karoyu doldurur (Faz 1); kademe adının renginden ve yazısından anlaşılır
+      const sprite = this.add.image(x, y, enemyKey(spot.element)).setOrigin(0.5, 0.5).setDepth(6).setDisplaySize(TILE_SIZE * (34 / 44), TILE_SIZE);
+      this.tweens.add({ targets: sprite, y: y - 1.5, duration: 600 + (spot.tileX % 4) * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.enemySprites.set(spot.id, sprite);
       const label = this.add
         .text(x, y - 30, enemyTitle(spot.element, spot.tier), { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: ENEMY_LABEL_COLORS[spot.element], stroke: '#000000', strokeThickness: 3 })
