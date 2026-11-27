@@ -1,6 +1,6 @@
 # MagicalBattle iyileştirme planı (7 faz, her faz ayrı PR)
 
-Durum: **onaylandı.** Faz 1, 2, 3 ve 4 bitti, sıradaki Faz 5.
+Durum: **onaylandı.** Faz 1-5 bitti, sıradaki Faz 6.
 Her faz `claude/vibrant-cori-xcmkk6` dalından açılan ayrı bir PR'dır; canlıda (magicalbattle.dorukplays.com) tek tek test edilir.
 Modeller: yalnızca CC0 (lisanssız) kaynaklar (Quaternius, Poly Haven, OpenGameArt CC0, ambientCG, Kenney). Her modelin kaynağı `docs/varliklar.md`'de listelenir.
 
@@ -142,3 +142,15 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
   toprak kaya dokulu kalın iz ve düşen çakıllar; hava ince rüzgâr telleri ve savrulan kıvrımlar.
 - **Çamur yaması** gerçek çamur dokusuyla (ıslak koyu kenar, parıltı); **ateş yarası** kömürleşmiş toprak dokulu yarık ve titreyen kor çatlaklar.
 - Dokular: Poly Haven CC0, kaynak listesi [varliklar.md](varliklar.md).
+
+## Faz 5 notları (yapıldı)
+
+- **Çizerken kamera:** önce kendi büyücünün omzunun üstünden rakibe bakar, sonra göz hizasına (birinci kişi) geçer. Gövde gizlenir,
+  ekranın sağ altında elin ve kuşanılı asan belirir (`battle/arena/firstPersonHand.ts`); çizerken el kalemi izler, asa ucu parlar.
+  Tuval yarı saydamdır, arkasında arena ve rakip görünür. Saldırıda da savunmada da.
+- **Büyü uçuşu:** büyü beklemeden fırlar, kamera arkasından onunla ilerler (`castSpell`).
+- **Çarpışma:** kalkana çarpınca kısa bir duraksama; savunulan parçalar çizginin kopan parçaları olarak dört bir yana savrulup söner
+  (`scatter`), kalan kısım küçülerek rakibe devam eder. Eski ~3,5 sn yavaş çekim kaldırıldı.
+- **Vuruş:** çarptığı an büyük hasar sayısı ve etki yazısı birlikte çıkar; altında **Detay** ve **Tamam**. Tamam'a basmadan sıradaki
+  hamleye geçilmez (eskiden 2,5 sn sonra kendiliğinden geçiyordu).
+- **Bitiriş:** son büyü her zamanki gibi gider, rakip arkaya devrilip yere yığılır, "KAZANDIN!" yazısı ([bitiris-buyusu.md](bitiris-buyusu.md)).

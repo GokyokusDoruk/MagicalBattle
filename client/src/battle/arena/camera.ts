@@ -3,6 +3,10 @@ import * as THREE from 'three';
 export interface Shot {
   position: THREE.Vector3;
   lookAt: THREE.Vector3;
+  /** Faz 5: konum aynen kullanılır (dar ekran uzaklaştırması uygulanmaz): göz hizası ve büyüyü takip eden çekim için */
+  exact?: boolean;
+  /** Geçiş hızı (varsayılan 3.4); büyüyü takip ederken daha sıkı (yüksek) */
+  speed?: number;
 }
 
 /** Kareden bağımsız yumuşatma katsayısı: büyüdükçe hedefe daha hızlı yaklaşılır. */
@@ -77,8 +81,8 @@ export class CameraDirector {
   update(dt: number, time: number): void {
     const target = this.shot ?? this.idleShot(time);
     // Mesafeyi bakılan noktadan uzaklaştırarak ölçekle
-    const desired = target.lookAt.clone().add(target.position.clone().sub(target.lookAt).multiplyScalar(this.distanceScale));
-    const k = dampFactor(this.shot ? 3.4 : 1.4, dt);
+    const desired = target.exact ? target.position.clone() : target.lookAt.clone().add(target.position.clone().sub(target.lookAt).multiplyScalar(this.distanceScale));
+    const k = dampFactor(this.shot ? (this.shot.speed ?? 3.4) : 1.4, dt);
     this.pos.lerp(desired, k);
     this.look.lerp(target.lookAt, k);
 

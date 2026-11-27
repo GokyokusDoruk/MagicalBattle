@@ -28,6 +28,8 @@ export class Combatant {
   private hitStrength = 0;
   private defeatedAmount = 0;
   private defeated = false;
+  /** Faz 5: yenilgi biçimi: yana yığılma ya da vuruşla arkaya düşüp yere serilme */
+  private fallStyle: 'collapse' | 'backward' = 'collapse';
 
   constructor(
     readonly name: string,
@@ -108,13 +110,22 @@ export class Combatant {
     this.hitLeft = 0.5;
   }
 
-  defeat(): void {
+  /** Yenilgi: `backward` ise vuruşun etkisiyle arkaya devrilip sırtüstü yere yığılır (son büyü), aksi halde yana çöker. */
+  defeat(style: 'collapse' | 'backward' = 'collapse'): void {
     this.defeated = true;
+    this.fallStyle = style;
+  }
+
+  /** Birinci kişi bakışta kendi gövden kameranın önünü kapatmasın diye gizlenir. */
+  setVisible(visible: boolean): void {
+    this.body.visible = visible;
   }
 
   reset(): void {
     this.defeated = false;
     this.defeatedAmount = 0;
+    this.fallStyle = 'collapse';
+    this.body.visible = true;
     this.castLeft = this.defendLeft = this.hitLeft = 0;
   }
 
@@ -127,7 +138,7 @@ export class Combatant {
     this.castLeft = Math.max(0, this.castLeft - dt);
     this.defendLeft = Math.max(0, this.defendLeft - dt);
     this.hitLeft = Math.max(0, this.hitLeft - dt);
-    this.defeatedAmount = THREE.MathUtils.clamp(this.defeatedAmount + (this.defeated ? dt / 0.8 : -dt / 0.4), 0, 1);
+    this.defeatedAmount = THREE.MathUtils.clamp(this.defeatedAmount + (this.defeated ? dt / (this.fallStyle === 'backward' ? 0.95 : 0.8) : -dt / 0.4), 0, 1);
 
     // Bekleme: hafif süzülme
     let y = Math.sin(this.time * 2) * 0.06;
@@ -162,8 +173,15 @@ export class Combatant {
     }
 
     const f = this.defeatedAmount;
-    this.body.position.set(0, y - f * 0.45, -knock);
-    this.body.rotation.set(lean + f * 0.4, 0, f * (Math.PI / 2.2));
+    if (this.fallStyle === 'backward') {
+      // Arkaya devrilme: önce geriye savrulur, sonra sırtüstü yere serilir (kolay başlayıp hızlanan düşüş)
+      const fall = f * f;
+      this.body.position.set(0, y * (1 - f) - fall * 0.35, -knock - f * 1.1);
+      this.body.rotation.set(lean - fall * (Math.PI / 2.05), 0, f * 0.08);
+    } else {
+      this.body.position.set(0, y - f * 0.45, -knock);
+      this.body.rotation.set(lean + f * 0.4, 0, f * (Math.PI / 2.2));
+    }
     this.staff.rotation.set(staffX, 0, staffZ);
     this.orbMaterial.emissive.set(ELEMENT_COLORS[this.element].glow).multiplyScalar(orbGlow);
 
