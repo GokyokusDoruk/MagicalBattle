@@ -13,7 +13,7 @@ export function describeItem(item: ItemDef): string {
     if (item.carry) effect = `+${item.carry.wands} asa, +${item.carry.goods} eşya, +${item.carry.gear} kuşanılabilir`;
     else if (item.armor !== undefined) effect = `+${pct(item.armor)} zırh`;
     else if (item.speed !== undefined) effect = `yürüme hızı +${pct(item.speed)}`;
-    else if (item.timeBonus !== undefined) effect = `kritik +${pct(item.crit ?? 0)} · büyü süresi +${item.timeBonus.toFixed(2)} sn`;
+    else if (item.timeBonus !== undefined) effect = `kritik +${pct(item.crit ?? 0)} · büyü süresi +${item.timeBonus.toFixed(2)} sn${item.areaCells ? ` · alan gücü +${item.areaCells}` : ""}`;
     const lvl = item.level !== undefined ? ` · Sv ${item.level}` : '';
     return `${slot}${el}${lvl} · ${effect}`;
   }

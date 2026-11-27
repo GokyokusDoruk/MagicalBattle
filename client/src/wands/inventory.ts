@@ -18,6 +18,8 @@ export interface WandEffects {
   timeBonusSec: number;
   /** Etkin asanın kimliği; asa yoksa null */
   wandId: string | null;
+  /** Faz 6: asanın alan gücü (hücre); asa yoksa 0 */
+  areaCells?: number;
 }
 
 /** (büyünün elementi, aşama): saldırı çizerken 'attack', savunma çizerken 'defense' */
@@ -175,7 +177,7 @@ export class WandInventory {
     const wand = this.equippedWand;
     if (!wand || wand.level > this.levelOf()) return NO_WAND_EFFECTS;
     const e = wandEffect(wand, element, phase);
-    return { powerMultiplier: e.powerMultiplier, takenMultiplier: e.takenMultiplier, timeBonusSec: e.timeBonusSec, wandId: wand.id };
+    return { powerMultiplier: e.powerMultiplier, takenMultiplier: e.takenMultiplier, timeBonusSec: e.timeBonusSec, wandId: wand.id, areaCells: e.areaCells };
   }
 
   /** Savaşçıya verilecek çözücü; envanter sonradan değişse bile güncel durumu okur. */

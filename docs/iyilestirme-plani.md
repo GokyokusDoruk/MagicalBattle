@@ -1,6 +1,6 @@
 # MagicalBattle iyileştirme planı (7 faz, her faz ayrı PR)
 
-Durum: **onaylandı.** Faz 1-5 bitti, sıradaki Faz 6.
+Durum: **onaylandı.** Faz 1-6 bitti, sıradaki Faz 7.
 Her faz `claude/vibrant-cori-xcmkk6` dalından açılan ayrı bir PR'dır; canlıda (magicalbattle.dorukplays.com) tek tek test edilir.
 Modeller: yalnızca CC0 (lisanssız) kaynaklar (Quaternius, Poly Haven, OpenGameArt CC0, ambientCG, Kenney). Her modelin kaynağı `docs/varliklar.md`'de listelenir.
 
@@ -154,3 +154,9 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
 - **Vuruş:** çarptığı an büyük hasar sayısı ve etki yazısı birlikte çıkar; altında **Detay** ve **Tamam**. Tamam'a basmadan sıradaki
   hamleye geçilmez (eskiden 2,5 sn sonra kendiliğinden geçiyordu).
 - **Bitiriş:** son büyü her zamanki gibi gider, rakip arkaya devrilip yere yığılır, "KAZANDIN!" yazısı ([bitiris-buyusu.md](bitiris-buyusu.md)).
+
+## Faz 6 notları (yapıldı)
+
+- **Alan büyüsü ve kolye**: ayrıntılar [alan-buyusu.md](alan-buyusu.md).
+- **Gerçek büyücü modeli (Faz 7'den öne alındı)**: savaşta ve haritada Quaternius Wizard (CC0), iskeletli ve animasyonlu; kıyafet element
+  renginde. Kaynak: [varliklar.md](varliklar.md).

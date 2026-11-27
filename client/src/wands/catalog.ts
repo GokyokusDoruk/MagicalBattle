@@ -76,7 +76,13 @@ export interface WandDef extends WandSpec {
   attackMultiplier: number;
   /** Savunmada güç çarpanı (>1 güçlü, <1 zayıf); alınan hasar = 1 / bu */
   defenseMultiplier: number;
+  /** Faz 6: alan gücü (hücre): çizimin çevirdiği bölgeden bu kadarını doldurabilir */
+  areaCells: number;
 }
+
+/** Faz 6: asanın alan gücü nadirlikle artar (Sıradan 30 … Mistik 120 hücre), seviye başına +%1 */
+export const WAND_AREA_BY_RARITY: Record<Rarity, number> = { 1: 30, 2: 45, 3: 60, 4: 78, 5: 98, 6: 120 };
+export const wandAreaCells = (rarity: Rarity, level: number): number => Math.round(WAND_AREA_BY_RARITY[rarity] * (1 + 0.01 * (level - 1)));
 
 export const wandStrength = (rarity: Rarity, level: number): number => RARITY_BONUS * (rarity - 1) + LEVEL_BONUS * (level - 1);
 
@@ -108,6 +114,7 @@ export function makeWand(spec: WandSpec): WandDef {
     timeBonusSec: Math.round(TIME_PER_STRENGTH_SEC * strength * 100) / 100,
     attackMultiplier: (1 + strength) * (spec.role === 'attack' ? ROLE_UP : ROLE_DOWN),
     defenseMultiplier: (1 + strength) * (spec.role === 'defense' ? ROLE_UP : ROLE_DOWN),
+    areaCells: wandAreaCells(spec.rarity, spec.level),
   };
   cache.set(id, def);
   return def;
@@ -135,6 +142,8 @@ export interface WandSpellEffect {
   timeBonusSec: number;
   /** Seçilen büyünün elementi asanınkiyle aynı mı */
   elementMatch: boolean;
+  /** Faz 6: alan gücü (hücre) */
+  areaCells: number;
 }
 
 /** Bir asanın, verilen elementteki büyü için saldırı ya da savunma aşamasındaki etkisi. */
@@ -145,6 +154,7 @@ export function wandEffect(wand: WandDef, element: Element, phase: WandRole): Wa
     takenMultiplier: phase === 'defense' ? 1 / wand.defenseMultiplier : 1,
     timeBonusSec: wand.timeBonusSec,
     elementMatch: match,
+    areaCells: wand.areaCells,
   };
 }
 
@@ -175,6 +185,7 @@ export function describeWand(w: WandDef): string[] {
     `Saldırı hasarı ${pct(w.attackMultiplier)}`,
     `Savunma gücü ${pct(w.defenseMultiplier)}`,
     `Büyü süresi +${w.timeBonusSec.toFixed(2)} sn`,
+    `Alan gücü ${w.areaCells} (kapalı çizdiğin bölgeyi doldurur)`,
     `${ELEMENT_NAMES[w.element]} büyüsünde hasar +%50 daha`,
   ];
 }

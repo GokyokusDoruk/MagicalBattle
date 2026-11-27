@@ -117,7 +117,7 @@ export const BOSSES: readonly BossDef[] = [
     chapter: 6,
     id: 'morga',
     title: 'Cadı Morga',
-    foes: [{ name: 'Cadı Morga', hp: 570, basePower: 110, armor: 0.15, skill: 0.6, elements: { water: 2, earth: 2 }, skills: { 'water-fog': 2, 'water-chill': 2, 'water-mirror': 1, 'earth-mud': 1 } }],
+    foes: [{ name: 'Cadı Morga', hp: 700, basePower: 110, armor: 0.15, skill: 0.6, elements: { water: 2, earth: 2 }, skills: { 'water-fog': 2, 'water-chill': 2, 'water-mirror': 1, 'earth-mud': 1 } }],
     gimmick: { hideGhost: true, note: 'Sis yanılsama yaratıyor: gelen saldırıyı savunurken göremezsin.' },
     intro: [{ speaker: 'Cadı Morga', text: 'Sis her şeyi gizler, çırak. Sınavımı geç, o zaman konuşuruz.' }],
     reward: { money: 420, xp: 400 },

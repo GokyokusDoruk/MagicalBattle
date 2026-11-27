@@ -11,6 +11,7 @@ import { SpellVisual } from './spell';
 import { SIGIL_SIZE, strokesToPaths, type PlanePoint } from './strokeMap';
 import { Tweens, clamp01, easeInOut, easeOutCubic } from './tween';
 import { FirstPersonHand } from './firstPersonHand';
+import { GRID } from '../gesture/config';
 
 export interface CombatantSpec {
   name: string;
@@ -36,9 +37,13 @@ export interface CastHooks {
   onClash?: () => void;
   /** Faz 5: saldırının savunulan oranı (0-1). Bu kadarlık parçası kalkana çarpınca saçılır, kalanı rakibe devam eder. */
   blockedRatio?: number;
+  /** Faz 6: alan büyüsünün doldurulan hücreleri (32×32 ızgara): büyünün içi dolu görünür */
+  areaCells?: readonly number[];
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+/** Çizim yoğunluk ızgarasının kenarı (alan büyüsü hücreleri) */
+const AREA_GRID = GRID;
 const MAX_DT = 0.1;
 
 /** Çizim yoksa (ya da hiç geçerli çizgi çıkmadıysa) gösterilecek yedek mühür: halka. */
@@ -345,6 +350,7 @@ export class ArenaView {
     const paths = strokesToPaths(strokes);
     const shape = paths.length > 0 ? paths : DEFAULT_RING;
     const visual = this.addSpell(new SpellVisual(shape, colors.main, colors.glow));
+    if (hooks.areaCells?.length) visual.setFill(hooks.areaCells, AREA_GRID, colors.glow, SIGIL_SIZE);
     const blocked = clamp01(hooks.blockedRatio ?? 0);
 
     const dir = targetPos.clone().sub(casterPos).setY(0).normalize();
@@ -468,7 +474,7 @@ export class ArenaView {
   }
 
   /** Savunma: savunanın çizdiği mühür, saldırının önüne kalkan olarak kurulur ve vuruşa kadar durur. */
-  async showShield(owner: SlotRef, attacker: SlotRef, strokes: readonly Stroke[], element?: Element): Promise<void> {
+  async showShield(owner: SlotRef, attacker: SlotRef, strokes: readonly Stroke[], element?: Element, areaCells?: readonly number[]): Promise<void> {
     this.removeShield();
     const ownerPos = this.position(owner);
     const attackerPos = this.position(attacker);
@@ -477,6 +483,7 @@ export class ArenaView {
     const visual = new SpellVisual(paths.length > 0 ? paths : DEFAULT_RING, element ? ELEMENT_COLORS[element].main : SHIELD_COLORS.main, element ? ELEMENT_COLORS[element].glow : SHIELD_COLORS.glow);
     visual.group.position.copy(ownerPos).add(toAttacker.clone().multiplyScalar(1.7)).add(new THREE.Vector3(0, 2.0, 0));
     visual.group.scale.setScalar(0.95);
+    if (areaCells?.length) visual.setFill(areaCells, AREA_GRID, element ? ELEMENT_COLORS[element].glow : SHIELD_COLORS.glow, SIGIL_SIZE);
     visual.setOpacity(0);
     this.scene.add(visual.group);
     this.shield = { owner, visual };

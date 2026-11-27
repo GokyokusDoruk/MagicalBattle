@@ -3,6 +3,7 @@ import { calculateDamage, type DamageBreakdown } from '../damage/calculate';
 import type { Element } from '../damage/elements';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { DRAW_TIME_MS } from '../gesture/config';
+import { applyArea, type AreaInfo } from '../gesture/area';
 import { SHOW_ATTACK_TO_DEFENDER } from './config';
 import { LIMITS, SHIELD_BREAK_STRENGTH, STUN_HIT_RATIO } from '../../skills/resolver';
 import { attackDegrade, defenseDegrade, degradeDrawing } from './degrade';
@@ -56,6 +57,9 @@ export interface TurnReport {
   specialShape?: ShapeName;
   /** Faz 3: bu saldırıda rakibin silüet duruşu */
   target?: TargetPose;
+  /** Faz 6: alan büyüsü (saldırı ve savunma): bulunan bölgeler, doldurulanlar, alan gücü */
+  attackArea?: AreaInfo;
+  defenseArea?: AreaInfo;
   specialOk?: boolean;
   /** Çizimin şablona uzaklığı (küçük = benzer; eşik `MATCH_THRESHOLD`) */
   specialDistance?: number;
@@ -80,7 +84,12 @@ export interface TurnReport {
 }
 
 /** Saldırı çizerken savunanın pasiflerinden gelen ekran engelleri (Yanık İzi) */
+/** Faz 6: asasız ve kolyesiz herkesin alan gücü (hücre) */
+export const BASE_AREA_CELLS = 24;
+
 export interface DrawExtras {
+  /** Faz 6: alan gücü (hücre): çizimin çevirdiği bölgeden bu kadarı dolar; çizerken canlı gösterilir */
+  areaCapacity?: number;
   /** Bu turun özel büyü şekli (saldırı çizerken): şekle ne kadar benzerse o kadar güçlü, tutarsa ×1.5. Önizlemede yalnızca şekil gösterilir. */
   specialShape?: ShapeName;
   /**
@@ -217,6 +226,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const attackFx = attacker.spells(attackerElement, 'attack');
     const defenseFx = defender.spells(defenderElement, 'defense');
     const attackSec = baseSec + attackWand.timeBonusSec + attackGear.timeBonusSec + attackFx.timeBonus;
+    // Faz 6: alan gücü: taban + asa + kolye (saldırı ve savunma için ayrı, her biri kendi asası ve kolyesiyle)
+    const attackArea = BASE_AREA_CELLS + (attackWand.areaCells ?? 0) + (attackGear.areaCells ?? 0);
+    const defenseArea = BASE_AREA_CELLS + (defenseWand.areaCells ?? 0) + (defenseGear.areaCells ?? 0);
     const defenseSec = baseSec + defenseWand.timeBonusSec + defenseGear.timeBonusSec + defenseFx.timeBonus;
 
     // Yanık İzi: savunanın pasifi saldırganın çizim ekranına yara izi koyar (insan dokununca süre kaybeder; botlar rastgele denk gelir)
@@ -234,12 +246,16 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const target = io.choosePosition ? clampPose(await io.choosePosition(action.defender, suggested, engine)) : suggested;
     if (options.signal?.aborted) return engine.winner;
     // Saldıran silüeti yalnızca kolay görüşte (savunan da saldırıyı görür) görür; Normal ve Zor'da körlemesine çizer
-    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, ...(showGhost ? { target } : {}), ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
+    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, areaCapacity: attackArea, ...(showGhost ? { target } : {}), ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
     // Yara izi ve sarsıntı botun saldırı çizimini bozar (insanda yalnızca görüş engelidir): büyü kayar, titrer, boşluklar kalır
     if (attacker.control === 'bot') attack = degradeDrawing(attack, attackDegrade({ scars, shake }), random);
     if (attackChill > 0 && attacker.control === 'bot' && attack.validity.valid) {
       attack = { ...attack, metrics: { ...attack.metrics, drawTimeSec: Math.max(0, attack.metrics.drawTimeSec - attackChill) } };
     }
+    // Alan büyüsü: kapalı bölge alan gücüne sığıyorsa dolar ve büyünün parçası olur
+    const attackAreaResult = applyArea(attack, attackArea);
+    attack = attackAreaResult;
+    const attackAreaInfo: AreaInfo = attackAreaResult.area;
 
     // Alev Zinciri: art arda ateş saldırıları sayılır; başka element ya da başarısız büyü zinciri keser
     const chainBefore = attacker.fireChain;
@@ -276,10 +292,13 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
 
     let defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), {
       target,
+      areaCapacity: defenseArea,
       ...(attacker.passives.fog > 0 || attacker.passives.mud > 0 ? { fog: attacker.passives.fog, mud: attacker.passives.mud } : {}),
     });
     // Sis ve çamur botun savunma çizimini bozar: kalkan yanlış yeri kapatır
     if (defender.control === 'bot') defense = degradeDrawing(defense, defenseDegrade(attacker.passives), random);
+    const defenseAreaResult = applyArea(defense, defenseArea);
+    defense = defenseAreaResult;
     const defenseFailed = !defense.validity.valid;
 
     // Kritik vuruş: ekipmandan (ve yeteneklerden) gelen şans toplanır
@@ -379,6 +398,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         mudded: attacker.passives.mud,
         specialShape,
         target,
+        attackArea: attackAreaInfo,
+        defenseArea: defenseAreaResult.area,
         specialOk: special.ok,
         specialDistance: special.distance,
         rebounded,

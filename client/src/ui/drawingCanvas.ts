@@ -1,7 +1,9 @@
-import { BRUSH_RADIUS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
+import { BRUSH_RADIUS, CELL, DWELL_SAMPLE_MS, GRID, LOGICAL_SIZE } from '../battle/gesture/config';
 import { normPose, silhouetteShape, type TargetPose } from '../battle/damage/target';
 import type { Element } from '../battle/damage/elements';
 import { ElementParticles, drawBurnScar, drawElementStrokes, drawMudPatch, preloadTextures } from './elementFx';
+import { areaPlan, type AreaRegion } from '../battle/gesture/area';
+import { buildDensity } from '../battle/gesture/density';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import type { DrawLoop } from '../audio/sfx/engine';
@@ -34,6 +36,11 @@ export interface DrawingCanvasOptions extends SessionOptions {
   overlay?: boolean;
   /** Faz 5: kalemin yeri (-1..1, sağ/üst artı) ve çizim sürüyor mu; ekrandaki el ve asa buna uzanır */
   onAim?: (nx: number, ny: number, down: boolean) => void;
+  /**
+   * Faz 6: alan gücü (hücre). Verilirse çizerken kapalı bölgeler canlı gösterilir: gücün yettiği bölgeler yeşil (dolacak),
+   * yetmeyenler kırmızı (boş kalacak; başka bir çizgiyle bölüp küçültebilirsin).
+   */
+  areaCapacity?: number;
   /** Faz 4: kalemin elementi (ateş alevle, su suyla, toprak toprakla, hava rüzgârla çizer); verilmezse düz renkli kalem */
   element?: Element;
   /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
@@ -167,6 +174,8 @@ export class DrawingCanvas {
   private fogs: { x: number; y: number; r: number }[] = [];
   private muds: { x: number; y: number; r: number }[] = [];
   private readonly particles = new ElementParticles();
+  /** Alan büyüsü önizlemesi (çok sık hesaplanmasın diye ~80 ms'de bir) */
+  private areaPreview: { at: number; strokes: number; points: number; regions: AreaRegion[]; filled: Set<number> } | null = null;
 
   constructor(private readonly options: DrawingCanvasOptions) {
     this.session = new DrawingSession(options);
@@ -379,6 +388,29 @@ export class DrawingCanvas {
     for (const sc of this.scars) drawBurnScar(this.ctx, sc.x * scale, sc.y * scale, SCAR_RADIUS * 1.9 * scale, sc.angle, now, false);
   }
 
+  /** Faz 6: kapalı bölgeler: dolacaklar yeşil, sığmayanlar kırmızı. */
+  private drawArea(scale: number, now: number): void {
+    const strokes = this.session.liveStrokes;
+    const points = strokes.reduce((n, st) => n + st.length, 0);
+    const prev = this.areaPreview;
+    if (!prev || (now - prev.at > 80 && (prev.points !== points || prev.strokes !== strokes.length))) {
+      const plan = areaPlan(buildDensity(strokes), this.options.areaCapacity ?? 0);
+      this.areaPreview = { at: now, strokes: strokes.length, points, regions: plan.regions, filled: new Set(plan.filled) };
+    }
+    const { regions, filled } = this.areaPreview!;
+    if (regions.length === 0) return;
+    const { ctx } = this;
+    const cell = CELL * scale;
+    const pulse = 0.18 + 0.06 * Math.sin(now / 160);
+    regions.forEach((r, i) => {
+      ctx.fillStyle = filled.has(i) ? `rgba(74,222,128,${pulse + 0.1})` : `rgba(248,113,113,${pulse})`;
+      // Tek yol: hücreler birleşik tek bir yüzey olarak boyanır (aralarında çizgi kalmaz)
+      ctx.beginPath();
+      for (const k of r.cells) ctx.rect((k % GRID) * cell, Math.floor(k / GRID) * cell, cell + 0.6, cell + 0.6);
+      ctx.fill('nonzero');
+    });
+  }
+
   private render(now: number): void {
     const { ctx, canvas } = this;
     const scale = canvas.width / LOGICAL_SIZE;
@@ -394,6 +426,7 @@ export class DrawingCanvas {
       this.particles.step(this.ctx);
     } else this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
     // Görüşü engelleyenler çizginin ÜSTÜNE çizilir: yara izi, çamur ve sis çizilenin bir kısmını örter ama çizimi bozmaz
+    if (this.options.areaCapacity !== undefined) this.drawArea(scale, now);
     this.drawScars(scale, now);
     this.drawMud(scale, now);
     this.drawFog(scale);
@@ -408,5 +441,6 @@ export class DrawingCanvas {
         : this.session.currentPhase === 'finished'
           ? 'Çizim bitti.'
           : `${(remaining / 1000).toFixed(1)} sn`;
+    if (this.options.areaCapacity !== undefined) this.label.textContent += ` · Alan gücü ${this.options.areaCapacity}`;
   }
 }
