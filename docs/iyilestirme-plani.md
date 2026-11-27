@@ -160,3 +160,6 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
 - **Alan büyüsü ve kolye**: ayrıntılar [alan-buyusu.md](alan-buyusu.md).
 - **Gerçek büyücü modeli (Faz 7'den öne alındı)**: savaşta ve haritada Quaternius Wizard (CC0), iskeletli ve animasyonlu; kıyafet element
   renginde. Kaynak: [varliklar.md](varliklar.md).
+- **Harita kalitesi:** çim, arnavut kaldırımı patika, kum, taş sur ve ahşap kapı gerçek dokularla (Poly Haven, CC0); ağaçlar, çalılar
+  ve maden girişleri KayKit (CC0) 3D modellerinin render'ı, karolara oturur; maden girişi 2×2 karo. Su daha derin ve doğal.
+  Çalılıkta karakterin önüne gelen katman da gerçek çalıdan. Kaynaklar: [varliklar.md](varliklar.md).

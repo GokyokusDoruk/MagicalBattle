@@ -69,11 +69,13 @@ function texGrass(u: number, v: number): Rgb {
 }
 
 function texWater(u: number, v: number, depth: number): Rgb {
-  // Dalga çizgileri: gürültüyle eğilmiş yatay çizgiler
+  // Derin, doğal su: yumuşak gürültüyle koyu-açık lekeler; dalga ışıltısı ince ve yumuşak (sert çizgi yok)
   const warp = vnoise(u * 1.3, v * 1.3, 31) * 2.2;
-  const wave = Math.sin((v * 5.2 + warp + vnoise(u * 2.1, v * 0.7, 33) * 3) * 2.6);
-  let c = scale(BASE[Tile.Water], 0.82 + depth * 0.24 + fbm(u * 0.8, v * 0.8, 37) * 0.1);
-  if (wave > 0.86) c = mix(c, [150, 205, 245], 0.4);
+  const wave = Math.sin((v * 4.2 + warp + vnoise(u * 2.1, v * 0.7, 33) * 3) * 2.2);
+  const n = fbm(u * 0.7, v * 0.7, 37);
+  let c = mix([28, 86, 140], [48, 128, 178], clamp(n * 0.9 + depth * 0.2));
+  const glint = clamp((wave - 0.78) / 0.22) * (0.35 + 0.65 * vnoise(u * 3.1, v * 3.1, 39));
+  if (glint > 0) c = mix(c, [170, 215, 240], glint * 0.38);
   return c;
 }
 

@@ -19,3 +19,18 @@ Hepsi 1K renk (diffuse) haritasından 256×256'ya küçültülüp JPEG olarak s�
 
 Model FBX'ten projenin kendi three.js'i (FBXLoader + GLTFExporter) ile GLB'ye çevrildi; yalnızca kullanılan 5 animasyon
 (Idle_Weapon, Spell1, Idle_Attacking, RecieveHit, Death) tutuldu (~970 KB, sıkıştırılmış ~250 KB). Dokular 1024/512 JPEG.
+
+## Harita (harita kalitesi)
+
+| Dosya | Kaynak | Yazar | Lisans | Nerede |
+|---|---|---|---|---|
+| `client/src/assets/world/ground_grass.jpg` | [Poly Haven: Leafy Grass](https://polyhaven.com/a/leafy_grass) | Poly Haven | CC0 | Çim karoları (renk ayarlı, daha canlı yeşil) |
+| `client/src/assets/world/ground_path.jpg` | [Poly Haven: Cobblestone Floor 04](https://polyhaven.com/a/cobblestone_floor_04) | Poly Haven | CC0 | Patika (arnavut kaldırımı) |
+| `client/src/assets/world/ground_sand.jpg` | [Poly Haven: Coast Sand 01](https://polyhaven.com/a/coast_sand_01) | Poly Haven | CC0 | Kum |
+| `client/src/assets/world/ground_wall.jpg` | [Poly Haven: Stone Wall](https://polyhaven.com/a/stone_wall) | Poly Haven | CC0 | Şehir surları |
+| `client/src/assets/world/ground_gate.jpg` | [Poly Haven: Wood Planks](https://polyhaven.com/a/wood_planks) | Poly Haven | CC0 | Şehir kapısı |
+| `client/src/assets/world/tree_1..5.png`, `bush_1..4.png` | [KayKit Forest Nature Pack](https://kaylousberg.itch.io/kaykit-forest) | Kay Lousberg | CC0 | Orman ve çalılık karoları (3D modellerin render'ı) |
+| `client/src/assets/world/mine_*.png` | [KayKit Medieval Hexagon Pack](https://kaylousberg.itch.io/kaykit-medieval-hexagon) (`building_mine`) | Kay Lousberg | CC0 | Maden girişleri (2×2 karo; fener rengi elemente göre) |
+
+Modeller projenin kendi three.js'iyle (GLTFLoader) tarayıcıda 3/4 üstten, ışıklı ve şeffaf zeminli olarak çizilip PNG'ye çevrildi (toplam ~250 KB).
+Zemin dokuları 256×256 JPEG; harita karo başına 20 pikselle çizilir, doku karolar boyunca kesintisiz akar.
