@@ -1,5 +1,7 @@
 import { BRUSH_RADIUS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
 import { normPose, silhouetteShape, type TargetPose } from '../battle/damage/target';
+import type { Element } from '../battle/damage/elements';
+import { ElementParticles, drawBurnScar, drawElementStrokes, drawMudPatch, preloadTextures } from './elementFx';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import type { DrawLoop } from '../audio/sfx/engine';
@@ -26,6 +28,8 @@ export interface DrawingCanvasOptions extends SessionOptions {
   shake?: number;
   /** Çamur Yaması: savunma ekranındaki çamur yaması sayısı (görüşü örter, çizimi engellemez) */
   mud?: number;
+  /** Faz 4: kalemin elementi (ateş alevle, su suyla, toprak toprakla, hava rüzgârla çizer); verilmezse düz renkli kalem */
+  element?: Element;
   /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
   random?: () => number;
 }
@@ -156,6 +160,7 @@ export class DrawingCanvas {
   private scars: Scar[] = [];
   private fogs: { x: number; y: number; r: number }[] = [];
   private muds: { x: number; y: number; r: number }[] = [];
+  private readonly particles = new ElementParticles();
 
   constructor(private readonly options: DrawingCanvasOptions) {
     this.session = new DrawingSession(options);
@@ -191,6 +196,7 @@ export class DrawingCanvas {
     this.scars = placeScars(Math.max(0, Math.floor(this.options.scars ?? 0)), this.options.random);
     this.fogs = placeFog(Math.max(0, Math.floor(this.options.fog ?? 0)), this.options.random);
     this.muds = placeMud(Math.max(0, Math.floor(this.options.mud ?? 0)), this.options.random);
+    preloadTextures();
     this.fitCanvas();
     this.timer = window.setInterval(() => this.frame(), Math.min(DWELL_SAMPLE_MS, 16));
     this.frame();
@@ -242,6 +248,10 @@ export class DrawingCanvas {
     const now = performance.now();
     // Çamur, sis ve yara izi yalnızca görüşü engeller: çizgiler her zaman kaydedilir
     this.session.pointerMove(p.x, p.y, now);
+    if (this.options.element) {
+      const sc = this.canvas.width / LOGICAL_SIZE;
+      this.particles.emit(this.options.element, p.x * sc, p.y * sc, this.options.element === 'fire' ? 3 : 2, sc, BRUSH_RADIUS);
+    }
     const last = this.lastMove;
     if (this.loop && last) {
       // mantıksal birim/ms; ~0.8 çok hızlı sayılır
@@ -323,22 +333,9 @@ export class DrawingCanvas {
     ctx.shadowBlur = 0;
   }
 
-  /** Çamur yamaları: koyu kahverengi, kenarı pütürlü; içine çizilemez. */
-  private drawMud(scale: number): void {
-    const { ctx } = this;
-    for (const m of this.muds) {
-      ctx.fillStyle = 'rgba(92,64,38,0.95)';
-      ctx.beginPath();
-      ctx.arc(m.x * scale, m.y * scale, m.r * scale, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(133,96,58,0.9)';
-      for (let i = 0; i < 5; i++) {
-        const a = i * 1.26 + m.x;
-        ctx.beginPath();
-        ctx.arc((m.x + Math.cos(a) * m.r * 0.5) * scale, (m.y + Math.sin(a) * m.r * 0.5) * scale, m.r * 0.22 * scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+  /** Çamur yamaları (Faz 4): gerçek çamur dokusu, ıslak koyu kenar ve parıltı; görüşü örter, çizimi engellemez. */
+  private drawMud(scale: number, now: number): void {
+    this.muds.forEach((m, i) => drawMudPatch(this.ctx, m.x * scale, m.y * scale, m.r * scale, i * 1.7 + m.x * 0.01, now));
   }
 
   /** Sis bulutları: altındaki çizimi ve hayaleti örter. */
@@ -356,36 +353,9 @@ export class DrawingCanvas {
     }
   }
 
-  /** Küçük kırmızı yara izleri: eğik bir kesik ve üstünde iki çapraz çizgi; dokunulan iz solar. */
-  private drawScars(scale: number): void {
-    const { ctx } = this;
-    ctx.save();
-    ctx.lineCap = 'round';
-    for (const s of this.scars) {
-      ctx.globalAlpha = 0.95;
-      ctx.strokeStyle = '#ef4444';
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 6 * scale;
-      ctx.lineWidth = 3 * scale;
-      const dx = Math.cos(s.angle) * SCAR_RADIUS * 0.8 * scale;
-      const dy = Math.sin(s.angle) * SCAR_RADIUS * 0.8 * scale;
-      const cx = s.x * scale;
-      const cy = s.y * scale;
-      ctx.beginPath();
-      ctx.moveTo(cx - dx, cy - dy);
-      ctx.lineTo(cx + dx, cy + dy);
-      ctx.stroke();
-      ctx.lineWidth = 2 * scale;
-      for (const t of [-0.35, 0.35]) {
-        const px = cx + dx * t;
-        const py = cy + dy * t;
-        ctx.beginPath();
-        ctx.moveTo(px - dy * 0.6, py + dx * 0.6);
-        ctx.lineTo(px + dy * 0.6, py - dx * 0.6);
-        ctx.stroke();
-      }
-    }
-    ctx.restore();
+  /** Ateş yaraları (Faz 4): kömürleşmiş toprak dokulu yarık, içinde titreyen kor çatlaklar; görüşü örter, çizimi engellemez. */
+  private drawScars(scale: number, now: number): void {
+    for (const sc of this.scars) drawBurnScar(this.ctx, sc.x * scale, sc.y * scale, SCAR_RADIUS * 1.9 * scale, sc.angle, now, false);
   }
 
   private render(now: number): void {
@@ -397,10 +367,14 @@ export class DrawingCanvas {
 
     if (this.options.target) paintSilhouette(this.ctx, this.options.target, scale, this.options.targetTone ?? 'enemy');
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
-    this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
+    if (this.options.element) {
+      // Faz 4: elementli kalem ve kalemin bıraktığı parçacıklar (alev, damla, çakıl, rüzgâr)
+      drawElementStrokes(this.ctx, this.session.liveStrokes, this.options.element, scale, BRUSH_RADIUS * 1.2 * scale, now);
+      this.particles.step(this.ctx);
+    } else this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
     // Görüşü engelleyenler çizginin ÜSTÜNE çizilir: yara izi, çamur ve sis çizilenin bir kısmını örter ama çizimi bozmaz
-    this.drawScars(scale);
-    this.drawMud(scale);
+    this.drawScars(scale, now);
+    this.drawMud(scale, now);
     this.drawFog(scale);
 
     const total = this.session.limitMs;

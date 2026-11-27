@@ -166,7 +166,7 @@ export function startDrawLab(root: HTMLElement): void {
 
   const runDuel = async (stage: HTMLElement): Promise<void> => {
     stage.insertAdjacentHTML('beforeend', '<h2 class="font-bold text-amber-200">1. Saldırı: büyünü çiz</h2>');
-    const attackCanvas = new DrawingCanvas({ color, target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
+    const attackCanvas = new DrawingCanvas({ color, element: elementOf(color), target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
     stage.appendChild(attackCanvas.element);
     const attack = await attackCanvas.start();
 

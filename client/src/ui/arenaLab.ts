@@ -186,7 +186,7 @@ export function startArenaLab(root: HTMLElement): void {
     modal.appendChild(title);
 
     title.textContent = '1. Saldırı: büyünü çiz';
-    const atkCanvas = new DrawingCanvas({ color: `#${ELEMENT_COLORS[playerElement].main.toString(16).padStart(6, '0')}`, target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(playerElement) });
+    const atkCanvas = new DrawingCanvas({ color: `#${ELEMENT_COLORS[playerElement].main.toString(16).padStart(6, '0')}`, element: playerElement, target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(playerElement) });
     modal.appendChild(atkCanvas.element);
     const atk = await atkCanvas.start();
     modal.remove();

@@ -1,6 +1,6 @@
 # MagicalBattle iyileştirme planı (7 faz, her faz ayrı PR)
 
-Durum: **onaylandı.** Faz 1, 2 ve 3 bitti, sıradaki Faz 4.
+Durum: **onaylandı.** Faz 1, 2, 3 ve 4 bitti, sıradaki Faz 5.
 Her faz `claude/vibrant-cori-xcmkk6` dalından açılan ayrı bir PR'dır; canlıda (magicalbattle.dorukplays.com) tek tek test edilir.
 Modeller: yalnızca CC0 (lisanssız) kaynaklar (Quaternius, Poly Haven, OpenGameArt CC0, ambientCG, Kenney). Her modelin kaynağı `docs/varliklar.md`'de listelenir.
 
@@ -128,3 +128,17 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
   süre etkisi azaldı, karalama cezası arttı, dağılım cezası kalktı. Ayrıntı ve örnekler: [hasar-hesabi.md](hasar-hesabi.md).
 - Botlar silüete nişan alır ve kendi silüetini korur; denge testleri geçer (boss canları yeniden ayarlandı, bkz. hasar-hesabi.md).
 - Çizim ekranındaki açıklama: "Rakibin silüetine çiz..." / "Silüetini koru...".
+
+## Faz 4 notları (yapıldı)
+
+- **Tam ekran element seçimi** (`ui/elementFx.ts`, `chooseElementFullScreen`): ekran dörde bölünür, yazı yok.
+  - Ateş (sol üst): yanık toprak zeminden sürekli yükselen alevler ve korlar.
+  - Su (sağ üst): üç katman dalga, yükselen kabarcıklar.
+  - Toprak (sol alt): kaya dokusu, dökülen çakıllar.
+  - Hava (sağ alt): kayan rüzgâr kıvrımları ve savrulan esintiler.
+  Dokununca o element seçilir (ekran okuyucu için görünmez düğmeler element adını taşır).
+- **Elementli kalem** (`drawElementStrokes`, `ElementParticles`): saldırı ve savunma o döngünün elementiyle çizilir.
+  Ateş parlayan çekirdekli alev çizgisi ve yükselen alev parçacıkları; su akan parıltılı mavi çizgi, damla ve kabarcıklar;
+  toprak kaya dokulu kalın iz ve düşen çakıllar; hava ince rüzgâr telleri ve savrulan kıvrımlar.
+- **Çamur yaması** gerçek çamur dokusuyla (ıslak koyu kenar, parıltı); **ateş yarası** kömürleşmiş toprak dokulu yarık ve titreyen kor çatlaklar.
+- Dokular: Poly Haven CC0, kaynak listesi [varliklar.md](varliklar.md).
