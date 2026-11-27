@@ -1,3 +1,4 @@
+import { clampPose } from '../damage/target';
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../world/rng';
 import type { SlotRef } from '../arena/layout';
@@ -233,6 +234,32 @@ describe('runBattle: döngü ve tur akışı', () => {
       expect(defenseDraw.ghost).toBe(show);
       expect(attackDraw.ghost).toBe(false);
     }
+  });
+
+  it('savunan saldırıdan önce yerini seçer: saldıran ve savunan o silüeti görür, yer sınırlara çekilir (Faz 3)', async () => {
+    const { io, log } = fakeIO();
+    const seen: { role: string; target?: { cx: number; cy: number; scale: number } }[] = [];
+    const asked: string[] = [];
+    const draw = io.draw;
+    io.draw = async (ref, role, ghost, limit, extras) => {
+      seen.push({ role, target: extras?.target });
+      return draw(ref, role, ghost, limit, extras);
+    };
+    io.choosePosition = async (defender) => {
+      asked.push(`${defender.team}:${defender.index}`);
+      return { cx: 999, cy: 40, scale: 0.2 };
+    };
+    const e = duel();
+    const stop = new AbortController();
+    io.play = async (r) => {
+      log.reports.push(r);
+      stop.abort();
+    };
+    await runBattle(e, io, { signal: stop.signal });
+    expect(asked).toEqual(['1:0']); // ilk saldırıda savunan B
+    const expected = clampPose({ cx: 999, cy: 40 });
+    expect(seen.map((d) => d.target)).toEqual([expected, expected]); // saldırı ve savunma aynı silüeti görür
+    expect(log.reports[0].target).toEqual(expected);
   });
 
   it('element çarpanı hasara yansır: üstünlük ×1.25, dezavantaj ×0.75 (aynı döngüde iki yönde)', async () => {

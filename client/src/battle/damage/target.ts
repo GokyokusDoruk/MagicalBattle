@@ -6,7 +6,10 @@ import { CELL, GRID, LOGICAL_SIZE } from '../gesture/config';
  * boyutta durur (baş da onunla kayar). Saf hesap: arayüzden bağımsız, testlenebilir.
  */
 
-/** Silüetin tuvaldeki duruşu: figürün ortası (mantıksal birim) ve ölçeği (1 = 170 birim boy). */
+/**
+ * Silüetin tuvaldeki duruşu: figürün ortası (mantıksal birim) ve ölçeği (1 = 170 birim boy).
+ * Faz 3 ek: silüetin hacmi **her zaman sabittir** (`TARGET_SCALE`); yalnızca yeri değişir. Savunan kendini küçültüp bir köşeye sıkıştıramaz.
+ */
 export interface TargetPose {
   cx: number;
   cy: number;
@@ -27,24 +30,43 @@ export const GRAZE_DISTANCE = Math.round(LOGICAL_SIZE * 0.0625);
 /** Figürün ölçek 1'deki boyu (mantıksal birim) */
 export const FIGURE_HEIGHT = 170;
 
-/** Tuvalin ortasında, ölçek 1 duruş (silüet verilmeyen hesaplar ve laboratuvar için) */
-export const DEFAULT_POSE: TargetPose = { cx: 128, cy: 128, scale: 1 };
+/** Silüetin sabit ölçeği: tuvalin boyunun ~%80'i, genişliğinin ~%45'i (vurmak kolay, hacim hep aynı) */
+export const TARGET_SCALE = 1.2;
+
+/** Silüetin ortasının gidebileceği alan (silüet hep tuvalin içinde kalır) */
+export const POSITION_BOUNDS = {
+  minX: Math.ceil(48 * TARGET_SCALE) + 2,
+  maxX: 256 - Math.ceil(48 * TARGET_SCALE) - 2,
+  minY: Math.ceil(85 * TARGET_SCALE) + 2,
+  maxY: 256 - Math.ceil(85 * TARGET_SCALE) - 2,
+} as const;
+
+/** Yeri sınırlara çeker, ölçeği sabitler (savunanın seçtiği yer ya da bozuk girdi güvenle kullanılır). */
+export function clampPose(p: { cx: number; cy: number }): TargetPose {
+  const b = POSITION_BOUNDS;
+  const fx = Number.isFinite(p.cx) ? p.cx : 128;
+  const fy = Number.isFinite(p.cy) ? p.cy : 128;
+  return { cx: Math.min(b.maxX, Math.max(b.minX, fx)), cy: Math.min(b.maxY, Math.max(b.minY, fy)), scale: TARGET_SCALE };
+}
+
+/** Tuvalin ortasında duruş (silüet verilmeyen hesaplar ve laboratuvar için) */
+export const DEFAULT_POSE: TargetPose = { cx: 128, cy: 128, scale: TARGET_SCALE };
 
 /**
- * Turdan tura değişen duruşlar: sol, sağ, orta; uzak (küçük) ve yakın (büyük). Hepsi tuvalin içinde kalır.
+ * Savunan yer seçmezse (botlar arası simülasyon, testler) kullanılan duruşlar: sol, sağ, orta, yukarı, aşağı. Hepsi aynı boyda.
  * Sıra `targetPoseFor` ile seçilir (zar atılmaz, tohumlu testler bozulmaz).
  */
 export const TARGET_POSES: readonly TargetPose[] = [
-  { cx: 128, cy: 132, scale: 1 },
-  { cx: 80, cy: 140, scale: 0.85 },
-  { cx: 176, cy: 124, scale: 0.9 },
-  { cx: 110, cy: 150, scale: 0.72 },
-  { cx: 150, cy: 136, scale: 1.08 },
-  { cx: 70, cy: 120, scale: 0.78 },
-  { cx: 186, cy: 150, scale: 0.75 },
-  { cx: 132, cy: 122, scale: 0.82 },
-  { cx: 96, cy: 134, scale: 1.02 },
-  { cx: 166, cy: 142, scale: 0.95 },
+  clampPose({ cx: 128, cy: 132 }),
+  clampPose({ cx: 70, cy: 140 }),
+  clampPose({ cx: 186, cy: 116 }),
+  clampPose({ cx: 104, cy: 150 }),
+  clampPose({ cx: 160, cy: 136 }),
+  clampPose({ cx: 64, cy: 110 }),
+  clampPose({ cx: 192, cy: 150 }),
+  clampPose({ cx: 136, cy: 108 }),
+  clampPose({ cx: 90, cy: 124 }),
+  clampPose({ cx: 170, cy: 146 }),
 ];
 
 export interface SlotLike {

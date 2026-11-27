@@ -4,9 +4,14 @@ Kod: `client/src/battle/damage/`. Saf TypeScript, ekrandan bağımsız; savaş a
 
 ## Faz 3: "çok değil, doğru çiz"
 
-Çizim tuvalinde artık **rakibin büyücü silüeti** görünür (savunurken kendi silüetin). Her saldırı turunda silüet **başka bir yerde ve
-boyutta** durur (10 duruş, `battle/damage/target.ts`, `targetPoseFor`); baş da onunla kayar. Tuvalde hiçbir yazı yoktur, başın nerede
-olduğu yalnızca görülür.
+Çizim tuvalinde artık **rakibin büyücü silüeti** görünür (savunurken kendi silüetin), `battle/damage/target.ts`.
+
+- **Karartı:** silüet tek parça, kenarları bulanık bir gölgedir (rakip kırmızımsı, kendin mavimsi). Baş, şapka ve cüppe aynı gölgede
+  erir; başın, kolların, ayakların tam yeri kestirilemez. Tuvalde hiçbir yazı yoktur. (Baş bölgesi hesapta yine vardır, ×1.25.)
+- **Hacim sabit, yer değişir:** silüet her zaman aynı büyüklüktedir (`TARGET_SCALE` 1.2: tuval boyunun ~%80'i, tuvalin ~%20'si); kimse
+  kendini küçültüp bir köşeye sıkıştıramaz. Silüet tuvalin dışına taşamaz (`POSITION_BOUNDS`).
+- **Savunan yerini seçer:** her saldırıdan önce savunan, silüetini sürükleyip yerini seçer ("Yerini seç", 7 sn, `ui/positionPicker.ts`).
+  Saldıran o yeri görür ve nişan alır. Botlar rastgele bir yer seçer. Seçim yapılmazsa (simülasyon) sıradaki duruş kullanılır (`targetPoseFor`).
 
 ## Adımlar
 
@@ -72,7 +77,9 @@ Savunmayı geçen %60 → Silüete isabet (baş %20, gövde %60, sıyırma %10, 
 
 ## Denge
 Botlar da silüete nişan alır (beceri düştükçe nişan hatası artar) ve savunurken kendi silüetini korur. Denge vekili buna göre ayarlandı;
-dünya düşmanı ve boss hedefleri aynı kaldı, yalnızca 1. bölüm bossu (General Vael) 250 → 300 can, güç 115 → 120 oldu (yoksa %100 kazanılıyordu).
+dünya düşmanı ve boss hedefleri aynı kaldı. Silüet büyüyünce vurmak kolaylaştı; bazı boss canları yeniden ayarlandı:
+General Vael 250 → 470 (güç 115 → 135), Soylu Şampiyonu 624 → 700, General Kaelen 718 → 880, Cadı Morga 730 → 570 (sisli savunma zorlaştı),
+Malakor 1322 → 1720, Gölge 591 → 680.
 
 ## Ayarlar
 `client/src/battle/damage/config.ts` (tam güç alanı, süre tabanı, şekil isabeti ve özel şekil, element, zırh) ve `client/src/battle/damage/target.ts` (silüet duruşları, bölge çarpanları, sıyırma mesafesi).

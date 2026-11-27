@@ -6,6 +6,7 @@ import { ELEMENT_COLORS } from '../battle/arena/palette';
 import { elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
 import type { TargetPose } from '../battle/damage/target';
 import { SPECIAL_SHAPE_BONUS } from '../battle/damage/config';
+import { pickPosition } from './positionPicker';
 
 /** Elementlerin simgesi: savaş ekranında element adı yazılmaz, yalnız simge ve renk görünür (Faz 1) */
 const ELEMENT_ICON: Record<Element, string> = { fire: '🔥', water: '💧', earth: '⛰️', air: '🌪️' };
@@ -263,6 +264,16 @@ export class BattleScreen implements BattleIO {
       .map((c) => `<span style="color:${css(ELEMENT_COLORS[c.element].glow)}">${esc(this.name(c.ref))} <span class="text-xl">${ELEMENT_ICON[c.element]}</span></span>`)
       .join('<br>');
     await this.say(this.center, `Bu döngünün elementleri<br><span class="text-sm font-normal">${rows}</span>`, 1800, 'bg-slate-800/85 text-slate-100');
+  }
+
+  /** Faz 3: savunan saldırıdan önce yerini seçer. Bot hemen rastgele bir yer seçer; oyuncu silüetini sürükler. */
+  async choosePosition(defender: SlotRef, suggested: TargetPose): Promise<TargetPose> {
+    const bot = this.bots.get(key(defender));
+    if (bot) return bot.choosePosition();
+    this.modals.style.pointerEvents = 'auto';
+    const pose = await pickPosition(this.modals, suggested);
+    this.closeModal();
+    return pose;
   }
 
   async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number, extras?: DrawExtras): Promise<DrawingResult> {

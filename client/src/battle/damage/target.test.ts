@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GRID, LOGICAL_SIZE } from '../gesture/config';
-import { DEFAULT_POSE, FIGURE_HEIGHT, GRAZE_DISTANCE, TARGET_POSES, ZONE, silhouetteShape, targetPoseFor, zoneAt, zoneMap, zoneMultiplier } from './target';
+import { DEFAULT_POSE, FIGURE_HEIGHT, GRAZE_DISTANCE, POSITION_BOUNDS, TARGET_POSES, TARGET_SCALE, ZONE, clampPose, silhouetteShape, targetPoseFor, zoneAt, zoneMap, zoneMultiplier } from './target';
 
 describe('rakip silüeti (Faz 3)', () => {
   it('her duruş tuvalin içinde kalır', () => {
@@ -27,13 +27,32 @@ describe('rakip silüeti (Faz 3)', () => {
     for (let i = 1; i < duel.length; i++) expect(duel[i]).not.toBe(duel[i - 1]);
   });
 
+  it('silüetin hacmi hep sabittir, yalnızca yeri değişir; geniş bir alan kaplar', () => {
+    for (const p of [...TARGET_POSES, DEFAULT_POSE]) expect(p.scale).toBe(TARGET_SCALE);
+    const cells = zoneMap(DEFAULT_POSE).filter((z) => z === ZONE.body || z === ZONE.head).length;
+    expect(cells / (GRID * GRID)).toBeGreaterThan(0.18); // tuvalin beşte birine yakını silüet
+    const moved = zoneMap(TARGET_POSES[1]).filter((z) => z === ZONE.body || z === ZONE.head).length;
+    expect(Math.abs(moved - cells)).toBeLessThan(cells * 0.08); // yer değişse de alan aynı (hücre yuvarlaması kadar fark)
+  });
+
+  it('seçilen yer sınırlara çekilir, ölçek her zaman sabitlenir (küçülüp köşeye sıkışılamaz)', () => {
+    expect(clampPose({ cx: -50, cy: 999 })).toEqual({ cx: POSITION_BOUNDS.minX, cy: POSITION_BOUNDS.maxY, scale: TARGET_SCALE });
+    expect(clampPose({ cx: 128, cy: 128, scale: 0.3 } as never).scale).toBe(TARGET_SCALE);
+    expect(clampPose({ cx: NaN, cy: NaN })).toEqual({ cx: 128, cy: 128, scale: TARGET_SCALE });
+    const s = silhouetteShape(clampPose({ cx: 0, cy: 0 }));
+    for (const [x, y] of [...s.body, ...s.hat]) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(y).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it('bölgeler: baş üstte, gövde altta, kenarda sıyırma, uzakta ıska; baş silüetle birlikte kayar', () => {
     const s = silhouetteShape(DEFAULT_POSE);
     expect(zoneAt(s, s.head.x, s.head.y)).toBe(ZONE.head);
     expect(zoneAt(s, 128, 180)).toBe(ZONE.body);
-    expect(zoneAt(s, 128 + 48 + GRAZE_DISTANCE / 2, 200)).toBe(ZONE.graze);
+    expect(zoneAt(s, 128 + 48 * TARGET_SCALE + GRAZE_DISTANCE / 2, 220)).toBe(ZONE.graze);
     expect(zoneAt(s, 10, 10)).toBe(ZONE.far);
-    const moved = silhouetteShape({ cx: 70, cy: 120, scale: 0.78 });
+    const moved = silhouetteShape(clampPose({ cx: 64, cy: 150 }));
     expect(zoneAt(moved, moved.head.x, moved.head.y)).toBe(ZONE.head);
     expect(zoneAt(moved, s.head.x, s.head.y)).not.toBe(ZONE.head);
     const map = zoneMap(DEFAULT_POSE);

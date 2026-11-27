@@ -122,8 +122,9 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
 
 ## Faz 3 notları (yapıldı)
 
-- **Rakip silüeti** çizim tuvalinde (saldırıda rakip kırmızımsı, savunmada kendi silüetin mavimsi). Her saldırıda farklı duruş; yazı yok.
+- **Rakip silüeti** çizim tuvalinde: bulanık tek parça karartı (baş seçilmez), hacmi hep sabit ve büyük (tuvalin ~%20'si), yazı yok.
+- **Savunan yerini seçer:** her saldırıdan önce silüetini sürükleyerek; saldıran o yere nişan alır.
 - **Hasar formülü v2**: şekil isabeti (×0,6-1), özel şekil ×1,5 (artık gerçekten uygulanıyor), baş ×1,25, sıyırma ×0,2, ıska ×0,1,
   süre etkisi azaldı, karalama cezası arttı, dağılım cezası kalktı. Ayrıntı ve örnekler: [hasar-hesabi.md](hasar-hesabi.md).
-- Botlar silüete nişan alır ve kendi silüetini korur; denge testleri geçer (1. bölüm bossu 250 → 300 can).
+- Botlar silüete nişan alır ve kendi silüetini korur; denge testleri geçer (boss canları yeniden ayarlandı, bkz. hasar-hesabi.md).
 - Çizim ekranındaki açıklama: "Rakibin silüetine çiz..." / "Silüetini koru...".

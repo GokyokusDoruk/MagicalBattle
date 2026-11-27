@@ -30,6 +30,58 @@ export interface DrawingCanvasOptions extends SessionOptions {
   random?: () => number;
 }
 
+/**
+ * Büyücü silüeti (Faz 3): tek parça, kenarları bulanık bir **karartı**. Baş, şapka ve cüppe aynı gölgede erir; çizgi ya da ayrım yoktur,
+ * böylece başın, kolların, ayakların tam nerede olduğu kestirilemez. Rakip kırmızımsı, kendi silüetin mavimsi bir dumandır.
+ * `scale`: mantıksal birimden piksele çarpan.
+ */
+export function paintSilhouette(ctx: CanvasRenderingContext2D, target: TargetPose, scale: number, tone: 'enemy' | 'self' = 'enemy'): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const key = `${target.cx}:${target.cy}:${target.scale}:${scale}:${w}:${h}:${tone}`;
+  if (silhouetteCache?.key !== key) silhouetteCache = { key, image: renderSilhouetteLayer(target, scale, w, h, tone) };
+  if (!silhouetteCache.image) return;
+  ctx.save();
+  ctx.globalAlpha = 0.24;
+  ctx.shadowColor = tone === 'self' ? 'rgba(96,165,250,0.9)' : 'rgba(239,68,68,0.9)';
+  ctx.shadowBlur = 16 * scale;
+  ctx.drawImage(silhouetteCache.image, 0, 0);
+  ctx.restore();
+}
+
+/** Her karede yeniden çizmemek için son silüet katmanı saklanır */
+let silhouetteCache: { key: string; image: HTMLCanvasElement | null } | null = null;
+
+function renderSilhouetteLayer(target: TargetPose, scale: number, w: number, h: number, tone: 'enemy' | 'self'): HTMLCanvasElement | null {
+  const shape = silhouetteShape(target);
+  // Parçalar önce ayrı bir tuvale opak çizilir (birleşimleri tek gölge olur, üst üste binen yer koyulaşmaz), sonra saydam ve bulanık basılır
+  const off = document.createElement('canvas');
+  off.width = w;
+  off.height = h;
+  const o = off.getContext('2d');
+  if (!o) return null;
+  o.fillStyle = tone === 'self' ? 'rgb(96,165,250)' : 'rgb(239,68,68)';
+  const poly = (pts: readonly [number, number][]): void => {
+    o.beginPath();
+    pts.forEach(([x, y], i) => (i === 0 ? o.moveTo(x * scale, y * scale) : o.lineTo(x * scale, y * scale)));
+    o.closePath();
+    o.fill();
+  };
+  poly(shape.body);
+  poly(shape.hat);
+  o.beginPath();
+  o.arc(shape.head.x * scale, shape.head.y * scale, shape.head.r * 1.15 * scale, 0, Math.PI * 2);
+  o.fill();
+  // Boyun boşluğunu dolduran omuz örtüsü: baş gövdeden ayrı bir daire gibi seçilmesin
+  poly([
+    [shape.head.x - shape.head.r * 1.3, shape.head.y],
+    [shape.head.x + shape.head.r * 1.3, shape.head.y],
+    [shape.body[2][0], shape.body[2][1]],
+    [shape.body[5][0], shape.body[5][1]],
+  ]);
+  return off;
+}
+
 /** Çizim ekranındaki bir yara izi (mantıksal koordinat) */
 interface Scar {
   x: number;
@@ -260,36 +312,6 @@ export class DrawingCanvas {
     ctx.shadowBlur = 0;
   }
 
-  /** Büyücü silüeti: koyu, yarı saydam gövde, baş ve şapka; ince parlak kenar. Yazı yok. */
-  private drawSilhouette(target: TargetPose, scale: number): void {
-    const { ctx } = this;
-    const shape = silhouetteShape(target);
-    const self = this.options.targetTone === 'self';
-    const fill = self ? 'rgba(56,189,248,0.16)' : 'rgba(248,113,113,0.16)';
-    const edge = self ? 'rgba(125,211,252,0.55)' : 'rgba(252,165,165,0.55)';
-    const poly = (pts: readonly [number, number][]): void => {
-      ctx.beginPath();
-      pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x * scale, y * scale) : ctx.lineTo(x * scale, y * scale)));
-      ctx.closePath();
-    };
-    ctx.save();
-    ctx.fillStyle = fill;
-    ctx.strokeStyle = edge;
-    ctx.lineWidth = Math.max(1, 1.5 * scale);
-    ctx.lineJoin = 'round';
-    poly(shape.body);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(shape.head.x * scale, shape.head.y * scale, shape.head.r * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    poly(shape.hat);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  }
-
   /** Çamur yamaları: koyu kahverengi, kenarı pütürlü; içine çizilemez. */
   private drawMud(scale: number): void {
     const { ctx } = this;
@@ -362,7 +384,7 @@ export class DrawingCanvas {
 
     // Faz 1: ortadaki kılavuz artı kaldırıldı (tuvalin ortasında nokta gibi görünüyordu)
 
-    if (this.options.target) this.drawSilhouette(this.options.target, scale);
+    if (this.options.target) paintSilhouette(this.ctx, this.options.target, scale, this.options.targetTone ?? 'enemy');
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
     this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
     // Görüşü engelleyenler çizginin ÜSTÜNE çizilir: yara izi, çamur ve sis çizilenin bir kısmını örter ama çizimi bozmaz

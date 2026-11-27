@@ -9,7 +9,7 @@ import { attackDegrade, defenseDegrade, degradeDrawing } from './degrade';
 import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
 import { matchShapeWithin } from '../gesture/shapeMatch';
 import { SHAPE_NAMES, type ShapeName } from './shapes';
-import { targetPoseFor, type TargetPose } from '../damage/target';
+import { clampPose, targetPoseFor, type TargetPose } from '../damage/target';
 
 /** Özel büyü şekli doğru çizilirse verilen hasar çarpanı */
 /** Özel şekil tutunca güç çarpanı (Faz 3: ×1.25 → ×1.5, artık gerçekten gücü çarpar: `damage/config.ts`) */
@@ -124,6 +124,11 @@ export interface BattleIO {
   chooseElement(ref: SlotRef): Promise<Element>;
   /** Herkes seçince elementler birlikte açılır */
   revealRound(round: readonly RoundChoice[], engine: BattleEngine): Promise<void>;
+  /**
+   * Faz 3: saldırıdan önce **savunan kendi yerini seçer** (silüetin boyu sabit, yalnızca yeri). Saldıran bu yeri görür ve nişan alır.
+   * Verilmezse (simülasyon, testler) `suggested` kullanılır. Dönen yer sınırlara çekilir.
+   */
+  choosePosition?(defender: SlotRef, suggested: TargetPose, engine: BattleEngine): Promise<TargetPose>;
   /** `ghost` verilirse (savunan, gelen saldırıyı görür) tuvalde soluk gösterilir */
   /** `limitSec`: çizime tanınan süre (asa uzatabilir); verilmezse temel süre */
   /** `extras.scars`: bu çizimde (insan için) ekranda gösterilecek yara izi sayısı */
@@ -221,8 +226,10 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const scars = defender.passives.scars;
     const shake = defender.passives.shake;
     const specialShape = specialShapeFor(engine.cycle, action.attacker);
-    // Faz 3: rakibin bu saldırıdaki duruşu (silüet): saldıran ona nişan alır, savunan kendi silüetini korur
-    const target = targetPoseFor(engine.cycle, action.attacker);
+    // Faz 3: savunan saldırıdan önce yerini seçer (seçmezse sıradaki duruş); saldıran ona nişan alır, savunan kendi silüetini korur
+    const suggested = targetPoseFor(engine.cycle, action.attacker);
+    const target = io.choosePosition ? clampPose(await io.choosePosition(action.defender, suggested, engine)) : suggested;
+    if (options.signal?.aborted) return engine.winner;
     let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, target, ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
     // Yara izi ve sarsıntı botun saldırı çizimini bozar (insanda yalnızca görüş engelidir): büyü kayar, titrer, boşluklar kalır
     if (attacker.control === 'bot') attack = degradeDrawing(attack, attackDegrade({ scars, shake }), random);

@@ -4,7 +4,7 @@ import { LOGICAL_SIZE } from '../gesture/config';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { SHAPE_NAMES, buildShape, scribbleShape, type ShapeName } from './shapes';
 import type { Stroke as BotStroke } from '../gesture/types';
-import { DEFAULT_POSE, type TargetPose } from '../damage/target';
+import { DEFAULT_POSE, POSITION_BOUNDS, clampPose, type TargetPose } from '../damage/target';
 
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
@@ -39,6 +39,12 @@ export class Bot {
   protected wobble(strokes: BotStroke[], amp: number): BotStroke[] {
     const phase = this.rand() * 6;
     return strokes.map((s) => s.map((p, i) => ({ x: p.x + Math.sin(i * 0.4 + phase) * amp * 0.6 + (this.rand() - 0.5) * amp, y: p.y + Math.cos(i * 0.37 + phase) * amp * 0.6 + (this.rand() - 0.5) * amp, t: p.t })));
+  }
+
+  /** Faz 3: savunacağı turda kendi yerini seçer: tuvalde rastgele bir yer (boyu sabit). */
+  choosePosition(): TargetPose {
+    const b = POSITION_BOUNDS;
+    return clampPose({ cx: this.between(b.minX, b.maxX), cy: this.between(b.minY, b.maxY) });
   }
 
   /** Hasar yedikten sonra çağrılır (kişilikli botlar tepki verir). Varsayılan bot tepki vermez. */
