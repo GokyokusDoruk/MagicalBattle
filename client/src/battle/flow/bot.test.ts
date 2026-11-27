@@ -1,3 +1,4 @@
+import { TARGET_SCALE, clampPose } from '../damage/target';
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../world/rng';
 import { ELEMENTS } from '../damage/elements';
@@ -111,11 +112,49 @@ describe('Bot', () => {
     expect(a.strokes).toEqual(b.strokes);
   });
 
-  it('beceri yalnızca şeklin büyüklüğünü biraz etkiler, saldırıyı kapatmayı sağlamaz', () => {
+  it('beceri, kendi silüetini isabetli korumayı sağlar ama saldırıyı görmeden tamamen kapatamaz (Faz 3)', () => {
     const good = meanDefended(1, 21);
     const bad = meanDefended(0, 21);
     expect(good).toBeLessThan(0.9);
-    expect(Math.abs(good - bad)).toBeLessThan(0.2);
+    expect(good).toBeGreaterThan(bad);
+  });
+
+  it('bot yer seçerken kukla duruşunu da rastgele seçer, boyu sabit kalır', () => {
+    const bot = new Bot(mulberry32(4), 0.5);
+    const poses = new Set<number>();
+    for (let i = 0; i < 40; i++) {
+      const p = bot.choosePosition();
+      poses.add(p.pose ?? 0);
+      expect(p.scale).toBe(TARGET_SCALE);
+    }
+    expect(poses.size).toBeGreaterThan(30);
+  });
+
+  it('silüeti görmeyen bot (Normal, Zor) körlemesine tuvalin ortasına yakın çizer', () => {
+    const bot = new Bot(mulberry32(12), 0.9);
+    const xs: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      const pts = bot.drawAttack().strokes.flat();
+      xs.push(pts.reduce((a, p) => a + p.x, 0) / Math.max(1, pts.length));
+    }
+    const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(mean).toBeGreaterThan(100);
+    expect(mean).toBeLessThan(156);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(40); // nereye gideceği belli değil
+  });
+
+  it('saldırı rakibin silüetine nişan alır: silüet nerede ise çizim oraya gider (Faz 3)', () => {
+    const left = clampPose({ cx: 0, cy: 128, pose: 0 });
+    const right = clampPose({ cx: 256, cy: 128, pose: 0 });
+    const centre = (r: { strokes: { x: number }[][] }): number => {
+      const xs = r.strokes.flat().map((p) => p.x);
+      return xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+    };
+    const bot = new Bot(mulberry32(9), 0.8);
+    for (let i = 0; i < 10; i++) {
+      expect(centre(bot.drawAttack(undefined, left))).toBeLessThan(110);
+      expect(centre(bot.drawAttack(undefined, right))).toBeGreaterThan(146);
+    }
   });
 
   it('savunma geçerli, rastgele bir şekildir', () => {

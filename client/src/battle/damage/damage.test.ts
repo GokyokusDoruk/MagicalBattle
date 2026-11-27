@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { buildDensity } from '../gesture/density';
 import { computeMetrics } from '../gesture/metrics';
 import type { Stroke } from '../gesture/types';
-import { ARMOR_CAP, HEADSHOT_MULTIPLIER, MIN_EFFORT_FACTOR } from './config';
-import { calculateDamage, powerFactor, type DamageInput } from './calculate';
+import { ARMOR_CAP, HEADSHOT_MULTIPLIER, MIN_EFFORT_FACTOR, SHAPE_FLOOR, SPECIAL_SHAPE_BONUS } from './config';
+import { DEFAULT_POSE, GRAZE_MULTIPLIER, MISS_MULTIPLIER, clampPose, silhouetteShape } from './target';
+import { calculateDamage, powerFactor, shapeFactor, type DamageInput } from './calculate';
 import { ELEMENTS, elementMultiplier, elementRelation, type Element } from './elements';
 
 const line = (x0: number, y0: number, x1: number, y1: number, ms: number, n = 60): Stroke =>
@@ -20,10 +21,17 @@ const draw = (...strokes: Stroke[]) => {
   return { density, metrics: computeMetrics(strokes, density) };
 };
 
-// Aynı uzunluk ve süre: biri tamamen baş bölgesinde (y≈20), biri tamamen gövdede (y≈180)
-const headAttack = draw(line(20, 20, 236, 20, 2500));
-const bodyAttack = draw(line(20, 180, 236, 180, 2500));
-
+// Faz 3: bölgeler tuvalin ortasındaki dik kuklaya göre (DEFAULT_POSE). Koordinatlar kuklanın kendisinden alınır.
+// Aynı uzunluk ve süre: biri başın içinde, biri gövdenin içinde, biri başı sıyırır, biri uzağa gider
+const SIL = silhouetteShape(DEFAULT_POSE);
+const HX = SIL.head.x;
+const HY = SIL.head.y;
+const BX = DEFAULT_POSE.cx;
+const BY = DEFAULT_POSE.cy;
+const headAttack = draw(line(HX - 12, HY, HX + 12, HY, 2500));
+const bodyAttack = draw(line(BX - 12, BY, BX + 12, BY, 2500));
+const grazeAttack = draw(line(HX + SIL.head.r + 6, HY - 12, HX + SIL.head.r + 6, HY + 12, 2500));
+const missAttack = draw(line(10, 20, 34, 20, 2500));
 const base = (over: Partial<DamageInput> = {}): DamageInput => ({
   basePower: 100,
   attack: bodyAttack,
@@ -103,7 +111,7 @@ describe('çizim gücü', () => {
 });
 
 describe('calculateDamage', () => {
-  it('savunma yoksa gövdeye düşen saldırı tam çizim gücü kadar vurur', () => {
+  it('savunma yoksa silüetin gövdesine düşen saldırı tam çizim gücü kadar vurur', () => {
     const r = calculateDamage(base());
     expect(r.defendedRatio).toBe(0);
     expect(r.headShare).toBe(0);
@@ -113,35 +121,72 @@ describe('calculateDamage', () => {
   });
 
   it('tamamen savunulursa hasar 0', () => {
-    const r = calculateDamage(base({ defense: draw(line(0, 180, 256, 180, 1500)).density }));
+    const r = calculateDamage(base({ defense: draw(line(BX - 40, BY, BX + 40, BY, 1500)).density }));
     expect(r.defendedRatio).toBeGreaterThan(0.98);
     expect(r.finalDamage).toBeLessThanOrEqual(2);
   });
 
   it('savunma hasarı savunulan oranla orantılı azaltır', () => {
     const undefended = calculateDamage(base()).afterArmor;
-    const half = calculateDamage(base({ defense: draw(line(20, 180, 128, 180, 1500)).density }));
+    const half = calculateDamage(base({ defense: draw(line(BX - 60, BY, BX - 10, BY, 1500)).density }));
     expect(half.defendedRatio).toBeGreaterThan(0.4);
     expect(half.defendedRatio).toBeLessThan(0.65);
     expect(half.afterArmor / undefended).toBeCloseTo(1 - half.defendedRatio, 5);
   });
 
-  it('savunulmayan büyü başa düşerse ×1.5 vurur (aynı çizim gücüyle)', () => {
+  it('savunulmayan büyü silüetin başına düşerse ×1.25 vurur (aynı çizim gücüyle)', () => {
     const head = calculateDamage(base({ attack: headAttack }));
     const body = calculateDamage(base({ attack: bodyAttack }));
-    expect(head.headShare).toBeGreaterThan(0.95);
+    expect(head.headShare).toBeGreaterThan(0.9);
     expect(body.headShare).toBe(0);
     expect(head.power).toBeCloseTo(body.power, 6); // gücü aynı, fark yalnızca bölgeden
-    expect(head.afterRegion / body.afterRegion).toBeCloseTo(HEADSHOT_MULTIPLIER, 1);
+    expect(HEADSHOT_MULTIPLIER).toBe(1.25);
+    expect(head.afterRegion / body.afterRegion).toBeGreaterThan(1.2);
+    expect(head.afterRegion / body.afterRegion).toBeLessThanOrEqual(1.25 + 1e-9);
+  });
+
+  it('silüeti sıyıran büyü ×0.2, uzağa giden ×0.1 vurur (Faz 3)', () => {
+    const body = calculateDamage(base({ attack: bodyAttack }));
+    const graze = calculateDamage(base({ attack: grazeAttack }));
+    const miss = calculateDamage(base({ attack: missAttack }));
+    expect(miss.zoneShares.miss).toBeGreaterThan(0.95);
+    expect(miss.afterRegion / miss.power).toBeCloseTo(MISS_MULTIPLIER, 2);
+    expect(graze.zoneShares.graze).toBeGreaterThan(0.5);
+    expect(graze.afterRegion / graze.power).toBeLessThan(0.5);
+    expect(graze.afterRegion / graze.power).toBeGreaterThanOrEqual(MISS_MULTIPLIER);
+    expect(body.afterRegion / body.power).toBeCloseTo(1, 5);
+    expect(GRAZE_MULTIPLIER).toBe(0.2);
+  });
+
+  it('silüet yer değiştirince aynı çizim farklı bölgeye düşer', () => {
+    const centre = calculateDamage(base({ attack: bodyAttack }));
+    const moved = calculateDamage(base({ attack: bodyAttack, target: clampPose({ cx: 999, cy: 128, pose: 0 }) }));
+    expect(centre.zoneShares.body).toBeGreaterThan(0.95);
+    expect(moved.zoneShares.body).toBe(0);
+    expect(moved.finalDamage).toBeLessThan(centre.finalDamage * 0.25);
   });
 
   it('başı savunulup gövdesi açıkta kalan saldırı gövde hasarı verir (baş çarpanı yok)', () => {
-    const both = draw(line(20, 20, 236, 20, 1250), line(20, 180, 236, 180, 1250));
+    const both = draw(line(HX - 12, HY, HX + 12, HY, 1250), line(BX - 12, BY, BX + 12, BY, 1250));
     const noDefense = calculateDamage(base({ attack: both }));
-    const headCovered = calculateDamage(base({ attack: both, defense: draw(line(0, 20, 256, 20, 1500)).density }));
+    const headCovered = calculateDamage(base({ attack: both, defense: draw(line(HX - 32, HY, HX + 32, HY, 1500)).density }));
     expect(noDefense.headShare).toBeGreaterThan(0.4);
     expect(headCovered.headShare).toBeLessThan(0.1);
     expect(headCovered.weightedUnblockedRatio).toBeLessThan(noDefense.weightedUnblockedRatio);
+  });
+
+  it('şekil isabeti gücü çarpar: kusursuz ×1, çok uzak ×0.6; özel şekil tutarsa ayrıca ×1.5 (Faz 3)', () => {
+    expect(shapeFactor(undefined, false)).toEqual({ shape: 1, special: 1 });
+    expect(shapeFactor(0.05, true)).toEqual({ shape: 1, special: SPECIAL_SHAPE_BONUS });
+    expect(shapeFactor(0.4, false).shape).toBeCloseTo(SHAPE_FLOOR, 6);
+    expect(shapeFactor(Infinity, false).shape).toBeCloseTo(SHAPE_FLOOR, 6);
+    const mid = shapeFactor(0.145, false).shape;
+    expect(mid).toBeGreaterThan(SHAPE_FLOOR);
+    expect(mid).toBeLessThan(1);
+    const exact = calculateDamage(base({ shapeDistance: 0.05 }));
+    const wrong = calculateDamage(base({ shapeDistance: 0.3 }));
+    expect(exact.powerFactor.special).toBe(1.5);
+    expect(exact.afterArmor / wrong.afterArmor).toBeCloseTo((1 * 1.5) / SHAPE_FLOOR, 5);
   });
 
   it('element üstünlüğü ×1.25, dezavantaj ×0.75, etkisiz ×1', () => {

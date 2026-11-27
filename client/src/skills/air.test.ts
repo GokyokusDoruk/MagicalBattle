@@ -99,7 +99,7 @@ describe('hava yetenekleri', () => {
     const shaken = await play(duel({}, { passives: tree.passives }), 1, { attackExtras: extras });
     expect(extras).toMatchObject([{ scars: 0, shake: 3 }]);
     expect(shaken[0].attack.strokes).not.toEqual(plain[0].attack.strokes); // çizim bozuldu (kaydı, titredi, boşluk kaldı)
-    expect(shaken[0].damage).toBeLessThan(plain[0].damage);
+    expect(shaken[0].attack.metrics.inkedCells).toBeLessThan(plain[0].attack.metrics.inkedCells); // boşluklar kaldı (silüete düşen kısım şansa bağlı olduğu için hasar değil çizim ölçülür)
   });
 
   it('Sarsıntılı Rüzgâr: insan saldırganın çizimini denetleyici bozmaz (yalnızca görüş engeli)', async () => {

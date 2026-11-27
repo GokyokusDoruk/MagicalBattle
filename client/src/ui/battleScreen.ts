@@ -3,7 +3,11 @@ import { createArenaSounds } from '../audio/sfx/arenaSounds';
 import { ArenaView, type CombatantSpec } from '../battle/arena/arenaView';
 import type { SlotRef } from '../battle/arena/layout';
 import { ELEMENT_COLORS } from '../battle/arena/palette';
-import { elementRelation, ELEMENT_NAMES, ELEMENTS, type Element } from '../battle/damage/elements';
+import { elementRelation, ELEMENT_NAMES, type Element } from '../battle/damage/elements';
+import type { TargetPose } from '../battle/damage/target';
+import { SPECIAL_SHAPE_BONUS } from '../battle/damage/config';
+import { pickPosition } from './positionPicker';
+import { chooseElementFullScreen } from './elementFx';
 
 /** Elementlerin simgesi: savaş ekranında element adı yazılmaz, yalnız simge ve renk görünür (Faz 1) */
 const ELEMENT_ICON: Record<Element, string> = { fire: '🔥', water: '💧', earth: '⛰️', air: '🌪️' };
@@ -220,32 +224,16 @@ export class BattleScreen implements BattleIO {
     );
   }
 
-  /** Kör seçim: oyuncu seçer, rakibinin ne seçtiğini görmez; herkes seçince birlikte açılır. */
-  private pickElement(title: string, hint: string): Promise<Element> {
-    return new Promise((resolve) => {
-      this.modals.style.pointerEvents = 'auto';
-      this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-4 bg-slate-950/80 p-4">
-        <h2 class="text-lg font-bold text-amber-200">${title}</h2>
-        <p class="text-center text-sm text-slate-300">${hint}</p>
-        <div class="grid w-full max-w-sm grid-cols-2 gap-3" data-grid></div></div>`;
-      const grid = this.modals.querySelector('[data-grid]')!;
-      for (const e of ELEMENTS) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        // Faz 1: kartta yazı yok (ne adı ne de neye üstün olduğu), yalnız elementin simgesi ve rengi
-        b.innerHTML = `<span class="block text-5xl leading-none" aria-hidden="true">${ELEMENT_ICON[e]}</span>`;
-        b.setAttribute('aria-label', ELEMENT_NAMES[e]);
-        b.dataset.element = e;
-        b.className = 'flex h-28 items-center justify-center rounded-xl text-slate-900 shadow-lg active:scale-95';
-        b.style.background = css(ELEMENT_COLORS[e].main);
-        b.addEventListener('click', () => {
-          this.sfx.play('pick');
-          this.closeModal();
-          resolve(e);
-        });
-        grid.appendChild(b);
-      }
-    });
+  /**
+   * Kör seçim: oyuncu seçer, rakibinin ne seçtiğini görmez; herkes seçince birlikte açılır.
+   * Faz 4: ekran tamamen dörde bölünür (ateş alev alev, su dalgalı, toprak kayalık, rüzgâr esiyor); yazı yok, yalnız görüntü.
+   */
+  private async pickElement(_title: string, _hint: string): Promise<Element> {
+    this.modals.style.pointerEvents = 'auto';
+    const e = await chooseElementFullScreen(this.modals, ELEMENT_NAMES);
+    this.sfx.play('pick');
+    this.closeModal();
+    return e;
   }
 
   private closeModal(): void {
@@ -263,14 +251,24 @@ export class BattleScreen implements BattleIO {
     await this.say(this.center, `Bu döngünün elementleri<br><span class="text-sm font-normal">${rows}</span>`, 1800, 'bg-slate-800/85 text-slate-100');
   }
 
+  /** Faz 3: savunan saldırıdan önce yerini seçer. Bot hemen rastgele bir yer seçer; oyuncu silüetini sürükler. */
+  async choosePosition(defender: SlotRef, suggested: TargetPose): Promise<TargetPose> {
+    const bot = this.bots.get(key(defender));
+    if (bot) return bot.choosePosition();
+    this.modals.style.pointerEvents = 'auto';
+    const pose = await pickPosition(this.modals, suggested);
+    this.closeModal();
+    return pose;
+  }
+
   async draw(ref: SlotRef, role: Role, ghost?: readonly Stroke[], limitSec?: number, extras?: DrawExtras): Promise<DrawingResult> {
     const bot = this.bots.get(key(ref));
     if (bot) {
       await sleep(this.arenaPause(role));
-      return role === 'attack' ? bot.drawAttack(extras?.specialShape) : bot.drawDefense();
+      return role === 'attack' ? bot.drawAttack(extras?.specialShape, extras?.target) : bot.drawDefense(extras?.target);
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
-    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined);
+    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined, extras?.target);
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -278,17 +276,20 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName, target?: TargetPose): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
-      ${role === 'attack' ? '<p class="text-center text-xs text-slate-300">Büyük çiz ve süreyi doldur: aceleyle çizilen büyü zayıf kalır (en fazla %60 daha zayıf).</p>' : ''}
+      <p class="text-center text-xs text-slate-300">${role === 'defense' ? 'Silüetini koru: rakibin büyüsü oraya gelecek.' : target ? 'Rakibin silüetine çiz. Şekil ne kadar doğruysa büyü o kadar güçlü; silüetin dışına giden büyü çok az vurur.' : 'Rakibini göremiyorsun: nerede durduğunu tahmin et ve oraya çiz. Şekil ne kadar doğruysa büyü o kadar güçlü.'}</p>
       ${special ? this.specialPreview(special) : ''}
       <div data-canvas class="flex w-full justify-center"></div></div>`;
     const canvas = new DrawingCanvas({
       color: role === 'attack' ? css(ELEMENT_COLORS[element].main) : '#7df0c4',
+      // Faz 4: saldırı ve savunma bu döngünün elementiyle çizilir (ateş alevle, su suyla...)
+      element,
       ghost,
-      showHeadZone: true,
+      target,
+      targetTone: role === 'attack' ? 'enemy' : 'self',
       // Asa çizim süresini uzatabilir (varsayılan 3 sn)
       drawTimeMs: limitSec ? Math.round(limitSec * 1000) : undefined,
       scars,
@@ -339,7 +340,7 @@ export class BattleScreen implements BattleIO {
 
   /**
    * Özel büyü şekli önizlemesi: yalnızca şeklin kendisi ve adı gösterilir; nereye çizileceği gösterilmez (tuvale hiçbir şey çizilmez).
-   * Doğru çizersen hasar ×1.25.
+   * Şekle ne kadar benzerse büyü o kadar güçlü; tutarsa ayrıca ×1.5 (Faz 3).
    */
   private specialPreview(shape: ShapeName): string {
     const strokes = templateStrokes(shape);
@@ -356,7 +357,7 @@ export class BattleScreen implements BattleIO {
       .join('');
     return `<div class="flex items-center gap-3 rounded-lg bg-fuchsia-950/80 px-3 py-1" data-special="${shape}">
       <svg viewBox="0 0 100 100" width="56" height="56" aria-hidden="true">${paths}</svg>
-      <div class="text-xs leading-tight text-fuchsia-100"><b class="text-sm text-fuchsia-300">Özel büyü: ${esc(SHAPE_LABELS[shape])}</b><br>Bu şekli çizersen hasar <b>×1.25</b></div></div>`;
+      <div class="text-xs leading-tight text-fuchsia-100"><b class="text-sm text-fuchsia-300">Özel büyü: ${esc(SHAPE_LABELS[shape])}</b><br>Bu şekli çiz: ne kadar doğruysa o kadar güçlü, tutarsa <b>×${SPECIAL_SHAPE_BONUS}</b></div></div>`;
   }
 
   async play(report: TurnReport): Promise<void> {
@@ -373,7 +374,7 @@ export class BattleScreen implements BattleIO {
       const who = this.isHuman(action.attacker) ? '' : `${this.name(action.attacker)}: `;
       await this.say(
         this.center,
-        report.specialOk ? `✨ ${who}Özel büyü başarılı! <span class="font-normal">${esc(label)} ×1.25</span>` : `${who}Özel büyü başarısız <span class="font-normal">(${esc(label)})</span>`,
+        report.specialOk ? `✨ ${who}Özel büyü başarılı! <span class="font-normal">${esc(label)} ×${SPECIAL_SHAPE_BONUS}</span>` : `${who}Özel büyü başarısız <span class="font-normal">(${esc(label)})</span>`,
         1000,
         report.specialOk ? 'bg-fuchsia-800/90 text-fuchsia-50' : 'bg-slate-700/90 text-slate-200',
       );

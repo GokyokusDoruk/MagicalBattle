@@ -422,7 +422,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
     const scarred = await play(engine, 1, { draws, random: () => 0 });
     expect(draws).toMatchObject([{ scars: 3, shake: 0 }]);
     expect(scarred.reports[0].attack.strokes).not.toEqual(plain.reports[0].attack.strokes);
-    expect(scarred.reports[0].damage).toBeLessThan(plain.reports[0].damage);
+    expect(scarred.reports[0].attack.metrics.inkedCells).toBeLessThan(plain.reports[0].attack.metrics.inkedCells); // boşluklar
   });
 
   it('Yanık İzi: yara izi gönderilir; izi olmayana hiç ekstra gitmez', async () => {
@@ -435,7 +435,7 @@ describe('savaş akışı: ateş yetenekleri', () => {
     const plain = await play(fighters(), 1);
     const safe = await play(engine, 1, { draws, random: () => 0.99 });
     expect(draws).toMatchObject([{ scars: 2, shake: 0 }]);
-    expect(safe.reports[0].damage).toBeLessThan(plain.reports[0].damage); // iki yara izi de çizimi bozar
+    expect(safe.reports[0].attack.strokes).not.toEqual(plain.reports[0].attack.strokes); // iki yara izi de çizimi bozar
 
     const none: DrawExtras[] = [];
     await play(fighters(), 1, { draws: none });

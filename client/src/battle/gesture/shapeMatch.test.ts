@@ -116,16 +116,18 @@ describe('özel büyü şekli: savaş akışı', () => {
     expect(specialShapeFor(3, { team: 1, index: 0 })).not.toBe(specialShapeFor(3, { team: 0, index: 0 }));
   });
 
-  it('doğru şekil çizilirse hasar ×1.25 ve rapor "başarılı"; yanlışsa bonus yok', async () => {
+  it('doğru şekil çizilirse güç ×1.5 ve rapor "başarılı"; yanlışsa bonus yok ve şekil isabeti düşer (Faz 3)', async () => {
     const ok = await play((s) => buildShape(s, 128, 128, 80, 2400));
     // 1. döngü, takım 0 saldıran: özel şekil dairenin dışında bir şekil; her zaman yanlış bir şekil çiz
     const wrongName = ok.specialShape === 'circle' ? 'star' : 'circle';
     const miss = await play(() => buildShape(wrongName, 128, 128, 80, 2400));
     expect(ok.specialOk).toBe(true);
     expect(ok.specialShape).toBeDefined();
-    expect(ok.breakdown!.multiplierParts.some((p) => p.label === 'Özel büyü şekli' && p.value === SPECIAL_SHAPE_BONUS)).toBe(true);
+    expect(SPECIAL_SHAPE_BONUS).toBe(1.5);
+    expect(ok.breakdown!.powerFactor.special).toBe(SPECIAL_SHAPE_BONUS);
     expect(miss.specialOk).toBe(false);
-    expect(miss.breakdown!.multiplierParts.some((p) => p.label === 'Özel büyü şekli')).toBe(false);
+    expect(miss.breakdown!.powerFactor.special).toBe(1);
+    expect(miss.breakdown!.powerFactor.shape).toBeLessThan(ok.breakdown!.powerFactor.shape);
     expect(miss.specialDistance!).toBeGreaterThan(MATCH_THRESHOLD);
   });
 });

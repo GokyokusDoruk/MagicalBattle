@@ -3,12 +3,13 @@ import type { DamageBreakdown } from './calculate';
 import { EFFECT_LABELS, blockedPercent, damageRatio, explainDamage, spellEffect } from './explain';
 
 const base: DamageBreakdown = {
-  powerFactor: { size: 1, effort: 1, total: 1 },
+  powerFactor: { size: 1, effort: 1, shape: 1, special: 1, total: 1 },
   power: 100,
   defendedRatio: 0,
   defenseBypass: 0,
   unblockedRatio: 1,
   headShare: 0,
+  zoneShares: { head: 0, body: 1, graze: 0, miss: 0 },
   weightedUnblockedRatio: 1,
   afterRegion: 100,
   elementRelation: 'advantage',
@@ -32,25 +33,38 @@ describe('hasar açıklaması', () => {
   it('100 gücün üstün elementle 150 olduğunu gösterir', () => {
     const rows = explainDamage(base, 'earth', false);
     expect(rows.find((r) => r.element)).toMatchObject({ label: 'Toprak üstün', factor: '×1.5', value: 150 });
-    expect(rows[0]).toMatchObject({ label: 'Büyü gücü (alan ve süre)', value: 100 });
+    expect(rows[0]).toMatchObject({ label: 'Büyü gücü (büyüklük ve süre)', value: 100 });
   });
 
   it('etkisiz adımları atlar, zırhı ve zayıf elementi yazar', () => {
     const rows = explainDamage({ ...base, elementMultiplier: 0.5, afterElement: 50, afterSkills: 50, armorReduction: 0.2, afterArmor: 40, finalDamage: 40 }, 'water', true);
-    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (alan ve süre)', 'Su zayıf', 'Zırh']);
+    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (büyüklük ve süre)', 'Su zayıf', 'Zırh']);
     expect(rows.at(-1)).toMatchObject({ factor: '−%20', value: 40 });
   });
 
-  it('savunmayı geçen oranı ve baş vuruşunu gösterir', () => {
-    const rows = explainDamage({ ...base, unblockedRatio: 0.5, weightedUnblockedRatio: 0.75, headShare: 1, afterRegion: 75, elementMultiplier: 1, afterElement: 75 }, 'fire', false);
-    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (alan ve süre)', 'Savunmayı geçen', 'Baş vuruşu']);
+  it('savunmayı geçen oranı ve silüete isabeti (baş, gövde, sıyırma, ıska) gösterir', () => {
+    const rows = explainDamage(
+      { ...base, unblockedRatio: 0.5, weightedUnblockedRatio: 0.5625, headShare: 0.5, zoneShares: { head: 0.5, body: 0.25, graze: 0, miss: 0.25 }, afterRegion: 56.25, elementMultiplier: 1, afterElement: 56.25 },
+      'fire',
+      false,
+    );
+    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (büyüklük ve süre)', 'Savunmayı geçen', 'Silüete isabet (baş %50, gövde %25, ıska %25)']);
     expect(rows[1]).toMatchObject({ factor: '%50', value: 50 });
-    expect(rows[2]).toMatchObject({ factor: '×1.5', value: 75 });
+    expect(rows[2]).toMatchObject({ factor: '×1.13', value: 56 });
+  });
+
+  it('şekil isabeti ve özel şekil gücü adım adım yazar', () => {
+    const rows = explainDamage({ ...base, powerFactor: { size: 1, effort: 1, shape: 0.8, special: 1.5, total: 1.2 }, powerBeforeQuality: 120, power: 120, elementMultiplier: 1 }, 'fire', true);
+    expect(rows.slice(0, 3)).toMatchObject([
+      { label: 'Büyü gücü (büyüklük ve süre)', value: 100 },
+      { label: 'Şekil isabeti', factor: '×0.8', value: 80 },
+      { label: 'Özel şekil tuttu', factor: '×1.5', value: 120 },
+    ]);
   });
 });
 
 describe('büyü etkisi', () => {
-  const hit = (finalDamage: number, basePower = 100) => ({ finalDamage, powerBeforeQuality: basePower * 0.8, powerFactor: { size: 1, effort: 0.8, total: 0.8 } });
+  const hit = (finalDamage: number, basePower = 100) => ({ finalDamage, powerBeforeQuality: basePower * 0.8, powerFactor: { size: 1, effort: 0.8, shape: 1, special: 1, total: 0.8 } });
 
   it('verilen hasara göre 5 kademe: çok etkisiz, etkisiz, normal, etkili, çok etkili (Faz 1)', () => {
     expect(spellEffect(hit(95))).toBe('veryEffective');
@@ -71,8 +85,8 @@ describe('büyü etkisi', () => {
   });
 
   it('çizim kalitesi ve inceltilmiş savunma ayrı satır olarak görünür', () => {
-    const rows = explainDamage({ ...base, power: 80, powerBeforeQuality: 100, attackQuality: 0.8, defenseStrength: 0.6, unblockedRatio: 0.5 }, 'fire', false);
-    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (alan ve süre)', 'Çizim kalitesi (karalama / dağılım)', 'Savunma inceldi (karalama / fazla kaplama)', 'Savunmayı geçen', 'Ateş üstün']);
+    const rows = explainDamage({ ...base, power: 80, powerBeforeQuality: 100, attackQuality: 0.8, defenseStrength: 0.6, unblockedRatio: 0.5, weightedUnblockedRatio: 0.5 }, 'fire', false);
+    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (büyüklük ve süre)', 'Karalama (aynı yere üst üste)', 'Savunma inceldi (karalama / fazla kaplama)', 'Savunmayı geçen', 'Ateş üstün']);
     expect(rows[1]).toMatchObject({ factor: '×0.8', value: 80 });
     expect(rows[2]).toMatchObject({ factor: '×0.6' });
   });
@@ -105,7 +119,7 @@ describe('büyü etkisi', () => {
       'fire',
       true,
     );
-    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (alan ve süre)', 'Ekipman çarpanı', 'Saldırı yetenekleri']);
+    expect(rows.map((r) => r.label)).toEqual(['Büyü gücü (büyüklük ve süre)', 'Ekipman çarpanı', 'Saldırı yetenekleri']);
     expect(rows[1]).toMatchObject({ factor: '×1.1', value: 110 });
     expect(rows[2]).toMatchObject({ factor: '×1.2', value: 132 });
   });

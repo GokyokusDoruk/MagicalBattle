@@ -17,8 +17,8 @@ export const QUALITY = {
   efficiencyFull: 0.55,
   /** Bu verimin altında en çok ceza */
   efficiencyFloor: 0.22,
-  /** En çok karalama cezasında çarpan */
-  scribbleFloor: 0.6,
+  /** En çok karalama cezasında çarpan (Faz 3: 0.6 → 0.45; aynı yere üst üste mürekkep güç vermez) */
+  scribbleFloor: 0.45,
   /** Dağılım: 4x4 bölgeden bu kadarı ya da fazlası dolu ise tam güç */
   spreadFullRegions: 6,
   /** Tek bölgeye yığılmış büyünün dağılım çarpanı */
@@ -32,13 +32,16 @@ export const QUALITY = {
 export interface DrawQuality {
   /** Çizgi verimi (kaplanan alan / çizgi alanı); 0 çizgi yoksa */
   efficiency: number;
-  /** Karalama çarpanı (0.6-1) */
+  /** Karalama çarpanı (0.45-1) */
   scribble: number;
   /** Dolu bölge sayısı (0-16) */
   regions: number;
   /** Dağılım çarpanı (0.8-1) */
   spread: number;
-  /** Toplam kalite çarpanı = karalama × dağılım */
+  /**
+   * Toplam kalite çarpanı. Faz 3: yalnızca karalama. Dağılım (`spread`) artık gücü kesmez: rakip silüeti tuvalin küçük
+   * bir yerinde durabilir, oraya toplu çizmek doğru oyundur. Bilgi olarak hesaplanmaya devam eder.
+   */
   total: number;
 }
 
@@ -78,7 +81,7 @@ export function computeQuality(metrics: SpellMetrics, density: DensityMap): Draw
   const scribble = scribbleFactor(efficiency);
   const regions = filledRegions(density);
   const spread = spreadFactor(regions);
-  return { efficiency, scribble, regions, spread, total: scribble * spread };
+  return { efficiency, scribble, regions, spread, total: scribble };
 }
 
 /** Tuval sayfası (GRID) dışarıya açılır: testler ve savunma "fazla kaplama" hesabı için. */

@@ -57,9 +57,22 @@ const factorText = (m: number): string => `×${Math.round(m * 100) / 100}`;
  * Örnek: Büyü gücü 100 → Toprak üstün ×1.5 = 150.
  */
 export function explainDamage(b: DamageBreakdown, attackerElement: Element, defenseFailed: boolean): ExplainRow[] {
-  const rows: ExplainRow[] = [{ label: 'Büyü gücü (alan ve süre)', factor: '', value: Math.round(b.powerBeforeQuality) }];
+  const pf = b.powerFactor;
+  const base = pf.total > 0 ? b.powerBeforeQuality / pf.total : 0;
+  const rows: ExplainRow[] = [];
+  // Faz 3: güç adım adım: büyüklük ve süre, şekil isabeti, özel şekil, karalama
+  let running = base * pf.size * pf.effort;
+  rows.push({ label: 'Büyü gücü (büyüklük ve süre)', factor: '', value: Math.round(running) });
+  if (pf.shape < 0.995) {
+    running *= pf.shape;
+    rows.push({ label: 'Şekil isabeti', factor: factorText(pf.shape), value: Math.round(running) });
+  }
+  if (pf.special > 1) {
+    running *= pf.special;
+    rows.push({ label: 'Özel şekil tuttu', factor: factorText(pf.special), value: Math.round(running) });
+  }
   if (b.attackQuality < 0.995) {
-    rows.push({ label: 'Çizim kalitesi (karalama / dağılım)', factor: factorText(b.attackQuality), value: Math.round(b.power) });
+    rows.push({ label: 'Karalama (aynı yere üst üste)', factor: factorText(b.attackQuality), value: Math.round(b.power) });
   }
   if (!defenseFailed) {
     if (b.defenseStrength < 0.99) {
@@ -67,8 +80,14 @@ export function explainDamage(b: DamageBreakdown, attackerElement: Element, defe
     }
     rows.push({ label: 'Savunmayı geçen', factor: `%${Math.round(b.unblockedRatio * 100)}`, value: Math.round(b.power * b.unblockedRatio) });
   }
-  if (b.headShare > 0.5 && b.weightedUnblockedRatio > b.unblockedRatio) {
-    rows.push({ label: 'Baş vuruşu', factor: factorText(b.weightedUnblockedRatio / (b.unblockedRatio || 1)), value: Math.round(b.afterRegion) });
+  // Silüete isabet: baş ×1.25, gövde ×1, sıyırma ×0.2, ıska ×0.1 (savunmayı geçen kısma göre)
+  if (b.unblockedRatio > 0 && Math.abs(b.weightedUnblockedRatio / b.unblockedRatio - 1) > 0.005) {
+    const z = b.zoneShares;
+    const pct = (v: number): number => Math.round(v * 100);
+    const where = [z.head > 0.005 ? `baş %${pct(z.head)}` : '', z.body > 0.005 ? `gövde %${pct(z.body)}` : '', z.graze > 0.005 ? `sıyırma %${pct(z.graze)}` : '', z.miss > 0.005 ? `ıska %${pct(z.miss)}` : '']
+      .filter(Boolean)
+      .join(', ');
+    rows.push({ label: `Silüete isabet (${where})`, factor: factorText(b.weightedUnblockedRatio / b.unblockedRatio), value: Math.round(b.afterRegion) });
   }
   if (b.elementMultiplier !== 1) {
     const rel = b.elementMultiplier > 1 ? 'üstün' : 'zayıf';

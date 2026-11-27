@@ -50,7 +50,7 @@ Gerçek değerlerden örnekler (saldırı: yarıçapı 70 olan daire):
 | Yarıçapı 50 olan daire | %16 |
 | Yarım çember | %55 |
 
-`savunulmayan` haritası, Task 11'de baş bölgesi çarpanı (×1.5) ve diğer hasar adımlarına girdi olacak.
+`savunulmayan` haritası hasar adımlarına girer: Faz 3'ten beri rakip silüetine göre baş ×1.25, gövde ×1, sıyırma ×0.2, ıska ×0.1 ([hasar-hesabi.md](hasar-hesabi.md)).
 
 ## Ayarlar
 
@@ -58,4 +58,4 @@ Gerçek değerlerden örnekler (saldırı: yarıçapı 70 olan daire):
 
 ## Sonraki adımlar
 
-- Hasar hesabı (çizim gücü, baş bölgesi, element, skill, zırh): [hasar-hesabi.md](hasar-hesabi.md)
+- Hasar hesabı (çizim gücü, şekil isabeti, rakip silüeti, element, skill, zırh): [hasar-hesabi.md](hasar-hesabi.md)

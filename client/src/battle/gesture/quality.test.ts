@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defenseOverfill, calculateDamage, sizeFactor } from '../damage/calculate';
+import { FULL_POWER_COVERAGE } from '../damage/config';
 import { SHAPE_NAMES, buildShape } from '../flow/shapes';
 import { mulberry32 } from '../../world/rng';
 import { matchDefense } from '../match/defense';
@@ -80,13 +81,13 @@ describe('çizim kalitesi: dağılım', () => {
 describe('güç eğrisi', () => {
   it('küçük büyü doğrusaldan sert düşer, orta ve büyük tam güç, tuvali dolduran hafif kesilir', () => {
     expect(sizeFactor(0)).toBe(0);
-    expect(sizeFactor(0.072)).toBeLessThan(0.5); // tam alanın yarısı yarıdan az güç
-    expect(sizeFactor(0.145)).toBe(1);
-    expect(sizeFactor(0.2)).toBe(1);
+    expect(sizeFactor(FULL_POWER_COVERAGE / 2)).toBeLessThan(0.5); // tam alanın yarısı yarıdan az güç
+    expect(sizeFactor(FULL_POWER_COVERAGE)).toBe(1);
+    expect(sizeFactor(FULL_POWER_COVERAGE * 1.4)).toBe(1);
     expect(sizeFactor(0.9)).toBeLessThan(1);
     expect(sizeFactor(0.9)).toBeGreaterThanOrEqual(0.85);
     // monoton: tam alana kadar artar
-    for (let c = 0.02; c < 0.12; c += 0.02) expect(sizeFactor(c + 0.02)).toBeGreaterThan(sizeFactor(c));
+    for (let c = 0.01; c < FULL_POWER_COVERAGE - 0.01; c += 0.01) expect(sizeFactor(c + 0.01)).toBeGreaterThan(sizeFactor(c));
   });
 });
 

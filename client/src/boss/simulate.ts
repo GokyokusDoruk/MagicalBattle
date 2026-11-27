@@ -43,7 +43,7 @@ export function simulateBoss(
     announceTurn: async () => {},
     chooseElement: async (ref) => botFor(ref).chooseElement(),
     revealRound: async () => {},
-    draw: async (ref, role, ghost, _limit, extras) => (role === 'attack' ? botFor(ref).drawAttack(extras?.specialShape) : isPlayerProxy(ref) ? botFor(ref).drawDefenseSeeing(ghost) : botFor(ref).drawDefense()),
+    draw: async (ref, role, ghost, _limit, extras) => (role === 'attack' ? botFor(ref).drawAttack(extras?.specialShape, extras?.target) : isPlayerProxy(ref) ? botFor(ref).drawDefenseSeeing(ghost) : botFor(ref).drawDefense(extras?.target)),
     play: async (r) => {
       botFor(r.action.defender).onDamaged(r.damage, engine.fighter(r.action.defender).maxHp);
     },
@@ -117,7 +117,7 @@ export async function simulateEnemy(
     announceTurn: async () => {},
     chooseElement: async (ref) => botFor(ref).chooseElement(),
     revealRound: async () => {},
-    draw: async (ref, role, ghost, _limit, extras) => (role === 'attack' ? botFor(ref).drawAttack(extras?.specialShape) : isPlayerProxy(ref) ? botFor(ref).drawDefenseSeeing(ghost) : botFor(ref).drawDefense()),
+    draw: async (ref, role, ghost, _limit, extras) => (role === 'attack' ? botFor(ref).drawAttack(extras?.specialShape, extras?.target) : isPlayerProxy(ref) ? botFor(ref).drawDefenseSeeing(ghost) : botFor(ref).drawDefense(extras?.target)),
     play: async (r) => void botFor(r.action.defender).onDamaged(r.damage, engine.fighter(r.action.defender).maxHp),
     announceEnd: async () => {},
   };

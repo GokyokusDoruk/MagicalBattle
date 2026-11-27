@@ -1,3 +1,4 @@
+import { clampPose } from '../damage/target';
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../world/rng';
 import type { SlotRef } from '../arena/layout';
@@ -177,7 +178,7 @@ describe('runBattle: döngü ve tur akışı', () => {
   it('hasar, savunma yokken saldırının tamamıdır ve can düşer', async () => {
     const { io, log } = fakeIO({ draw: (_r, role) => (role === 'attack' ? good() : invalid()) });
     const e = duel();
-    e.applyDamage({ team: 1, index: 0 }, 250);
+    e.applyDamage({ team: 1, index: 0 }, 295);
     await runBattle(e, io);
     const r = log.reports[0];
     expect(r.defenseFailed).toBe(true);
@@ -235,6 +236,32 @@ describe('runBattle: döngü ve tur akışı', () => {
     }
   });
 
+  it('savunan saldırıdan önce yerini seçer: saldıran ve savunan o silüeti görür, yer sınırlara çekilir (Faz 3)', async () => {
+    const { io, log } = fakeIO();
+    const seen: { role: string; target?: { cx: number; cy: number; scale: number } }[] = [];
+    const asked: string[] = [];
+    const draw = io.draw;
+    io.draw = async (ref, role, ghost, limit, extras) => {
+      seen.push({ role, target: extras?.target });
+      return draw(ref, role, ghost, limit, extras);
+    };
+    io.choosePosition = async (defender) => {
+      asked.push(`${defender.team}:${defender.index}`);
+      return { cx: 999, cy: 40, scale: 0.2 };
+    };
+    const e = duel();
+    const stop = new AbortController();
+    io.play = async (r) => {
+      log.reports.push(r);
+      stop.abort();
+    };
+    await runBattle(e, io, { signal: stop.signal });
+    expect(asked).toEqual(['1:0']); // ilk saldırıda savunan B
+    const expected = clampPose({ cx: 999, cy: 40 });
+    expect(seen.map((d) => d.target)).toEqual([expected, expected]); // saldırı ve savunma aynı silüeti görür
+    expect(log.reports[0].target).toEqual(expected);
+  });
+
   it('element çarpanı hasara yansır: üstünlük ×1.25, dezavantaj ×0.75 (aynı döngüde iki yönde)', async () => {
     const run = async (a: Element, d: Element): Promise<[number, number]> => {
       const { io, log } = fakeIO({ element: (ref) => (ref.team === 0 ? a : d), draw: (_r, role) => (role === 'attack' ? good() : invalid()) });
@@ -246,14 +273,16 @@ describe('runBattle: döngü ve tur akışı', () => {
         if (++plays === 2) stop.abort();
       };
       await runBattle(e, io, { signal: stop.signal });
-      return [log.reports[0].breakdown!.afterElement, log.reports[1].breakdown!.afterElement];
+      // Faz 3: iki saldırıda silüet farklı yerde durur; element etkisi bölge adımından sonra gelen çarpandır
+      return [0, 1].map((i) => log.reports[i].breakdown!.afterElement / log.reports[i].breakdown!.afterRegion) as [number, number];
     };
     const [neutralA, neutralB] = await run('fire', 'earth'); // ateş-toprak etkisiz
-    expect(neutralA).toBeCloseTo(neutralB, 5);
+    expect(neutralA).toBeCloseTo(1, 5);
+    expect(neutralB).toBeCloseTo(1, 5);
     // A su, B ateş: A üstün (×1.25), B'nin saldırısı dezavantajlı (×0.75)
     const [aTurn, bTurn] = await run('water', 'fire');
-    expect(aTurn / neutralA).toBeCloseTo(1.25, 5);
-    expect(bTurn / neutralA).toBeCloseTo(0.75, 5);
+    expect(aTurn).toBeCloseTo(1.25, 5);
+    expect(bTurn).toBeCloseTo(0.75, 5);
   });
 
   it('ekipman döngü elementine göre: savunanın zırhı ve yüzük süresi seçilen büyüye göre hesaplanır', async () => {
@@ -319,7 +348,7 @@ describe('runBattle: tam savaşlar (botlara karşı)', () => {
       announceTurn: async (a) => void log.turns.push(`${a.attacker.team}${a.attacker.index}>${a.defender.team}${a.defender.index}`),
       chooseElement: async (ref) => pick(ref).chooseElement(),
       revealRound: async () => {},
-      draw: async (ref, role) => (role === 'attack' ? pick(ref).drawAttack() : pick(ref).drawDefense()),
+      draw: async (ref, role, _g, _l, extras) => (role === 'attack' ? pick(ref).drawAttack(extras?.specialShape, extras?.target) : pick(ref).drawDefense(extras?.target)),
       play: async (r) => {
         const key = `${r.action.defender.team}${r.action.defender.index}`;
         log.hits[key] = (log.hits[key] ?? 0) + r.damage;

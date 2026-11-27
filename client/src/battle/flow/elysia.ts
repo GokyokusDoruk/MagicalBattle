@@ -1,9 +1,9 @@
 import { ELEMENTS, type Element } from '../damage/elements';
 import { analyzeStrokes } from '../gesture/analyze';
-import { LOGICAL_SIZE } from '../gesture/config';
 import type { DrawingResult } from '../gesture/types';
 import { Bot } from './bot';
-import { SHAPE_NAMES, buildShape, scribbleShape } from './shapes';
+import { SHAPE_NAMES, buildShape, scribbleShape, type ShapeName } from './shapes';
+import { DEFAULT_POSE, type TargetPose } from '../damage/target';
 
 /** Kişilik ayarları. Denge için ayarlanabilir. */
 export const ELYSIA = {
@@ -61,21 +61,22 @@ export class ElysiaBot extends Bot {
     return ELEMENTS[Math.floor(this.rand() * ELEMENTS.length)];
   }
 
-  override drawAttack(): DrawingResult {
+  override drawAttack(special?: ShapeName, target?: TargetPose): DrawingResult {
     let result: DrawingResult;
     if (this.mood === 'angry') {
-      // Öfkeli: büyük ve uzun çizim, ama hırsından büyüyü bozma ihtimali de yüksek
-      const cx = LOGICAL_SIZE / 2 + this.between(-14, 14);
-      const cy = LOGICAL_SIZE / 2 + this.between(-14, 14);
+      // Öfkeli: büyük ve uzun çizim (silüetten taşar), ama hırsından büyüyü bozma ihtimali de yüksek
+      const spread = target ? 14 : 48;
+      const cx = (target?.cx ?? 128) + this.between(-spread, spread);
+      const cy = (target?.cy ?? 128) + this.between(-spread, spread);
       const ms = this.between(2500, 2950);
       if (this.rand() < 0.1 + 0.1 * this.angerValue) {
         result = analyzeStrokes(scribbleShape(cx, cy, ms), ms);
       } else {
         const name = SHAPE_NAMES[Math.floor(this.rand() * SHAPE_NAMES.length)];
-        result = analyzeStrokes(buildShape(name, cx, cy, this.between(82, 108), ms), ms);
+        result = analyzeStrokes(buildShape(name, cx, cy, this.between(56, 74) * (target ?? DEFAULT_POSE).scale, ms), ms);
       }
     } else {
-      result = super.drawAttack();
+      result = super.drawAttack(special, target);
     }
     this.angerValue *= ELYSIA.calmDown;
     return result;
