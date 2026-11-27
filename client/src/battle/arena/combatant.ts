@@ -2,6 +2,7 @@ import { wandGeometry } from './wandModel';
 import * as THREE from 'three';
 import type { Element } from '../damage/elements';
 import { ELEMENT_COLORS } from './palette';
+import { createWizard, type WizardClip, type WizardInstance } from './wizardModel';
 
 const SKIN = 0xf0c8a0;
 const FLASH = new THREE.Color(0xffffff);
@@ -30,6 +31,11 @@ export class Combatant {
   private defeated = false;
   /** Faz 5: yenilgi biçimi: yana yığılma ya da vuruşla arkaya düşüp yere serilme */
   private fallStyle: 'collapse' | 'backward' = 'collapse';
+  /** Gerçek büyücü modeli (Quaternius Wizard, CC0); yüklenene kadar ya da yüklenemezse basit büyücü görünür */
+  private model: WizardInstance | null = null;
+  private clip: WizardClip | null = null;
+  private hidden = false;
+  private disposed = false;
 
   constructor(
     readonly name: string,
@@ -77,6 +83,39 @@ export class Combatant {
 
     this.body.add(robe, sash, head, hat, brim, this.staff);
     this.group.add(this.body, ring);
+
+    // Gerçek modeli arkada yükle; gelince basit büyücünün yerini alır
+    void createWizard(element)
+      .then((m) => {
+        if (this.disposed) {
+          m.dispose();
+          return;
+        }
+        this.model = m;
+        this.body.visible = false;
+        m.root.visible = !this.hidden;
+        this.group.add(m.root);
+        this.playClip(this.defeated ? 'death' : 'idle', 0);
+      })
+      .catch(() => {
+        // Model yüklenemedi (ağ): basit büyücüyle devam
+      });
+  }
+
+  /** Modelde bir animasyona yumuşak geçiş. Tek seferlik olanlar (büyü, darbe, ölüm) baştan oynar. */
+  private playClip(clip: WizardClip, fade = 0.2): void {
+    const m = this.model;
+    if (!m) return;
+    const next = m.actions.get(clip);
+    if (!next) return;
+    const prev = this.clip ? m.actions.get(this.clip) : undefined;
+    if (this.clip === clip && clip !== 'cast' && clip !== 'hit') return;
+    next.reset();
+    next.enabled = true;
+    next.setEffectiveWeight(1);
+    if (prev && prev !== next) next.crossFadeFrom(prev, fade, false);
+    next.play();
+    this.clip = clip;
   }
 
   /** Vuruş parlaması için renkleri izlenen yarı parlak malzeme. */
@@ -93,6 +132,7 @@ export class Combatant {
   cast(durationSec = 1.3): void {
     this.castTotal = durationSec;
     this.castLeft = durationSec;
+    if (!this.defeated) this.playClip('cast', 0.12);
   }
 
   /** Savunma duruşu: geriye yaslanır, asayı öne uzatır. */
@@ -108,24 +148,35 @@ export class Combatant {
   hit(strength: number): void {
     this.hitStrength = Math.min(1, Math.max(0.15, strength));
     this.hitLeft = 0.5;
+    if (!this.defeated) this.playClip('hit', 0.08);
   }
 
   /** Yenilgi: `backward` ise vuruşun etkisiyle arkaya devrilip sırtüstü yere yığılır (son büyü), aksi halde yana çöker. */
   defeat(style: 'collapse' | 'backward' = 'collapse'): void {
     this.defeated = true;
     this.fallStyle = style;
+    this.playClip('death', 0.1);
   }
 
   /** Birinci kişi bakışta kendi gövden kameranın önünü kapatmasın diye gizlenir. */
   setVisible(visible: boolean): void {
-    this.body.visible = visible;
+    this.hidden = !visible;
+    if (this.model) this.model.root.visible = visible;
+    else this.body.visible = visible;
   }
 
   reset(): void {
     this.defeated = false;
     this.defeatedAmount = 0;
     this.fallStyle = 'collapse';
-    this.body.visible = true;
+    this.hidden = false;
+    this.body.visible = !this.model;
+    if (this.model) {
+      this.model.root.visible = true;
+      this.clip = null;
+      this.model.mixer.stopAllAction();
+      this.playClip('idle', 0);
+    }
     this.castLeft = this.defendLeft = this.hitLeft = 0;
   }
 
@@ -135,6 +186,7 @@ export class Combatant {
 
   update(dt: number): void {
     this.time += dt;
+    if (this.model) this.updateModel(dt);
     this.castLeft = Math.max(0, this.castLeft - dt);
     this.defendLeft = Math.max(0, this.defendLeft - dt);
     this.hitLeft = Math.max(0, this.hitLeft - dt);
@@ -191,7 +243,28 @@ export class Combatant {
     });
   }
 
+  /** Modelin animasyon durumu: bitmiş tek seferlik animasyondan sonra savunma ya da bekleme duruşuna döner; vuruşta geri savrulur ve parlar. */
+  private updateModel(dt: number): void {
+    const m = this.model!;
+    m.mixer.update(dt);
+    if (!this.defeated) {
+      const oneShot = this.clip === 'cast' || this.clip === 'hit';
+      const running = oneShot && m.actions.get(this.clip!)!.isRunning();
+      if (!running) this.playClip(this.defendLeft > 0 ? 'guard' : 'idle', 0.25);
+    }
+    const k = this.hitLeft > 0 ? this.hitLeft / 0.5 : 0;
+    const back = this.defeated && this.fallStyle === 'backward' ? -Math.min(1, this.defeatedAmount) * 0.6 : 0;
+    m.root.position.set(0, 0, -k * 0.5 * this.hitStrength + back);
+    const flash = 0.35 + k * this.hitStrength * 0.9;
+    m.root.traverse((o) => {
+      const mat = (o as THREE.Mesh).material as THREE.MeshLambertMaterial | undefined;
+      if (mat && 'emissive' in mat) mat.emissive.setScalar(flash);
+    });
+  }
+
   dispose(): void {
+    this.disposed = true;
+    this.model?.dispose();
     this.disposables.forEach((d) => d.dispose());
   }
 }

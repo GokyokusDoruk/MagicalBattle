@@ -140,6 +140,8 @@ export class WorldScene extends Phaser.Scene {
     this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.5).setDepth(10);
     this.staff = this.add.image(this.pos.x, this.pos.y, STAFF_KEY).setOrigin(0.5, 1).setDepth(10.5);
     this.placeStaff(0);
+    // Gerçek büyücü modelinden çekilmiş görseller hazır olunca eski çizimlerin yerini alır
+    void this.upgradeSprites();
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, map.width * TILE_SIZE, map.height * TILE_SIZE);
@@ -277,6 +279,34 @@ export class WorldScene extends Phaser.Scene {
       if (!label) continue;
       const near = Math.hypot(spot.tileX * TILE_SIZE + TILE_SIZE / 2 - this.pos.x, spot.tileY * TILE_SIZE + TILE_SIZE / 2 - this.pos.y) <= TILE_SIZE * 7;
       label.setVisible(near && (this.ctx.isEnemyActive?.(spot.id) ?? true));
+    }
+  }
+
+  /**
+   * Karakter ve dünya düşmanları için gerçek büyücü modelinden (Quaternius Wizard, CC0) çekilmiş görseller. Model ayrı bir parça olarak
+   * arkada yüklenir; hazır olunca eski çizimlerin yerini alır. WebGL yoksa ya da yüklenemezse eski çizimler kalır.
+   */
+  private async upgradeSprites(): Promise<void> {
+    try {
+      const { renderWizardSprite } = await import('../battle/arena/wizardModel');
+      const size = TILE_SIZE * 1.2;
+      const player = await renderWizardSprite('water');
+      if (!this.sys.isActive()) return;
+      this.textures.addCanvas('player-model', player);
+      this.player.setTexture('player-model').setDisplaySize(size, size);
+      // Modelin kendi asası var: ayrı asa çizimi gizlenir
+      this.staff.setVisible(false);
+      for (const el of ['fire', 'water', 'earth', 'air'] as const) {
+        const canvas = await renderWizardSprite(el);
+        if (!this.sys.isActive()) return;
+        this.textures.addCanvas(`enemy-model-${el}`, canvas);
+        for (const spot of this.ctx.enemies ?? []) {
+          if (spot.element !== el) continue;
+          this.enemySprites.get(spot.id)?.setTexture(`enemy-model-${el}`).setDisplaySize(size, size);
+        }
+      }
+    } catch {
+      // Model yüklenemedi: eski çizimler kalır
     }
   }
 
