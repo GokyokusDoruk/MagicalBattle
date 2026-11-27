@@ -53,7 +53,7 @@ Savunmasız bir saldırı ortalama ~79 hasar verir; can 300'dür.
 
 ## Savaş gösterimi (Task 33)
 
-- **Çarpışma:** saldırı büyüsü hedefe varınca (savunma varsa kalkana çarpar) oyun zamanı **yavaşlar** (savunmada ~1,6 sn, savunmasızda ~0,7 sn gerçek süre); iki büyü kıvılcımlar saçar.
+- **Çarpışma (Faz 5):** büyü beklemeden fırlar, kamera onunla ilerler. Kalkana çarpınca kısa bir duraksama; savunulan parçalar saçılıp söner, kalanı rakibe gider. Çarptığı an hasar ve etki yazısı birlikte çıkar, altında Detay ve Tamam ([iyilestirme-plani.md](iyilestirme-plani.md)).
 - **Hasar hesabı kartı:** çarpışma anında ekranın üstünde hesap adım adım yazar, büyünün renginde: `Büyü gücü 100`, `Savunmayı geçen %60`, `Baş vuruşu ×1.5`, `Toprak üstün ×1.5 = 150`, `Yetenek ve ekipman`, `Zırh −%20`, en altta `Hasar`. Etkisi olmayan (×1) adımlar gösterilmez (`battle/damage/explain.ts`).
 - **Etki yazısı** (vuruştan sonra, Faz 1): **verilen hasara göre** 5 kademe. Ölçü, hasarın saldıranın taban gücüne (asa dahil) oranıdır: **≥%75 ÇOK ETKİLİ**, **≥%50 ETKİLİ**, **≥%30 NORMAL**, **≥%12 ETKİSİZ**, altı **ÇOK ETKİSİZ SALDIRI** (`battle/damage/explain.ts`).
 - **Element kartları ve element ilişkisi** (Faz 1): yazı yok; yalnızca elementin simgesi ve rengi. Üstünlük, ilişki kartının rengiyle (yeşil/kırmızı/gri) hissedilir.

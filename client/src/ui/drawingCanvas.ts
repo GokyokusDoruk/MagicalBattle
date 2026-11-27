@@ -28,6 +28,12 @@ export interface DrawingCanvasOptions extends SessionOptions {
   shake?: number;
   /** Çamur Yaması: savunma ekranındaki çamur yaması sayısı (görüşü örter, çizimi engellemez) */
   mud?: number;
+  /**
+   * Faz 5: birinci kişi bakış. Tuval yarı saydam olur, arkasında arena (rakip) görünür; ekrana çizilir gibi.
+   */
+  overlay?: boolean;
+  /** Faz 5: kalemin yeri (-1..1, sağ/üst artı) ve çizim sürüyor mu; ekrandaki el ve asa buna uzanır */
+  onAim?: (nx: number, ny: number, down: boolean) => void;
   /** Faz 4: kalemin elementi (ateş alevle, su suyla, toprak toprakla, hava rüzgârla çizer); verilmezse düz renkli kalem */
   element?: Element;
   /** Rastgelelik kaynağı (iz konumları); testler sabit verir */
@@ -168,7 +174,7 @@ export class DrawingCanvas {
     this.element = document.createElement('div');
     this.element.className = 'flex w-full flex-col items-center gap-3';
     this.element.innerHTML = `
-      <canvas class="touch-none rounded-lg border-2 border-amber-200/50 bg-slate-950" style="width:min(88vw,60vh);aspect-ratio:1;touch-action:none"></canvas>
+      <canvas class="touch-none rounded-lg border-2 ${options.overlay ? 'border-amber-200/30 bg-slate-950/25 backdrop-blur-[1px]' : 'border-amber-200/50 bg-slate-950'}" style="width:min(88vw,60vh);aspect-ratio:1;touch-action:none"></canvas>
       <div class="w-[min(88vw,60vh)]">
         <div class="h-2 overflow-hidden rounded bg-white/10"><div data-fill class="h-full w-full bg-amber-300"></div></div>
         <div class="mt-2 flex items-center justify-between text-sm text-slate-300">
@@ -237,13 +243,27 @@ export class DrawingCanvas {
     }
     const p = this.toLogical(e);
     const now = performance.now();
+    this.aim(e, true);
     this.session.pointerDown(p.x, p.y, now);
     this.loop = this.options.drawSound?.() ?? null;
     this.lastMove = { x: p.x, y: p.y, at: now };
   }
 
+  /** Kalemin ekrandaki yerini (-1..1) ele bildirir (birinci kişi bakış) */
+  private aim(e: PointerEvent, down: boolean): void {
+    if (!this.options.onAim) return;
+    const nx = (e.clientX / Math.max(1, window.innerWidth)) * 2 - 1;
+    const ny = 1 - (e.clientY / Math.max(1, window.innerHeight)) * 2;
+    this.options.onAim(nx, ny, down);
+  }
+
   private onMove(e: PointerEvent): void {
-    if (e.pointerId !== this.pointerId) return;
+    if (e.pointerId !== this.pointerId) {
+      // Basılı değilken de el imleci izler (fare)
+      if (this.pointerId === null && e.pointerType === 'mouse') this.aim(e, false);
+      return;
+    }
+    this.aim(e, true);
     const p = this.toLogical(e);
     const now = performance.now();
     // Çamur, sis ve yara izi yalnızca görüşü engeller: çizgiler her zaman kaydedilir
@@ -263,6 +283,7 @@ export class DrawingCanvas {
   private onUp(e: PointerEvent): void {
     if (e.pointerId !== this.pointerId) return;
     this.pointerId = null;
+    this.aim(e, false);
     this.stopSound();
     this.session.pointerUp(performance.now());
   }

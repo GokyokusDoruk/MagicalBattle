@@ -268,7 +268,14 @@ export class BattleScreen implements BattleIO {
       return role === 'attack' ? bot.drawAttack(extras?.specialShape, extras?.target) : bot.drawDefense(extras?.target);
     }
     // Saldırı ve savunma, bu döngüde seçilen TEK elementle çizilir
-    return this.drawByHand(role, this.roundElements.get(key(ref)) ?? 'fire', ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined, extras?.target);
+    // Faz 5: önce kendi büyücünün omzunun üstünden, sonra gözünden (birinci kişi) bakılır; ekranda elin ve asan belirir
+    const element = this.roundElements.get(key(ref)) ?? 'fire';
+    await this.arena.enterFirstPerson(ref, element);
+    try {
+      return await this.drawByHand(role, element, ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined, extras?.target);
+    } finally {
+      this.arena.exitFirstPerson();
+    }
   }
 
   /** Botun "düşünme" süresi: çizim süresine yakın, böylece sıra hissi oluşur. */
@@ -278,15 +285,18 @@ export class BattleScreen implements BattleIO {
 
   private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName, target?: TargetPose): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
-    this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
-      <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
-      <p class="text-center text-xs text-slate-300">${role === 'defense' ? 'Silüetini koru: rakibin büyüsü oraya gelecek.' : target ? 'Rakibin silüetine çiz. Şekil ne kadar doğruysa büyü o kadar güçlü; silüetin dışına giden büyü çok az vurur.' : 'Rakibini göremiyorsun: nerede durduğunu tahmin et ve oraya çiz. Şekil ne kadar doğruysa büyü o kadar güçlü.'}</p>
+    this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-950/60 via-transparent to-transparent p-3">
+      <h2 class="text-lg font-bold drop-shadow ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
+      <p class="text-center text-xs text-slate-200 drop-shadow">${role === 'defense' ? 'Silüetini koru: rakibin büyüsü oraya gelecek.' : target ? 'Rakibin silüetine çiz. Şekil ne kadar doğruysa büyü o kadar güçlü; silüetin dışına giden büyü çok az vurur.' : 'Rakibini göremiyorsun: nerede durduğunu tahmin et ve oraya çiz. Şekil ne kadar doğruysa büyü o kadar güçlü.'}</p>
       ${special ? this.specialPreview(special) : ''}
       <div data-canvas class="flex w-full justify-center"></div></div>`;
     const canvas = new DrawingCanvas({
       color: role === 'attack' ? css(ELEMENT_COLORS[element].main) : '#7df0c4',
       // Faz 4: saldırı ve savunma bu döngünün elementiyle çizilir (ateş alevle, su suyla...)
       element,
+      // Faz 5: birinci kişi bakış: tuval yarı saydam, el ve asa kalemi izler
+      overlay: true,
+      onAim: (nx, ny, down) => this.arena.aimHand(nx, ny, down),
       ghost,
       target,
       targetTone: role === 'attack' ? 'enemy' : 'self',
@@ -386,14 +396,23 @@ export class BattleScreen implements BattleIO {
     } else {
       void this.say(this.center, `Savunma yapılamadı! <span class="font-normal">(${this.name(action.defender)})</span>`, 1200, 'bg-red-900/80 text-red-100');
     }
-    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement);
+    // Faz 5: büyü beklemeden fırlar, kamera onunla ilerler; savunulan parçalar kalkanda saçılır, kalanı rakibe çarpar
+    const blockedRatio = report.defenseFailed ? 0 : (report.breakdown?.defendedRatio ?? 0);
+    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement, { blockedRatio });
+    const fatal = report.defeated;
+    const playerWon = fatal && this.engine.winner === action.attacker.team && this.engine.all().some((f: Fighter) => f.control === 'human' && f.team === action.attacker.team);
+    // Çarptığı an: hasar sayısı ve etki yazısı birlikte (bekleme yok); son büyüde rakip arkaya devrilir
+    this.updateHud();
+    const shown = this.showImpactResult(report);
     await this.arena.impact(action.defender, action.attacker, {
       damage: report.damage,
-      blockedRatio: report.breakdown?.defendedRatio ?? 0,
+      blockedRatio,
       head: (report.breakdown?.headShare ?? 0) > 0.5,
       element: report.attackerElement,
+      fatal,
     });
-    await this.showEffect(report);
+    if (playerWon) this.showVictoryBanner();
+    await shown;
     // Ateş yetenekleri: kısa duyurular
     const notes: string[] = [];
     if (report.chainStacks) notes.push(`⛓️ Alev Zinciri ×${report.chainStacks}`);
@@ -418,11 +437,8 @@ export class BattleScreen implements BattleIO {
     if (report.reflected > 0) {
       await this.say(this.center, `🌊 Yansıyan dalga! ${this.name(action.attacker)} -${report.reflected}`, 1200, 'bg-sky-900/80 text-sky-100');
     }
-    if (report.defeated) {
-      // Savaşı insan tarafı kazandıysa: bitiriş büyüsü (rakip dev bir büyüyle yıkılır); aksi halde sade yenilgi
-      const playerWon = this.engine.winner === action.attacker.team && this.engine.all().some((f: Fighter) => f.control === 'human' && f.team === action.attacker.team);
-      if (playerWon) await this.arena.finisher(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement);
-      else this.arena.defeat(action.defender);
+    if (report.defeated && !playerWon) {
+      // Rakip arkaya devrildi (impact); insan tarafı kazanmadıysa yalnızca kim yenildi yazar
       await this.say(this.center, `${this.name(action.defender)} yenildi!`, 1400, 'bg-amber-700/80 text-amber-50');
     }
     if (report.attackerDefeated) {
@@ -431,7 +447,7 @@ export class BattleScreen implements BattleIO {
     }
   }
 
-  /** Detay ekranı: hasarın neyden ne kadar geldiği (bloklanmayan kısım, element, ekipman, yetenek, zırh...). Devam'a basınca kapanır. */
+  /** Detay ekranı: hasarın neyden ne kadar geldiği (bloklanmayan kısım, element, ekipman, yetenek, zırh...). Geri'ye basınca sonuca döner. */
   private showDetail(report: TurnReport): Promise<void> {
     const b = report.breakdown;
     const color = css(ELEMENT_COLORS[report.attackerElement].glow);
@@ -451,7 +467,7 @@ export class BattleScreen implements BattleIO {
       <div class="mb-2 text-center text-xs text-slate-300">Büyünün <b>%${100 - blocked}</b> kadarı bloklanmadı (%${blocked} bloklandı)</div>
       ${rows}
       <div class="mt-2 flex justify-between border-t border-white/30 pt-2 text-base font-bold"><span>Hasar</span><span class="tabular-nums">${report.damage}</span></div>
-      <button data-next type="button" class="mt-3 w-full rounded bg-amber-300 px-4 py-2 font-bold text-slate-900">Devam</button></div>`;
+      <button data-next type="button" class="mt-3 w-full rounded bg-amber-300 px-4 py-2 font-bold text-slate-900">Geri</button></div>`;
     return new Promise((resolve) => {
       panel.querySelector('[data-next]')!.addEventListener('click', () => {
         panel.remove();
@@ -460,35 +476,12 @@ export class BattleScreen implements BattleIO {
     });
   }
 
-  /** Hasar sayısından sonra: Detay ya da Devam. Dokunulmazsa kısa süre sonra kendiliğinden devam eder. */
-  private resultPrompt(report: TurnReport): Promise<void> {
-    return new Promise((resolve) => {
-      const box = this.overlay('absolute inset-x-0 bottom-8 z-20 flex justify-center gap-3 px-2');
-      box.style.pointerEvents = 'auto';
-      box.innerHTML = `<button data-detail type="button" class="rounded bg-slate-700/90 px-5 py-2 text-sm font-bold text-amber-50">Detay</button>
-        <button data-next type="button" class="rounded bg-amber-300 px-5 py-2 text-sm font-bold text-slate-900">Devam</button>`;
-      let timer = 0;
-      const done = (): void => {
-        window.clearTimeout(timer);
-        box.remove();
-        resolve();
-      };
-      timer = window.setTimeout(done, 2500);
-      box.querySelector('[data-next]')!.addEventListener('click', done);
-      box.querySelector('[data-detail]')!.addEventListener('click', () => {
-        window.clearTimeout(timer);
-        box.remove();
-        void this.showDetail(report).then(resolve);
-      });
-    });
-  }
-
   /**
-   * Vuruştan sonra: önce "%X bloklandı" ve hasara göre etki seviyesi (çok etkisiz, etkisiz, normal, etkili, çok etkili), 2 saniye sonra hasar sayısı,
-   * sonra Detay / Devam.
+   * Faz 5: büyü çarptığı an sonuç: büyük hasar sayısı ve hasara göre etki yazısı (çok etkili … çok etkisiz) birlikte görünür;
+   * altında **Detay** (hasarın adım adım hesabı) ve **Tamam** (sıradaki hamle) düğmeleri. Tamam'a basılana kadar beklenir.
    */
-  private async showEffect(report: TurnReport): Promise<void> {
-    if (!report.breakdown) return;
+  private showImpactResult(report: TurnReport): Promise<void> {
+    if (!report.breakdown) return Promise.resolve();
     const effect = spellEffect(report.breakdown);
     const tones: Record<SpellEffect, string> = {
       veryWeak: 'bg-slate-700/90 text-slate-200',
@@ -497,19 +490,39 @@ export class BattleScreen implements BattleIO {
       effective: 'bg-orange-700/90 text-orange-50',
       veryEffective: 'bg-red-800/90 text-red-50',
     };
-    const blocked = blockedPercent(report.breakdown, report.defenseFailed);
-    await this.say(
-      this.center,
-      `<span class="text-base font-normal">%${blocked} bloklandı</span><br>${report.critical ? '💥 KRİTİK! ' : ''}${EFFECT_LABELS[effect]}`,
-      2000,
-      tones[effect],
-    );
-    const q = report.attack.quality.total;
-    if (q < 0.95 && this.isHuman(report.action.attacker)) {
-      void this.say(this.calc, `✏️ Çizim kalitesi ×${q.toFixed(2)}: ${report.attack.quality.scribble < 0.95 ? 'karalama gücü düşürdü' : 'büyü tuvalin küçük bir yerine yığıldı'}`, 1800, 'bg-slate-800/90 text-amber-100');
-    }
-    await this.say(this.center, report.damage > 0 ? `<span class="text-4xl">-${report.damage}</span><br><span class="text-sm font-normal">hasar</span>` : 'hasar yok', 1200, tones[effect]);
-    await this.resultPrompt(report);
+    const box = this.overlay('absolute inset-x-0 top-1/4 z-20 flex flex-col items-center gap-3 px-3');
+    box.style.pointerEvents = 'auto';
+    box.innerHTML = `<div class="rounded-xl px-6 py-3 text-center font-bold shadow-xl ${tones[effect]}">
+        <div class="text-5xl tabular-nums leading-none">${report.damage > 0 ? `-${report.damage}` : '0'}</div>
+        <div class="mt-1 text-base">${report.critical ? '💥 KRİTİK! ' : ''}${EFFECT_LABELS[effect]}</div>
+      </div>
+      <div class="flex gap-3">
+        <button data-detail type="button" class="rounded-lg bg-slate-800/90 px-5 py-2 text-sm font-bold text-amber-50 shadow">Detay</button>
+        <button data-next type="button" class="rounded-lg bg-amber-300 px-6 py-2 text-sm font-bold text-slate-900 shadow">Tamam</button>
+      </div>`;
+    box.animate([{ opacity: 0, transform: 'scale(0.8)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
+    return new Promise((resolve) => {
+      const done = (): void => {
+        box.remove();
+        resolve();
+      };
+      box.querySelector('[data-next]')!.addEventListener('click', done);
+      box.querySelector('[data-detail]')!.addEventListener('click', () => {
+        box.style.visibility = 'hidden';
+        void this.showDetail(report).then(() => {
+          box.style.visibility = 'visible';
+        });
+      });
+    });
+  }
+
+  /** Son büyü insan tarafını kazandırdı: rakip yere yığılırken büyük "KAZANDIN!" yazısı. */
+  private showVictoryBanner(): void {
+    this.sfx.play('victory');
+    const el = this.overlay('pointer-events-none absolute inset-x-0 top-[12%] z-30 flex justify-center');
+    el.innerHTML = '<div class="text-6xl font-black tracking-wide text-amber-300" style="text-shadow:0 0 24px rgba(251,191,36,.8),0 4px 0 #7c2d12">KAZANDIN!</div>';
+    el.animate([{ opacity: 0, transform: 'scale(1.6)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 450, easing: 'cubic-bezier(.2,1.4,.4,1)' });
+    window.setTimeout(() => el.remove(), 2600);
   }
 
   async announceEnd(winner: Winner, engine: BattleEngine): Promise<void> {
