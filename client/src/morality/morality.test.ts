@@ -6,7 +6,7 @@ import { TEST_QUESTS } from '../quests/testQuests';
 import { elysiaFightsAlongside, elysiaStatus } from '../story/elysia';
 import { MAX_WEIGHT, MIN_WEIGHT, MORAL_CHOICES, choicesForChapter, getChoice } from './catalog';
 import { finalLines } from './final';
-import { ALIGNMENT_NAMES, MAX_SCORE, MIN_SCORE, Morality, choiceDelta, effectsFor, finalPathFor, tierOf } from './morality';
+import { ALIGNMENT_NAMES, MAX_SCORE, MIN_SCORE, Morality, choiceDelta, effectsFor, finalPathFor, needleOf, tierOf } from './morality';
 
 describe('seçim kataloğu', () => {
   it('16 seçim, her bölümde 2, kimlikler benzersiz', () => {
@@ -43,28 +43,30 @@ describe('kademeler ve etkiler', () => {
     expect([80, 100, -80, -100].map(tierOf)).toEqual([3, 3, 3, 3]);
   });
 
-  it('Düzen Bekçisi: tüccar indirimi %5/10/15 ve görev altını +%10/20/30', () => {
+  it('Ak büyücü (Faz 2): ibre arttıkça tüccar indirimi (en çok %25) ve görev ödülü (en çok +%50) doğrusal artar', () => {
     const e = (s: number) => effectsFor(s);
-    expect([e(20).buyMultiplier, e(50).buyMultiplier, e(80).buyMultiplier]).toEqual([0.95, 0.9, 0.85]);
-    expect([e(20).questGoldMultiplier, e(50).questGoldMultiplier, e(80).questGoldMultiplier]).toEqual([1.1, 1.2, 1.3]);
+    expect([e(20).buyMultiplier, e(50).buyMultiplier, e(100).buyMultiplier]).toEqual([0.95, 0.875, 0.75]);
+    expect([e(20).questGoldMultiplier, e(50).questGoldMultiplier, e(100).questGoldMultiplier]).toEqual([1.1, 1.25, 1.5]);
     expect(e(80).alignment).toBe('order');
     expect(e(80).sellMultiplier).toBe(1);
     expect(e(80).dropRateMultiplier).toBe(1);
   });
 
-  it('Karanlık Büyücü: satış değeri +%5/10/15 ve düşme oranı +%10/20/30', () => {
+  it('Kara büyücü (Faz 2): ibre arttıkça düşme şansı (en çok +%50) ve satış değeri (en çok +%15) doğrusal artar', () => {
     const e = (s: number) => effectsFor(s);
-    expect([e(-20).sellMultiplier, e(-50).sellMultiplier, e(-80).sellMultiplier]).toEqual([1.05, 1.1, 1.15]);
-    expect([e(-20).dropRateMultiplier, e(-50).dropRateMultiplier, e(-80).dropRateMultiplier]).toEqual([1.1, 1.2, 1.3]);
+    expect([e(-20).dropRateMultiplier, e(-50).dropRateMultiplier, e(-100).dropRateMultiplier]).toEqual([1.1, 1.25, 1.5]);
+    expect([e(-20).sellMultiplier, e(-100).sellMultiplier]).toEqual([1.03, 1.15]);
     expect(e(-80).alignment).toBe('dark');
     expect(e(-80).buyMultiplier).toBe(1);
     expect(e(-80).questGoldMultiplier).toBe(1);
   });
 
-  it('-19..+19 arasında hiçbir etki yok', () => {
-    for (const s of [-19, -5, 0, 5, 19]) {
-      expect(effectsFor(s)).toMatchObject({ alignment: 'neutral', tier: 0, buyMultiplier: 1, sellMultiplier: 1, questGoldMultiplier: 1, dropRateMultiplier: 1 });
-    }
+  it('ibre ortadayken (0) hiçbir etki yok; küçük kaymalar küçük bonus verir, ad "Dengede" kalır', () => {
+    expect(effectsFor(0)).toMatchObject({ alignment: 'neutral', tier: 0, buyMultiplier: 1, sellMultiplier: 1, questGoldMultiplier: 1, dropRateMultiplier: 1 });
+    expect(effectsFor(10)).toMatchObject({ alignment: 'neutral', questGoldMultiplier: 1.05, buyMultiplier: 0.975 });
+    expect(effectsFor(-10)).toMatchObject({ alignment: 'neutral', dropRateMultiplier: 1.05 });
+    expect(needleOf(150)).toBe(1);
+    expect(needleOf(-40)).toBe(-0.4);
   });
 
   it('etiket kademeyi gösterir', () => {

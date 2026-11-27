@@ -6,7 +6,7 @@ Kod: `client/src/dialogue/` (diyalog motoru), `client/src/morality/` (seçimler,
 
 - Bölümün ana görev sahnesi bitince (atlansa da) o bölümün **2 ahlak seçimi** sırayla çıkar. Altta durumu anlatan satırlar, sonra iki seçenek gelir (iyi / kötü, **tarafsız seçenek yok**). Seçince tepki satırı gösterilir.
 - Seçimler **atlanamaz** (Esc ya da dışarı tıklama seçimi geçmez). Satırlar dokunma / Boşluk / Enter ile ilerler; seçenekler tıklanarak ya da **1 / 2** tuşlarıyla seçilir. Satırlar seslendirilir (ses kapalıysa sessiz).
-- Seçim yapılınca bildirim çıkar ("Ahlak puanın: +12 (Düzen Bekçisi I)"), sol üstte **☯ durum etiketi** (örn. "Düzen Bekçisi II (+55)") sürekli görünür.
+- Seçim yapılınca bildirim çıkar ("Ahlak puanın: +12 (Ak Büyücü I)"). Sol üstteki panelde **Kara ↔ Ak büyücü ibresi** (Faz 2) sürekli görünür: ibre puana göre kayar, üstünde ad (Dengede, Ak Büyücü II, Kara Büyücü III…), altında o anki bonuslar yazar.
 - Her seçim **yalnız bir kez** yapılır; bölüm tekrar oynansa da yeniden sorulmaz.
 - **Bölüm 8**'in iki seçiminden sonra **final sahnesi** gelir: puan 0 ve üstüyse Düzen Bekçisi yolu, altındaysa Karanlık Büyücü yolu; sahnenin sert ya da yumuşak olması kademeye göre değişir (8 farklı metin).
 
@@ -16,17 +16,22 @@ Puan **-100 ile +100** arası, 0 ile başlar. 16 seçimin her biri iyi yönde **
 
 Puan kayıtta **tutulmaz**, yapılan seçimlerden **hesaplanır**; böylece puan ile seçimler hiç tutarsız olmaz.
 
-| Kademe | Puan | Düzen Bekçisi (+) | Karanlık Büyücü (-) |
-|---|---|---|---|
-| Yok | -19..+19 | etki yok | etki yok |
-| I | ±20..49 | tüccardan alış %5 indirim, görev altını +%10 | satış değeri +%5, düşme oranı +%10 |
-| II | ±50..79 | %10 indirim, görev altını +%20 | satış +%10, düşme oranı +%20 |
-| III | ±80..100 | %15 indirim, görev altını +%30 | satış +%15, düşme oranı +%30 |
+**Faz 2: bonuslar ibreyle doğrusal artar** (kademe beklenmez). İbre = puan / 100 (−1 tam kara, +1 tam ak). En uçta:
+
+| | Ak büyücü (+) | Kara büyücü (−) |
+|---|---|---|
+| Görev ödülü (para) | **+%50** | — |
+| Tüccardan alış (eşya, asa, iksir) | **%25 indirim** | — |
+| Eşya ve asa düşme şansı | — | **+%50** |
+| Tüccara satış | — | +%15 |
+
+Örnek: puan +40 → görev +%20, indirim %10; puan −60 → düşme şansı +%30, satış +%9. Kademeler (±20, ±50, ±80) artık yalnızca ad (I, II, III) ve final sahnesi içindir.
+Kod: `morality/morality.ts` (`effectsFor`, `needleOf`, `moralBonusText`), ibre: `ui/statusBar.ts` (`moralGaugeHtml`).
 
 Bağlantılar:
 - **Tüccar fiyatları:** `MerchantUi.priceMultipliers` ahlaktan beslenir (alış ve satış).
 - **Görev altını:** `QuestEngine.goldMultiplier` ahlaktan beslenir; yalnızca altını etkiler, XP'yi etkilemez.
-- **Ganimet düşme oranı** (`dropRateMultiplier`) hazır; düşmanlardan ganimet gelince (Task 19) kullanılacak.
+- **Ganimet düşme oranı** (`dropRateMultiplier`): savaş, maden ve sandık ganimetinde kullanılır (oyun seviyesiyle çarpılır).
 - Efekt renkleri (altın/mavi, mor/siyah) görsel katman olarak sonraki işlerde.
 
 ## Diyalog motoru

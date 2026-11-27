@@ -4,6 +4,7 @@ import type { QuestSnapshot } from '../quests/engine';
 import type { Side } from '../morality/catalog';
 import type { WandSnapshot } from '../wands/inventory';
 import { CITY_HALF, MAP_OFFSET, type LocationDef } from '../world/locations';
+import { isDifficulty, type Difficulty } from '../settings/difficulty';
 
 /**
  * Kayıt dosyası biçimi (sürüm 8: dört para birimi (cüzdan); sürüm 6: asalar seviyeli ve tek kuşanılı; sürüm 5: ahlak seçimleri; sürüm 4: asa envanteri; sürüm 3: yetenek ağacı; sürüm 2: ekonomi, görevler, toplananlar). Sunucu da
@@ -31,6 +32,8 @@ export interface SaveData extends EconomySnapshot, WandSnapshot {
   choices: Record<string, Side>;
   /** Alınan yetenekler (yetenek ağacı kimlikleri) */
   skills: string[];
+  /** Oyun seviyesi (Faz 2); eski kayıtlarda yoksa Normal */
+  difficulty: Difficulty;
 }
 
 /** Ekonomi, görevler ve toplananlar: bölüm ilerlemesi ve konumdan ayrı, oyun durumundan okunan kısım. */
@@ -41,6 +44,8 @@ export interface SaveExtras {
   skills: readonly string[];
   wands: WandSnapshot;
   choices: Readonly<Record<string, Side>>;
+  /** Oyun seviyesi; verilmezse Normal */
+  difficulty?: Difficulty;
 }
 
 const EMPTY_EXTRAS: SaveExtras = { economy: { wallet: emptyWallet(), xp: 0, items: {}, equipped: {} }, quests: {}, collected: [], skills: [], wands: { wands: {}, wandEquipped: null }, choices: {} };
@@ -83,6 +88,7 @@ export function buildSave(
     wands: { ...extras.wands.wands },
     wandEquipped: extras.wands.wandEquipped,
     choices: { ...extras.choices },
+    difficulty: extras.difficulty ?? 'normal',
   };
 }
 
@@ -109,5 +115,6 @@ export function normalizeSave(raw: Partial<SaveData> & Pick<SaveData, 'playerNam
     wands: raw.wands ?? {},
     wandEquipped: raw.wandEquipped ?? null,
     choices: raw.choices ?? {},
+    difficulty: isDifficulty(raw.difficulty) ? raw.difficulty : 'normal',
   };
 }

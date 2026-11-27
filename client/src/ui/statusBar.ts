@@ -18,8 +18,28 @@ export interface StatusView {
   /** Çanta özeti, örn. "Asa 2/6 · Eşya 12/20 · Ekip. 1/2"; dolu kategori varsa bagFull true */
   bagSummary: string;
   bagFull: boolean;
-  /** Ahlak durumu etiketi, örn. "Düzen Bekçisi II (+55)" */
+  /** Ahlak durumu etiketi, örn. "Ak Büyücü II" */
   moralityLabel: string;
+  /** İbre: -1 (tam kara büyücü) ile +1 (tam ak büyücü) arası */
+  moralNeedle: number;
+  /** İbrenin verdiği bonusların kısa açıklaması (dokununca/üstüne gelince görünür) */
+  moralBonus: string;
+  /** Oyun seviyesinin adı: Kolay, Normal, Zor */
+  difficultyName: string;
+}
+
+/**
+ * Kara ↔ Ak büyücü ibresi (Faz 2): solda kara, sağda ak; ibre puana göre kayar. Renkli şerit ortada griye döner.
+ * `needle` -1..1. Saf HTML üretir, testlenebilir.
+ */
+export function moralGaugeHtml(needle: number, label: string, bonus = ''): string {
+  const n = Math.max(-1, Math.min(1, needle));
+  const pct = ((n + 1) / 2) * 100;
+  const color = n > 0.05 ? '#fef3c7' : n < -0.05 ? '#a78bfa' : '#cbd5e1';
+  return `<div class="flex items-center justify-between text-[10px] text-slate-300"><span>🌑 Kara</span><b style="color:${color}">${label}</b><span>Ak ☀️</span></div>
+    <div class="relative mt-0.5 h-2 rounded-full" style="background:linear-gradient(90deg,#1e1b4b,#4c1d95 30%,#64748b 50%,#e2e8f0 70%,#fffbeb)">
+      <div data-needle class="absolute -top-1 h-4 w-1.5 -translate-x-1/2 rounded-sm bg-amber-300 shadow ring-1 ring-black/60 transition-all duration-700" style="left:${pct.toFixed(1)}%"></div>
+    </div>${bonus ? `<div data-bonus class="mt-1 text-[10px] leading-tight text-slate-300">${bonus}</div>` : ''}`;
 }
 
 /**
@@ -39,9 +59,10 @@ export class StatusBar {
   private readonly moralEl: HTMLElement;
   private readonly wandsBtn: HTMLButtonElement;
   private readonly bagBtn: HTMLButtonElement;
+  private readonly difficultyBtn: HTMLButtonElement;
 
   /** `onSkills` verilirse durum çubuğunda yetenek ağacını açan bir düğme çıkar (dokunmatik için). */
-  constructor(onSkills?: () => void, onWands?: () => void, onBag?: () => void, onQuests?: () => void) {
+  constructor(onSkills?: () => void, onWands?: () => void, onBag?: () => void, onQuests?: () => void, onDifficulty?: () => void) {
     this.element = document.createElement('div');
     this.element.className =
       'pointer-events-none fixed left-3 top-14 z-40 w-48 rounded-lg bg-black/60 px-3 py-2 text-xs text-amber-50 shadow';
@@ -55,7 +76,8 @@ export class StatusBar {
       <button type="button" data-skills class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">✦ Yetenekler (K)</button>
       <button type="button" data-wands class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🪄 Asalar (Q)</button>
       <button type="button" data-bag class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🎒 Çanta (B)</button>
-      <div data-moral class="mt-1 text-[11px] text-purple-200"></div>
+      <button type="button" data-difficulty class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20"></button>
+      <div data-moral class="pointer-events-auto mt-1.5"></div>
       <div data-dirty class="mt-1 hidden text-[10px] text-amber-300">● Kaydedilmedi: bir şehre girince kaydedilir</div>
       <div data-quests class="mt-1 flex flex-col gap-0.5 text-[11px] text-slate-200"></div>`;
     const q = <T extends HTMLElement>(sel: string): T => this.element.querySelector<T>(sel)!;
@@ -79,6 +101,9 @@ export class StatusBar {
     this.wandsBtn = q<HTMLButtonElement>('[data-wands]');
     this.wandsBtn.hidden = !onWands;
     if (onWands) this.wandsBtn.addEventListener('click', onWands);
+    this.difficultyBtn = q<HTMLButtonElement>('[data-difficulty]');
+    this.difficultyBtn.hidden = !onDifficulty;
+    if (onDifficulty) this.difficultyBtn.addEventListener('click', onDifficulty);
   }
 
   update(view: StatusView): void {
@@ -93,7 +118,15 @@ export class StatusBar {
     this.skillsBtn.classList.toggle('text-emerald-300', view.skillPoints > 0);
     this.bagBtn.textContent = `🎒 Çanta (B) · ${view.bagSummary}`;
     this.bagBtn.classList.toggle('text-amber-300', view.bagFull);
-    this.moralEl.textContent = `☯ ${view.moralityLabel}`;
+    this.difficultyBtn.textContent = `⚙ Oyun seviyesi: ${view.difficultyName}`;
+    // İbre yeniden çizilirse kayma animasyonu kaybolur: yalnızca etiket değişince çiz, yoksa ibreyi kaydır
+    const needle = this.moralEl.querySelector<HTMLElement>('[data-needle]');
+    const key = `${view.moralityLabel}|${view.moralBonus}`;
+    if (needle && this.moralEl.dataset.key === key) needle.style.left = `${(((Math.max(-1, Math.min(1, view.moralNeedle)) + 1) / 2) * 100).toFixed(1)}%`;
+    else {
+      this.moralEl.innerHTML = moralGaugeHtml(view.moralNeedle, view.moralityLabel, view.moralBonus);
+      this.moralEl.dataset.key = key;
+    }
     this.dirtyEl.classList.toggle('hidden', !view.dirty);
     this.questsEl.replaceChildren(
       ...view.quests.map((qv) => {

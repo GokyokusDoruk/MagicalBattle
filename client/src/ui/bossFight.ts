@@ -3,6 +3,7 @@ import { MAX_CYCLES } from '../battle/flow/config';
 import { bossFighters, bossFoes, getBoss, type PlayerStats } from '../boss/bosses';
 import type { FinalPath } from '../morality/morality';
 import { BattleScreen } from './battleScreen';
+import { difficulty, scaleEnemies } from '../settings/difficulty';
 
 export type BossOutcome = 'won' | 'lost' | 'retreat';
 
@@ -90,12 +91,13 @@ export async function runBossFight(chapter: number, player: PlayerStats, path: F
     // Savaşa girerkenki can; "Tekrar dene" hep buradan başlar
     const entryHp = heal ? heal.hp() : player.hp;
     for (;;) {
-      const engine = new BattleEngine(bossFighters(chapter, { ...player, hp: entryHp }, path), { maxCycles: boss.maxCycles ?? MAX_CYCLES });
+      // Oyun seviyesi (Faz 2): boss ve yardımcılarının canı, gücü ve becerisi seviyeye göre (Elysia oyuncunun takımında, dokunulmaz)
+      const engine = new BattleEngine(scaleEnemies(bossFighters(chapter, { ...player, hp: entryHp }, path), difficulty.profile), { maxCycles: boss.maxCycles ?? MAX_CYCLES });
       let again = false;
       const screen = new BattleScreen(root, engine, {
         botSkill: 0.5,
-        // Sis (Morga): gelen saldırı savunurken görünmez; diğer bosslarda görünür
-        showAttackToDefender: !boss.gimmick?.hideGhost,
+        // Rakibin saldırısı yalnızca Kolay seviyede görünür; Sis (Morga) Kolay'da da gizler
+        showAttackToDefender: difficulty.profile.showEnemyAttack && !boss.gimmick?.hideGhost,
         blurFromCycle: boss.gimmick?.blurFromCycle,
         endLabels: { again: 'Tekrar dene', menu: 'Devam', hideAgainOnWin: true, winMenu: 'Devam', noAgain: true },
         onFinish: (playAgain) => {

@@ -7,6 +7,7 @@ import { enemySkills } from '../enemies/skills';
 import { getSkill } from '../skills/catalog';
 import type { EnemySpot } from '../enemies/spots';
 import { BattleScreen } from './battleScreen';
+import { difficulty, scaleEnemies } from '../settings/difficulty';
 
 export type WorldFightOutcome = 'won' | 'lost' | 'retreat' | 'bribed';
 
@@ -50,12 +51,14 @@ export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp:
   try {
     const entryHp = player.hp ?? maxHp;
     const stats = enemyStats(spot.element, spot.tier);
-    const engine = new BattleEngine(enemyFighters(spot.element, spot.tier, { ...player, hp: entryHp }), { maxCycles: MAX_CYCLES });
+    // Oyun seviyesi (Faz 2): rakibin canı, gücü ve becerisi seviyeye göre ayarlanır
+    const engine = new BattleEngine(scaleEnemies(enemyFighters(spot.element, spot.tier, { ...player, hp: entryHp }), difficulty.profile), { maxCycles: MAX_CYCLES });
     const bribe = options.escape?.bribe;
     const skills = [...enemySkills(spot.element, spot.tier).levels].map(([id, lv]) => `${getSkill(id)?.name ?? id} Sv${lv}`).join(', ');
     const screen = new BattleScreen(root, engine, {
       botSkill: stats.skill,
-      showAttackToDefender: true,
+      // Rakibin saldırı çizgileri yalnızca Kolay seviyede görünür
+      showAttackToDefender: difficulty.profile.showEnemyAttack,
       intro: `⚔ ${stats.name} (${ELEMENT_NAMES[spot.element]}, sv ${stats.level})${skills ? ` · ${skills}` : ''}${options.lootHint ? `<br><span class="text-xs font-normal text-emerald-300">${esc(options.lootHint)}</span>` : ''}`,
       escape: options.escape ? { bribe: bribe ? { cost: bribe.cost, currencyName: bribe.currencyName, balance: bribe.balance } : undefined } : undefined,
       // Yenilgide "tekrar dene" yok: tek düğme ("Devam") ölüm akışına götürür

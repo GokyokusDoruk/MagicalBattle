@@ -49,6 +49,7 @@ describe('kayıt verisi', () => {
       wands: {},
       wandEquipped: null,
       choices: {},
+      difficulty: 'normal',
     });
     chapters.push(3);
     expect(s.completedChapters).toEqual([1, 2]);
@@ -143,7 +144,7 @@ describe('SaveManager', () => {
     const m = new SaveManager({ putSave: async (d) => void written.push(d) }, progressWith(1), 'Aylin');
     expect(await m.saveAt(point)).toBe('saved');
     expect(written).toEqual([
-      { version: 9, playerName: 'Aylin', completedChapters: [1], savePoint: point, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} },
+      { version: 9, playerName: 'Aylin', completedChapters: [1], savePoint: point, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {}, difficulty: 'normal' },
     ]);
   });
 

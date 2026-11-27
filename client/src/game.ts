@@ -24,7 +24,7 @@ import { GearStock } from './economy/gearStock';
 import { BagUi } from './ui/bagUi';
 import { chapterChoiceTrees, linesTree } from './dialogue/moralDialogues';
 import { finalLines } from './morality/final';
-import { Morality } from './morality/morality';
+import { Morality, moralBonusText, needleOf } from './morality/morality';
 import { getBoss } from './boss/bosses';
 import { moneyLoss, nearestHealer, respawnLines } from './economy/death';
 import { CURRENCIES, CURRENCY_NAMES, cityCurrency, currencyAt, type Currency } from './economy/currency';
@@ -70,6 +70,8 @@ import { QuestHud } from './ui/questHud';
 import { mainEntry, pickTracked, sideEntry, type TrackEntry } from './quests/tracking';
 import { SIDE_QUESTS } from './quests/catalog';
 import { TILE_SIZE } from './world/tiles';
+import { DIFFICULTY_NAMES, DIFFICULTY_PROFILES, difficulty, isDifficulty, type Difficulty } from './settings/difficulty';
+import { chooseDifficulty } from './ui/difficultyUi';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = '<div id="world" class="fixed inset-0"></div>';
@@ -136,7 +138,8 @@ carry.install();
 const morality = new Morality();
 // Ahlak etkisi: Düzen Bekçisi görev altınını artırır (tüccar fiyatları merchantUi'a bağlı, aşağıda)
 const applyMoralEffects = (): void => {
-  sideQuests.moneyMultiplier = morality.effects.questGoldMultiplier;
+  // Görev parası: ak büyücü bonusu × oyun seviyesi (Faz 2)
+  sideQuests.moneyMultiplier = morality.effects.questGoldMultiplier * difficulty.profile.questMoney;
 };
 const collected = new Set<string>(save?.collected ?? []);
 if (save) {
@@ -149,6 +152,17 @@ if (save) {
   // Yeni oyun: eşyasız başlanır, yalnızca bir asa verilir
   wands.add(STARTER_WAND_ID);
 }
+// Oyun seviyesi (Faz 2): kayıttan; sunucu alanı henüz tanımıyorsa (eski sunucu) bu tarayıcıda hatırlanan değer; yoksa Normal
+const DIFFICULTY_KEY = `mb-seviye-${user.username.toLowerCase()}`;
+const rememberedDifficulty = (): Difficulty | null => {
+  try {
+    const v = localStorage.getItem(DIFFICULTY_KEY);
+    return isDifficulty(v) ? v : null;
+  } catch {
+    return null;
+  }
+};
+difficulty.set(save && (save.difficulty !== 'normal' || !rememberedDifficulty()) ? save.difficulty : (rememberedDifficulty() ?? 'normal'));
 applyMoralEffects();
 
 const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, () => ({
@@ -158,6 +172,7 @@ const saves = new SaveManager(savingEnabled ? api : null, progress, playerName, 
   skills: skillTree.snapshot(),
   wands: wands.snapshot(),
   choices: morality.snapshot(),
+  difficulty: difficulty.current,
 }));
 // Yeni oyunda ad hemen kaydedilir; kayıt noktasına varmadan çıkılsa bile ad kaybolmaz
 if (!save && savingEnabled) void saves.saveAt(null);
@@ -226,6 +241,12 @@ const statusBar = new StatusBar(
   () => {
     if (!otherOpen(questLog)) questLog.toggle();
   },
+  () => {
+    if (modalOpen()) return;
+    void chooseDifficulty(difficulty.current).then((d) => {
+      if (d) difficulty.set(d);
+    });
+  },
 );
 document.body.appendChild(statusBar.element);
 
@@ -282,7 +303,10 @@ const updateStatusBar = (): void =>
     skillPoints: skillTree.pointsFree,
     bagSummary: `Asa ${carry.usage().wands}/${carry.capacity().wands} · Eşya ${carry.usage().goods}/${carry.capacity().goods}`,
     bagFull: carry.isOverloaded() || carry.room('wands') === 0 || carry.room('goods') === 0,
-    moralityLabel: `${morality.effects.label} (${morality.score > 0 ? '+' : ''}${morality.score})`,
+    moralityLabel: morality.effects.label,
+    moralNeedle: needleOf(morality.score),
+    moralBonus: moralBonusText(morality.effects),
+    difficultyName: DIFFICULTY_NAMES[difficulty.current],
   });
 const refreshHud = (): void => {
   updateStatusBar();
@@ -300,6 +324,16 @@ wands.onChange(refreshHud);
 morality.onChange(() => {
   applyMoralEffects();
   refreshHud();
+});
+difficulty.onChange((d) => {
+  applyMoralEffects(); // görev parası seviyeye bağlı
+  try {
+    localStorage.setItem(DIFFICULTY_KEY, d);
+  } catch {
+    // tarayıcı depolaması kapalı: seviye bir sonraki şehir kaydıyla taşınır
+  }
+  toast.show(`Oyun seviyesi: ${DIFFICULTY_NAMES[d]}. ${DIFFICULTY_PROFILES[d].summary}`);
+  setDirty(true);
 });
 refreshHud();
 
@@ -417,7 +451,10 @@ async function playChapterChoices(chapter: number): Promise<void> {
 }
 
 /** Ganimet şansı çarpanı: ahlak yolu ve ateş asası */
-const lootDropRate = (): number => morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate);
+/** Eşya/asa düşme şansı: kara büyücü bonusu × oyun seviyesi × asa pasifi (Faz 2) */
+const lootDropRate = (): number => morality.effects.dropRateMultiplier * difficulty.profile.dropRate * (1 + activePassive(wands).dropRate);
+/** Savaş ve sandık parası oyun seviyesine göre (Kolay bol, Zor az) */
+const scaleLootMoney = <T extends { money: number }>(loot: T): T => ({ ...loot, money: Math.round(loot.money * difficulty.profile.battleMoney) });
 
 /** Oyuncunun şu an bulunduğu bölgenin para birimi (en yakın şehrin birimi). */
 const regionCurrency = (): Currency => currencyAt(map.locations, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE));
@@ -522,7 +559,7 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
         onWon: async (root, hp) => {
           hero.setHp(hp);
           enemyBoard.defeat(id);
-          const loot = rollLoot(spot.element, spot.tier, hero.level, lootDropRate() * dropBoost, lootRand, { goodsBonus: dropBoost > 1 });
+          const loot = scaleLootMoney(rollLoot(spot.element, spot.tier, hero.level, lootDropRate() * dropBoost, lootRand, { goodsBonus: dropBoost > 1 }));
           wonLoot = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
           sfx.play('victory');
           setDirty(true);
@@ -601,7 +638,7 @@ async function openChest(id: string): Promise<void> {
       if (r !== 'won') return;
     }
     collected.add(id);
-    const loot = rollChestLoot(chest, hero.level, morality.effects.dropRateMultiplier * (1 + activePassive(wands).dropRate), lootRand);
+    const loot = scaleLootMoney(rollChestLoot(chest, hero.level, lootDropRate(), lootRand));
     const got = applyLoot(loot, hero, wands, ground, Math.floor(debug.player.x / TILE_SIZE), Math.floor(debug.player.y / TILE_SIZE), regionCurrency());
     sfx.play('victory');
     await showLootPanel(document.body, lootView('Sandık açıldı', got));
