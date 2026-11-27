@@ -175,6 +175,7 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
     wands: { 'wand-fire-attack-2-6': 1 },
     wandEquipped: 'wand-fire-attack-2-6',
     choices: { 'c1-isciler': 'good' as const },
+    difficulty: 'easy' as const,
   };
 
   it('kaydı yazar, okur ve üzerine yazar', async () => {
@@ -215,6 +216,7 @@ describe('PrismaSaveRepository (gerçek PostgreSQL)', () => {
       wands: {},
       wandEquipped: null,
       choices: {},
+      difficulty: 'normal',
     });
   });
 

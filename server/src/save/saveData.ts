@@ -83,7 +83,13 @@ export interface SaveData {
   wandEquipped: string | null;
   /** Yapılan ahlak seçimleri: seçim kimliği → 'good' (iyi) ya da 'bad' (kötü). Puan bunlardan hesaplanır. */
   choices: Record<string, 'good' | 'bad'>;
+  /** Oyun seviyesi (Faz 2). Eski kayıtlarda ya da tanınmayan değerde Normal. */
+  difficulty: Difficulty;
 }
+
+export const DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
+export type Difficulty = (typeof DIFFICULTIES)[number];
+const parseDifficulty = (v: unknown): Difficulty => ((DIFFICULTIES as readonly unknown[]).includes(v) ? (v as Difficulty) : 'normal');
 
 const NAME_PATTERN = /^[\p{L}\p{N} _.-]{2,20}$/u;
 const MAX_TILE = 500;
@@ -299,6 +305,7 @@ export function parseSave(input: unknown): { ok: true; save: SaveData } | { ok: 
       wands: wands.value,
       wandEquipped: wandEquipped.value,
       choices: choices.value,
+      difficulty: parseDifficulty(b.difficulty),
     },
   };
 }

@@ -35,7 +35,7 @@ const SAVE = {
 
 /** v1 kaydın v6'ya yükseltilmiş hali: yeni alanlar varsayılan */
 /** v1 kaydın yükseltilmiş hali: yeni alanlar varsayılan ve kayıt noktası yeni haritaya (+20 karo) kaydırılmış */
-const UPGRADED = { ...SAVE, version: 9, savePoint: { cityId: 'ignis', tileX: 84, tileY: 82 }, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {} };
+const UPGRADED = { ...SAVE, version: 9, savePoint: { cityId: 'ignis', tileX: 84, tileY: 82 }, wallet: { kor: 0, ciy: 0, tunc: 0, tuy: 0 }, xp: 0, hp: null, items: {}, equipped: {}, quests: {}, collected: [], skills: [], wands: {}, wandEquipped: null, choices: {}, difficulty: 'normal' };
 
 /** Güncel (v6) biçim: ekonomi, görevler, toplananlar, yetenekler, asalar ve ahlak seçimleri dolu */
 const SAVE_V2 = {
@@ -50,6 +50,7 @@ const SAVE_V2 = {
   wands: { 'wand-fire-attack-3-12': 2, 'wand-air-defense-1-4': 7 },
   wandEquipped: 'wand-fire-attack-3-12',
   choices: { 'c1-isciler': 'good', 'c2-kervanci': 'bad' },
+  difficulty: 'hard',
 };
 
 const put = (cookie: string | undefined, payload: unknown) =>
@@ -94,6 +95,17 @@ describe('/save', () => {
     expect((await get(cookie)).json().save.savePoint).toEqual({ cityId: 'ignis', tileX: 84, tileY: 82 });
     expect((await put(cookie, { ...SAVE_V2, version: 9, savePoint: point })).statusCode).toBe(200);
     expect((await get(cookie)).json().save.savePoint).toEqual(point);
+  });
+
+  it('oyun seviyesi (Faz 2) saklanır; eksik ya da tanınmayan değer Normal olur', async () => {
+    const cookie = await guestCookie('seviye1');
+    expect((await put(cookie, { ...SAVE_V2, difficulty: 'easy' })).statusCode).toBe(200);
+    expect((await get(cookie)).json().save.difficulty).toBe('easy');
+    expect((await put(cookie, { ...SAVE_V2, difficulty: 'cok-zor' })).statusCode).toBe(200);
+    expect((await get(cookie)).json().save.difficulty).toBe('normal');
+    const { difficulty: _omit, ...withoutDifficulty } = SAVE_V2;
+    expect((await put(cookie, withoutDifficulty)).statusCode).toBe(200);
+    expect((await get(cookie)).json().save.difficulty).toBe('normal');
   });
 
   it('v2 alanları doğrulanır: hileli altın, bilinmeyen yer, bozuk görev, taşan liste reddedilir', async () => {
@@ -152,23 +164,23 @@ describe('/save', () => {
 
   it('eski v2 kayıt (yeteneksiz) kabul edilir ve boş yeteneklerle v3 olur', async () => {
     const cookie = await guestCookie('misafir6');
-    const { wallet: _wl, skills: _s, wands: _w, wandEquipped: _e, choices: _c, ...v2 } = { ...SAVE_V2, version: 2, gold: 250, savePoint: SAVE.savePoint };
+    const { wallet: _wl, skills: _s, wands: _w, wandEquipped: _e, choices: _c, difficulty: _d, ...v2 } = { ...SAVE_V2, version: 2, gold: 250, savePoint: SAVE.savePoint };
     expect((await put(cookie, v2)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, skills: [], wands: {}, wandEquipped: null, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, skills: [], wands: {}, wandEquipped: null, choices: {}, difficulty: 'normal' });
   });
 
   it('eski v3 kayıt (asasız) kabul edilir ve boş asalarla v4 olur', async () => {
     const cookie = await guestCookie('misafir8');
-    const { wallet: _wl, wands: _w, wandEquipped: _e, choices: _c, ...v3 } = { ...SAVE_V2, version: 3, gold: 250, savePoint: SAVE.savePoint };
+    const { wallet: _wl, wands: _w, wandEquipped: _e, choices: _c, difficulty: _d, ...v3 } = { ...SAVE_V2, version: 3, gold: 250, savePoint: SAVE.savePoint };
     expect((await put(cookie, v3)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, wands: {}, wandEquipped: null, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, wands: {}, wandEquipped: null, choices: {}, difficulty: 'normal' });
   });
 
   it('eski v4 kayıt (ahlak seçimsiz) kabul edilir ve boş seçimlerle v5 olur', async () => {
     const cookie = await guestCookie('misafir9');
-    const { wallet: _wl, choices: _c, ...v4 } = { ...SAVE_V2, version: 4, gold: 250, savePoint: SAVE.savePoint };
+    const { wallet: _wl, choices: _c, difficulty: _d, ...v4 } = { ...SAVE_V2, version: 4, gold: 250, savePoint: SAVE.savePoint };
     expect((await put(cookie, v4)).statusCode).toBe(200);
-    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, choices: {} });
+    expect((await get(cookie)).json().save).toEqual({ ...SAVE_V2, wallet: { kor: 250, ciy: 0, tunc: 0, tuy: 0 }, choices: {}, difficulty: 'normal' });
   });
 
   it('eski v5 kayıt (seviyesiz, 8 yuvalı asalar) yükseltilir: kimlikler seviye 1 olur, en nadir asa kuşanılır', async () => {

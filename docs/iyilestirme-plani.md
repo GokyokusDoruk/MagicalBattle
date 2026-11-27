@@ -1,6 +1,6 @@
 # MagicalBattle iyileştirme planı (7 faz, her faz ayrı PR)
 
-Durum: **onaylandı.** Faz 1 bitti (bu PR), sıradaki Faz 2.
+Durum: **onaylandı.** Faz 1 ve Faz 2 bitti, sıradaki Faz 3.
 Her faz `claude/vibrant-cori-xcmkk6` dalından açılan ayrı bir PR'dır; canlıda (magicalbattle.dorukplays.com) tek tek test edilir.
 Modeller: yalnızca CC0 (lisanssız) kaynaklar (Quaternius, Poly Haven, OpenGameArt CC0, ambientCG, Kenney). Her modelin kaynağı `docs/varliklar.md`'de listelenir.
 
@@ -101,3 +101,21 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
 - **Ortadaki nokta:** çizim tuvalindeki kılavuz artı (ortada nokta gibi görünüyordu) kaldırıldı.
 - **Etki yazısı** hasara göre 5 kademe (çok etkili, etkili, normal, etkisiz, çok etkisiz).
 - **Testler:** tam savaş testleri (1v1 25 tohum, 2v2 15 tohum) özel şekil aramasıyla ~4-5 sn sürdüğü için süre sınırı 60 sn yapıldı.
+
+## Faz 2 notları (yapıldı)
+
+- **Oyun seviyesi** (`settings/difficulty.ts`): durum panelindeki "⚙ Oyun seviyesi" düğmesiyle her an değişir (Kolay / Normal / Zor).
+
+  | | Kolay | Normal | Zor |
+  |---|---|---|---|
+  | Rakibin saldırı çizgileri savunurken | **görünür** | görünmez | görünmez |
+  | Eşya/asa düşme şansı | ×1.5 | ×1 | ×0.7 |
+  | Savaş ve sandık parası | ×1.5 | ×1 | ×0.75 |
+  | Görev parası | ×1.5 | ×1 | ×0.75 |
+  | Rakip canı / büyü gücü | ×0.8 / ×0.8 | ×1 / ×1 | ×1.25 / ×1.2 |
+  | Rakip becerisi (savunma isabeti, özel şekil) | −0.15 | 0 | +0.12 |
+
+  Dünya düşmanları, maden, sandık muhafızları ve bosslar etkilenir; oyuncunun takımındaki Elysia etkilenmez. Morga'nın sisi Kolay'da da saldırıyı gizler.
+  Seviye kayda yazılır (`difficulty`, eski kayıtlar Normal). Sunucu güncellenene kadar seviye ayrıca bu tarayıcıda (`localStorage`) hatırlanır.
+- **Kara ↔ Ak ibresi:** durum panelinde, bonuslar ibreyle doğrusal (bkz. [diyalog-ve-ahlak.md](diyalog-ve-ahlak.md)). Faz 7'de büyücü portresinin altına taşınacak.
+- Boss dengesi Normal seviyeye göre aynen kaldı (denge testleri Normal'i ölçer).

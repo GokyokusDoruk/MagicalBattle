@@ -9,19 +9,21 @@ export type Alignment = 'order' | 'neutral' | 'dark';
 export type Tier = 0 | 1 | 2 | 3;
 
 export const ALIGNMENT_NAMES: Record<Alignment, string> = {
-  order: 'Düzen Bekçisi',
+  order: 'Ak Büyücü',
   neutral: 'Dengede',
-  dark: 'Karanlık Büyücü',
+  dark: 'Kara Büyücü',
 };
 
-/** Kademeye göre etkiler. Düzen Bekçisi indirim ve görev altını, Karanlık Büyücü satış değeri ve düşme oranı kazanır. */
-const ORDER_BY_TIER = {
-  buyDiscount: [0, 0.05, 0.1, 0.15],
-  questGold: [0, 0.1, 0.2, 0.3],
-} as const;
-const DARK_BY_TIER = {
-  sellBonus: [0, 0.05, 0.1, 0.15],
-  dropRate: [0, 0.1, 0.2, 0.3],
+/**
+ * İbreye göre etkiler (Faz 2): ibre ne kadar uca kayarsa bonus o kadar artar (kademesiz, doğrusal). En uçta (±100):
+ * - Ak büyücü (iyi): görev ödülleri +%50, tüccarda (eşya, asa, iksir) %25 indirim.
+ * - Kara büyücü (kötü): eşya ve asa düşme şansı +%50, tüccara satışta +%15.
+ */
+export const MORAL_MAX = {
+  questGold: 0.5,
+  buyDiscount: 0.25,
+  dropRate: 0.5,
+  sellBonus: 0.15,
 } as const;
 
 export interface MoralEffects {
@@ -49,31 +51,26 @@ export const tierOf = (score: number): Tier => {
 
 const ROMAN = ['', 'I', 'II', 'III'] as const;
 
-/** Puandan etkiler: -19..+19 etkisiz; ±20, ±50, ±80 eşiklerinde güçlenir. */
+/** İbrenin konumu: -1 (tam kara) ile +1 (tam ak) arası. */
+export const needleOf = (score: number): number => Math.max(-1, Math.min(1, score / MAX_SCORE));
+
+const r2 = (v: number): number => Math.round(v * 1000) / 1000;
+
+/** Puandan etkiler: bonuslar ibreyle doğrusal artar; kademe ve ad (±20, ±50, ±80) yalnızca etiket ve final içindir. */
 export function effectsFor(score: number): MoralEffects {
   const tier = tierOf(score);
-  if (tier === 0) {
-    return { alignment: 'neutral', tier, buyMultiplier: 1, sellMultiplier: 1, questGoldMultiplier: 1, dropRateMultiplier: 1, label: ALIGNMENT_NAMES.neutral };
-  }
-  if (score > 0) {
-    return {
-      alignment: 'order',
-      tier,
-      buyMultiplier: 1 - ORDER_BY_TIER.buyDiscount[tier],
-      sellMultiplier: 1,
-      questGoldMultiplier: 1 + ORDER_BY_TIER.questGold[tier],
-      dropRateMultiplier: 1,
-      label: `${ALIGNMENT_NAMES.order} ${ROMAN[tier]}`,
-    };
-  }
+  const n = needleOf(score);
+  const good = Math.max(0, n);
+  const bad = Math.max(0, -n);
+  const alignment: Alignment = tier === 0 ? 'neutral' : score > 0 ? 'order' : 'dark';
   return {
-    alignment: 'dark',
+    alignment,
     tier,
-    buyMultiplier: 1,
-    sellMultiplier: 1 + DARK_BY_TIER.sellBonus[tier],
-    questGoldMultiplier: 1,
-    dropRateMultiplier: 1 + DARK_BY_TIER.dropRate[tier],
-    label: `${ALIGNMENT_NAMES.dark} ${ROMAN[tier]}`,
+    buyMultiplier: r2(1 - MORAL_MAX.buyDiscount * good),
+    sellMultiplier: r2(1 + MORAL_MAX.sellBonus * bad),
+    questGoldMultiplier: r2(1 + MORAL_MAX.questGold * good),
+    dropRateMultiplier: r2(1 + MORAL_MAX.dropRate * bad),
+    label: tier === 0 ? ALIGNMENT_NAMES.neutral : `${ALIGNMENT_NAMES[alignment]} ${ROMAN[tier]}`,
   };
 }
 
@@ -149,4 +146,15 @@ export class Morality {
     }
     this.changed();
   }
+}
+
+/** İbrenin şu anki bonuslarının kısa açıklaması (durum panelinde ibrenin altında). */
+export function moralBonusText(e: Pick<MoralEffects, 'buyMultiplier' | 'sellMultiplier' | 'questGoldMultiplier' | 'dropRateMultiplier'>): string {
+  const pct = (v: number): number => Math.round(Math.abs(v) * 100);
+  const parts: string[] = [];
+  if (e.questGoldMultiplier > 1) parts.push(`Görev ödülü +%${pct(e.questGoldMultiplier - 1)}`);
+  if (e.buyMultiplier < 1) parts.push(`Tüccarda %${pct(1 - e.buyMultiplier)} indirim`);
+  if (e.dropRateMultiplier > 1) parts.push(`Ganimet şansı +%${pct(e.dropRateMultiplier - 1)}`);
+  if (e.sellMultiplier > 1) parts.push(`Satış +%${pct(e.sellMultiplier - 1)}`);
+  return parts.length ? parts.join(' · ') : 'İbre ortada: bonus yok';
 }
