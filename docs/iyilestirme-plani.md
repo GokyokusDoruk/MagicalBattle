@@ -123,7 +123,8 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
 ## Faz 3 notları (yapıldı)
 
 - **Rakip silüeti** çizim tuvalinde: bulanık tek parça karartı (baş seçilmez), hacmi hep sabit ve büyük (tuvalin ~%20'si), yazı yok.
-- **Savunan yerini seçer:** her saldırıdan önce silüetini sürükleyerek; saldıran o yere nişan alır.
+- **Savunan yerini ve yönünü seçer:** her saldırıdan önce silüetini sürükler ve döndürür (baş yukarı/sağ/aşağı/sol).
+  Saldıran yalnızca simetrik, bulanık bir kütle görür; başın nerede olduğunu bilmez.
 - **Hasar formülü v2**: şekil isabeti (×0,6-1), özel şekil ×1,5 (artık gerçekten uygulanıyor), baş ×1,25, sıyırma ×0,2, ıska ×0,1,
   süre etkisi azaldı, karalama cezası arttı, dağılım cezası kalktı. Ayrıntı ve örnekler: [hasar-hesabi.md](hasar-hesabi.md).
 - Botlar silüete nişan alır ve kendi silüetini korur; denge testleri geçer (boss canları yeniden ayarlandı, bkz. hasar-hesabi.md).

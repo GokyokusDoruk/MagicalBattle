@@ -14,6 +14,34 @@ export interface TargetPose {
   cx: number;
   cy: number;
   scale: number;
+  /**
+   * Yön (çeyrek tur, saat yönünde): 0 baş yukarıda, 1 baş sağda, 2 baş aşağıda, 3 baş solda. Başın nerede olduğuna savunan karar verir;
+   * saldıran yalnızca bulanık bir kütle görür (`silhouetteHull`). Verilmezse 0.
+   */
+  turn?: number;
+}
+
+/** Çeyrek turu 0-3 arasına çeker */
+export const normTurn = (t: number | undefined): 0 | 1 | 2 | 3 => ((((Math.round(Number.isFinite(t) ? (t as number) : 0) % 4) + 4) % 4) as 0 | 1 | 2 | 3);
+
+/** Yerel noktayı (figür ortasına göre, ölçeklenmiş) çeyrek tur döndürüp tuvale taşır */
+function place(pose: TargetPose, lx: number, ly: number): [number, number] {
+  switch (normTurn(pose.turn)) {
+    case 1:
+      return [pose.cx - ly, pose.cy + lx];
+    case 2:
+      return [pose.cx - lx, pose.cy - ly];
+    case 3:
+      return [pose.cx + ly, pose.cy - lx];
+    default:
+      return [pose.cx + lx, pose.cy + ly];
+  }
+}
+
+/** Figür ortasına göre yerel bir kaymayı (ölçek dahil) duruşun yönüne göre tuvale taşır; botların nişanı için. */
+export function poseOffset(pose: TargetPose, lx: number, ly: number): { x: number; y: number } {
+  const [x, y] = place(pose, lx * pose.scale, ly * pose.scale);
+  return { x, y };
 }
 
 /** Bölge: 0 uzak (ıska), 1 sıyırma, 2 gövde, 3 baş */
@@ -41,12 +69,19 @@ export const POSITION_BOUNDS = {
   maxY: 256 - Math.ceil(85 * TARGET_SCALE) - 2,
 } as const;
 
-/** Yeri sınırlara çeker, ölçeği sabitler (savunanın seçtiği yer ya da bozuk girdi güvenle kullanılır). */
-export function clampPose(p: { cx: number; cy: number }): TargetPose {
+/** Yöne göre sınırlar: yan yatmış (1, 3) silüette en ve boy yer değiştirir */
+export function boundsFor(turn: number | undefined): { minX: number; maxX: number; minY: number; maxY: number } {
   const b = POSITION_BOUNDS;
+  return normTurn(turn) % 2 === 0 ? { ...b } : { minX: b.minY, maxX: b.maxY, minY: b.minX, maxY: b.maxX };
+}
+
+/** Yeri sınırlara çeker, ölçeği sabitler, yönü 0-3 yapar (savunanın seçtiği yer ya da bozuk girdi güvenle kullanılır). */
+export function clampPose(p: { cx: number; cy: number; turn?: number }): TargetPose {
+  const turn = normTurn(p.turn);
+  const b = boundsFor(turn);
   const fx = Number.isFinite(p.cx) ? p.cx : 128;
   const fy = Number.isFinite(p.cy) ? p.cy : 128;
-  return { cx: Math.min(b.maxX, Math.max(b.minX, fx)), cy: Math.min(b.maxY, Math.max(b.minY, fy)), scale: TARGET_SCALE };
+  return { cx: Math.min(b.maxX, Math.max(b.minX, fx)), cy: Math.min(b.maxY, Math.max(b.minY, fy)), scale: TARGET_SCALE, turn };
 }
 
 /** Tuvalin ortasında duruş (silüet verilmeyen hesaplar ve laboratuvar için) */
@@ -89,26 +124,28 @@ export interface SilhouetteShape {
 
 export function silhouetteShape(pose: TargetPose): SilhouetteShape {
   const s = pose.scale;
-  const top = pose.cy - (FIGURE_HEIGHT / 2) * s;
-  const X = (dx: number): number => pose.cx + dx * s;
-  const Y = (dy: number): number => top + dy * s;
+  // Yerel koordinat: figürün ortası (0, 0), baş yukarıda; sonra yönüne göre döndürülür
+  const P = (dx: number, dy: number): [number, number] => place(pose, dx * s, (dy - FIGURE_HEIGHT / 2) * s);
+  const [hx, hy] = P(0, 46);
   return {
-    hat: [
-      [X(0), Y(0)],
-      [X(-27), Y(30)],
-      [X(27), Y(30)],
-    ],
-    head: { x: X(0), y: Y(46), r: 19 * s },
+    hat: [P(0, 0), P(-27, 30), P(27, 30)],
+    head: { x: hx, y: hy, r: 19 * s },
     // Omuzlardan eteğe genişleyen cüppe; boyun başa değer
-    body: [
-      [X(-10), Y(62)],
-      [X(10), Y(62)],
-      [X(34), Y(76)],
-      [X(48), Y(FIGURE_HEIGHT)],
-      [X(-48), Y(FIGURE_HEIGHT)],
-      [X(-34), Y(76)],
-    ],
+    body: [P(-10, 62), P(10, 62), P(34, 76), P(48, FIGURE_HEIGHT), P(-48, FIGURE_HEIGHT), P(-34, 76)],
   };
+}
+
+/**
+ * Saldıranın gördüğü kütle: silüeti saran, iki ucu eşit yuvarlatılmış simetrik bir dikdörtgen (tuval koordinatı). Şapka ucu ve cüppe
+ * genişliği gibi ipuçları yoktur; başın hangi uçta olduğu anlaşılmaz.
+ */
+export function silhouetteHull(pose: TargetPose): { x: number; y: number; w: number; h: number; r: number } {
+  const halfW = 48 * pose.scale;
+  const halfH = (FIGURE_HEIGHT / 2) * pose.scale;
+  const side = normTurn(pose.turn) % 2 === 1;
+  const w = (side ? halfH : halfW) * 2;
+  const h = (side ? halfW : halfH) * 2;
+  return { x: pose.cx - w / 2, y: pose.cy - h / 2, w, h, r: Math.min(w, h) / 2 };
 }
 
 function insidePolygon(x: number, y: number, poly: readonly [number, number][]): boolean {
@@ -150,7 +187,7 @@ const cache = new Map<string, Uint8Array>();
 
 /** Yoğunluk haritası hücrelerinin bölgeleri (GRID×GRID, hücre ortasına göre). Duruş başına bir kez hesaplanır. */
 export function zoneMap(pose: TargetPose): Uint8Array {
-  const key = `${pose.cx}:${pose.cy}:${pose.scale}`;
+  const key = `${pose.cx}:${pose.cy}:${pose.scale}:${normTurn(pose.turn)}`;
   let map = cache.get(key);
   if (!map) {
     const shape = silhouetteShape(pose);

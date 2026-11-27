@@ -1,5 +1,5 @@
 import { BRUSH_RADIUS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
-import { silhouetteShape, type TargetPose } from '../battle/damage/target';
+import { normTurn, silhouetteHull, silhouetteShape, type TargetPose } from '../battle/damage/target';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import type { DrawLoop } from '../audio/sfx/engine';
@@ -31,20 +31,22 @@ export interface DrawingCanvasOptions extends SessionOptions {
 }
 
 /**
- * Büyücü silüeti (Faz 3): tek parça, kenarları bulanık bir **karartı**. Baş, şapka ve cüppe aynı gölgede erir; çizgi ya da ayrım yoktur,
- * böylece başın, kolların, ayakların tam nerede olduğu kestirilemez. Rakip kırmızımsı, kendi silüetin mavimsi bir dumandır.
+ * Büyücü silüeti (Faz 3):
+ * - **Rakip** (`enemy`, saldırırken): silüeti saran simetrik, iyice bulanık bir kırmızımsı kütle. Şapka ucu, cüppe genişliği yok;
+ *   başın, kolların, ayakların nerede olduğu anlaşılmaz (onu savunan seçti).
+ * - **Kendin** (`self`, yer seçerken ve savunurken): kendi silüetin, başı seçilebilir mavimsi bir gölge (neresini koruyacağını bilirsin).
  * `scale`: mantıksal birimden piksele çarpan.
  */
 export function paintSilhouette(ctx: CanvasRenderingContext2D, target: TargetPose, scale: number, tone: 'enemy' | 'self' = 'enemy'): void {
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
-  const key = `${target.cx}:${target.cy}:${target.scale}:${scale}:${w}:${h}:${tone}`;
+  const key = `${target.cx}:${target.cy}:${target.scale}:${normTurn(target.turn)}:${scale}:${w}:${h}:${tone}`;
   if (silhouetteCache?.key !== key) silhouetteCache = { key, image: renderSilhouetteLayer(target, scale, w, h, tone) };
   if (!silhouetteCache.image) return;
   ctx.save();
-  ctx.globalAlpha = 0.24;
+  ctx.globalAlpha = tone === 'self' ? 0.28 : 0.26;
   ctx.shadowColor = tone === 'self' ? 'rgba(96,165,250,0.9)' : 'rgba(239,68,68,0.9)';
-  ctx.shadowBlur = 16 * scale;
+  ctx.shadowBlur = (tone === 'self' ? 10 : 26) * scale;
   ctx.drawImage(silhouetteCache.image, 0, 0);
   ctx.restore();
 }
@@ -53,7 +55,6 @@ export function paintSilhouette(ctx: CanvasRenderingContext2D, target: TargetPos
 let silhouetteCache: { key: string; image: HTMLCanvasElement | null } | null = null;
 
 function renderSilhouetteLayer(target: TargetPose, scale: number, w: number, h: number, tone: 'enemy' | 'self'): HTMLCanvasElement | null {
-  const shape = silhouetteShape(target);
   // Parçalar önce ayrı bir tuvale opak çizilir (birleşimleri tek gölge olur, üst üste binen yer koyulaşmaz), sonra saydam ve bulanık basılır
   const off = document.createElement('canvas');
   off.width = w;
@@ -61,6 +62,17 @@ function renderSilhouetteLayer(target: TargetPose, scale: number, w: number, h: 
   const o = off.getContext('2d');
   if (!o) return null;
   o.fillStyle = tone === 'self' ? 'rgb(96,165,250)' : 'rgb(239,68,68)';
+  if (tone === 'enemy') {
+    // Rakip: yalnızca kütle (iki ucu eşit yuvarlak), kenarları ayrıca bulanık
+    const hull = silhouetteHull(target);
+    if ('filter' in o) o.filter = `blur(${Math.round(6 * scale)}px)`;
+    o.beginPath();
+    if (typeof o.roundRect === 'function') o.roundRect(hull.x * scale, hull.y * scale, hull.w * scale, hull.h * scale, hull.r * scale);
+    else o.ellipse((hull.x + hull.w / 2) * scale, (hull.y + hull.h / 2) * scale, (hull.w / 2) * scale, (hull.h / 2) * scale, 0, 0, Math.PI * 2);
+    o.fill();
+    return off;
+  }
+  const shape = silhouetteShape(target);
   const poly = (pts: readonly [number, number][]): void => {
     o.beginPath();
     pts.forEach(([x, y], i) => (i === 0 ? o.moveTo(x * scale, y * scale) : o.lineTo(x * scale, y * scale)));

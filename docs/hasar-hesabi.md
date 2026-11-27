@@ -6,12 +6,15 @@ Kod: `client/src/battle/damage/`. Saf TypeScript, ekrandan bağımsız; savaş a
 
 Çizim tuvalinde artık **rakibin büyücü silüeti** görünür (savunurken kendi silüetin), `battle/damage/target.ts`.
 
-- **Karartı:** silüet tek parça, kenarları bulanık bir gölgedir (rakip kırmızımsı, kendin mavimsi). Baş, şapka ve cüppe aynı gölgede
-  erir; başın, kolların, ayakların tam yeri kestirilemez. Tuvalde hiçbir yazı yoktur. (Baş bölgesi hesapta yine vardır, ×1.25.)
+- **Başın yeri savunanın sırrıdır:** savunan, yer seçerken silüetini **döndürebilir** (baş yukarı, sağa, aşağı ya da sola).
+  **Saldıran** yalnızca silüeti saran, iki ucu eşit yuvarlak ve iyice bulanık kırmızımsı bir **kütle** görür (`silhouetteHull`): şapka ucu,
+  cüppe genişliği yoktur, başın hangi uçta olduğu anlaşılmaz. **Savunan** kendi silüetini başıyla birlikte görür (mavimsi).
+  Tuvalde hiçbir yazı yoktur. Baş bölgesi hesapta vardır (×1.25); saldıran onu tutturursa sürpriz bir bonus alır.
 - **Hacim sabit, yer değişir:** silüet her zaman aynı büyüklüktedir (`TARGET_SCALE` 1.2: tuval boyunun ~%80'i, tuvalin ~%20'si); kimse
   kendini küçültüp bir köşeye sıkıştıramaz. Silüet tuvalin dışına taşamaz (`POSITION_BOUNDS`).
-- **Savunan yerini seçer:** her saldırıdan önce savunan, silüetini sürükleyip yerini seçer ("Yerini seç", 7 sn, `ui/positionPicker.ts`).
-  Saldıran o yeri görür ve nişan alır. Botlar rastgele bir yer seçer. Seçim yapılmazsa (simülasyon) sıradaki duruş kullanılır (`targetPoseFor`).
+- **Savunan yerini ve yönünü seçer:** her saldırıdan önce savunan, silüetini sürükler ve "↻ Döndür" ile çevirir ("Yerini seç", 7 sn,
+  `ui/positionPicker.ts`). Saldıran o yerdeki bulanık kütleyi görür ve nişan alır. Botlar yeri ve yönü rastgele seçer; saldıran botlar
+  başın yerini bilmediği için kütlenin ortasına nişan alır. Seçim yapılmazsa (simülasyon) sıradaki duruş kullanılır (`targetPoseFor`).
 
 ## Adımlar
 

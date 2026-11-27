@@ -118,6 +118,17 @@ describe('Bot', () => {
     expect(good).toBeGreaterThan(bad);
   });
 
+  it('bot yer seçerken yönü de rastgele seçer (baş her yanda olabilir), hep tuvalin içinde kalır', () => {
+    const bot = new Bot(mulberry32(4), 0.5);
+    const turns = new Set<number>();
+    for (let i = 0; i < 40; i++) {
+      const p = bot.choosePosition();
+      turns.add(p.turn ?? 0);
+      expect(p.scale).toBe(1.2);
+    }
+    expect(turns.size).toBe(4);
+  });
+
   it('saldırı rakibin silüetine nişan alır: silüet nerede ise çizim oraya gider (Faz 3)', () => {
     const left = { cx: 70, cy: 120, scale: 0.78 };
     const right = { cx: 186, cy: 150, scale: 0.75 };

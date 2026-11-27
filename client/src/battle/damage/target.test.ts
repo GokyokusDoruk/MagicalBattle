@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GRID, LOGICAL_SIZE } from '../gesture/config';
-import { DEFAULT_POSE, FIGURE_HEIGHT, GRAZE_DISTANCE, POSITION_BOUNDS, TARGET_POSES, TARGET_SCALE, ZONE, clampPose, silhouetteShape, targetPoseFor, zoneAt, zoneMap, zoneMultiplier } from './target';
+import { boundsFor, normTurn, silhouetteHull, DEFAULT_POSE, FIGURE_HEIGHT, GRAZE_DISTANCE, POSITION_BOUNDS, TARGET_POSES, TARGET_SCALE, ZONE, clampPose, silhouetteShape, targetPoseFor, zoneAt, zoneMap, zoneMultiplier } from './target';
 
 describe('rakip silüeti (Faz 3)', () => {
   it('her duruş tuvalin içinde kalır', () => {
@@ -36,9 +36,9 @@ describe('rakip silüeti (Faz 3)', () => {
   });
 
   it('seçilen yer sınırlara çekilir, ölçek her zaman sabitlenir (küçülüp köşeye sıkışılamaz)', () => {
-    expect(clampPose({ cx: -50, cy: 999 })).toEqual({ cx: POSITION_BOUNDS.minX, cy: POSITION_BOUNDS.maxY, scale: TARGET_SCALE });
+    expect(clampPose({ cx: -50, cy: 999 })).toEqual({ cx: POSITION_BOUNDS.minX, cy: POSITION_BOUNDS.maxY, scale: TARGET_SCALE, turn: 0 });
     expect(clampPose({ cx: 128, cy: 128, scale: 0.3 } as never).scale).toBe(TARGET_SCALE);
-    expect(clampPose({ cx: NaN, cy: NaN })).toEqual({ cx: 128, cy: 128, scale: TARGET_SCALE });
+    expect(clampPose({ cx: NaN, cy: NaN })).toEqual({ cx: 128, cy: 128, scale: TARGET_SCALE, turn: 0 });
     const s = silhouetteShape(clampPose({ cx: 0, cy: 0 }));
     for (const [x, y] of [...s.body, ...s.hat]) {
       expect(x).toBeGreaterThanOrEqual(0);
@@ -58,6 +58,41 @@ describe('rakip silüeti (Faz 3)', () => {
     const map = zoneMap(DEFAULT_POSE);
     expect(map).toHaveLength(GRID * GRID);
     for (const z of [ZONE.far, ZONE.graze, ZONE.body, ZONE.head]) expect(map.includes(z)).toBe(true);
+  });
+
+  it('başın nerede olduğuna savunan karar verir: yön çevrilince baş yukarı/sağa/aşağı/sola gider, alan aynı kalır', () => {
+    const at = (turn: number) => silhouetteShape(clampPose({ cx: 128, cy: 128, turn })).head;
+    const up = at(0);
+    const right = at(1);
+    const down = at(2);
+    const left = at(3);
+    expect(up.y).toBeLessThan(128);
+    expect(right.x).toBeGreaterThan(128);
+    expect(down.y).toBeGreaterThan(128);
+    expect(left.x).toBeLessThan(128);
+    const area = (turn: number) => zoneMap(clampPose({ cx: 128, cy: 128, turn })).filter((z) => z === ZONE.body || z === ZONE.head).length;
+    for (const t of [1, 2, 3]) expect(Math.abs(area(t) - area(0))).toBeLessThan(area(0) * 0.08);
+    expect(zoneAt(silhouetteShape(clampPose({ cx: 128, cy: 128, turn: 1 })), right.x, right.y)).toBe(ZONE.head);
+    expect([normTurn(5), normTurn(-1), normTurn(undefined)]).toEqual([1, 3, 0]);
+  });
+
+  it('yan yatmış silüet de tuvalden taşmaz; saldıranın gördüğü kütle iki yönde de simetriktir', () => {
+    for (const turn of [0, 1, 2, 3]) {
+      const b = boundsFor(turn);
+      for (const [cx, cy] of [[b.minX, b.minY], [b.maxX, b.maxY], [0, 256]]) {
+        const pose = clampPose({ cx, cy, turn });
+        const s = silhouetteShape(pose);
+        for (const [x, y] of [...s.body, ...s.hat]) {
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(x).toBeLessThanOrEqual(256);
+          expect(y).toBeGreaterThanOrEqual(0);
+          expect(y).toBeLessThanOrEqual(256);
+        }
+      }
+    }
+    // Baş yukarıda ya da aşağıdayken kütle aynı: saldıran başın hangi uçta olduğunu kütleden anlayamaz
+    expect(silhouetteHull(clampPose({ cx: 128, cy: 128, turn: 0 }))).toEqual(silhouetteHull(clampPose({ cx: 128, cy: 128, turn: 2 })));
+    expect(silhouetteHull(clampPose({ cx: 128, cy: 128, turn: 1 }))).toEqual(silhouetteHull(clampPose({ cx: 128, cy: 128, turn: 3 })));
   });
 
   it('çarpanlar: baş 1.25 (+yetenek), gövde 1, sıyırma 0.2, ıska 0.1', () => {

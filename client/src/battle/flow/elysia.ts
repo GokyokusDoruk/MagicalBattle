@@ -66,7 +66,7 @@ export class ElysiaBot extends Bot {
     if (this.mood === 'angry') {
       // Öfkeli: büyük ve uzun çizim (silüetten taşar), ama hırsından büyüyü bozma ihtimali de yüksek
       const cx = target.cx + this.between(-14, 14);
-      const cy = target.cy + 12 * target.scale + this.between(-14, 14);
+      const cy = target.cy + this.between(-14, 14);
       const ms = this.between(2500, 2950);
       if (this.rand() < 0.1 + 0.1 * this.angerValue) {
         result = analyzeStrokes(scribbleShape(cx, cy, ms), ms);
