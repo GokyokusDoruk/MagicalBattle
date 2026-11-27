@@ -1,47 +1,20 @@
 import { CELL, GRID, LOGICAL_SIZE } from '../gesture/config';
 
 /**
- * Rakip silüeti (Faz 3): çizim tuvalinde rakibin büyücü silüeti görünür. Büyünün **silüete düşen** kısmı tam vurur, başa düşen
- * kısmı daha çok vurur; silüeti sıyıran ya da ıskalayan kısım çok az hasar verir. Her saldırı turunda silüet farklı bir yerde ve
- * boyutta durur (baş da onunla kayar). Saf hesap: arayüzden bağımsız, testlenebilir.
+ * Büyücü silüeti (Faz 3): bir **kukla**. Gövde, boyun ve baş, iki kol (el), iki bacak (ayak) eklemlidir; kollar, bacaklar ve baş
+ * her duruşta başka yerdedir, figür istediği açıyla döner. Baş, eller ve ayaklar **aynı büyüklükte yuvarlaklardır**: dışarıdan bakan
+ * hangisinin baş olduğunu ayırt edemez. Büyünün **silüete düşen** kısmı tam vurur, başa düşen kısmı ×1.25; silüeti sıyıran ×0.2,
+ * ıskalayan ×0.1. Silüetin hacmi (parça boyları ve kalınlıkları) hep aynıdır; yalnızca yeri ve duruşu değişir.
+ * Saf hesap: arayüzden bağımsız, testlenebilir.
  */
 
-/**
- * Silüetin tuvaldeki duruşu: figürün ortası (mantıksal birim) ve ölçeği (1 = 170 birim boy).
- * Faz 3 ek: silüetin hacmi **her zaman sabittir** (`TARGET_SCALE`); yalnızca yeri değişir. Savunan kendini küçültüp bir köşeye sıkıştıramaz.
- */
+/** Silüetin tuvaldeki yeri (gövdenin ortası, mantıksal birim), ölçeği (sabit) ve kukla duruşu (`pose`: duruş numarası). */
 export interface TargetPose {
   cx: number;
   cy: number;
   scale: number;
-  /**
-   * Yön (çeyrek tur, saat yönünde): 0 baş yukarıda, 1 baş sağda, 2 baş aşağıda, 3 baş solda. Başın nerede olduğuna savunan karar verir;
-   * saldıran yalnızca bulanık bir kütle görür (`silhouetteHull`). Verilmezse 0.
-   */
-  turn?: number;
-}
-
-/** Çeyrek turu 0-3 arasına çeker */
-export const normTurn = (t: number | undefined): 0 | 1 | 2 | 3 => ((((Math.round(Number.isFinite(t) ? (t as number) : 0) % 4) + 4) % 4) as 0 | 1 | 2 | 3);
-
-/** Yerel noktayı (figür ortasına göre, ölçeklenmiş) çeyrek tur döndürüp tuvale taşır */
-function place(pose: TargetPose, lx: number, ly: number): [number, number] {
-  switch (normTurn(pose.turn)) {
-    case 1:
-      return [pose.cx - ly, pose.cy + lx];
-    case 2:
-      return [pose.cx - lx, pose.cy - ly];
-    case 3:
-      return [pose.cx + ly, pose.cy - lx];
-    default:
-      return [pose.cx + lx, pose.cy + ly];
-  }
-}
-
-/** Figür ortasına göre yerel bir kaymayı (ölçek dahil) duruşun yönüne göre tuvale taşır; botların nişanı için. */
-export function poseOffset(pose: TargetPose, lx: number, ly: number): { x: number; y: number } {
-  const [x, y] = place(pose, lx * pose.scale, ly * pose.scale);
-  return { x, y };
+  /** Kukla duruşu (0 ve üstü tam sayı); verilmezse 0 (dik duruş) */
+  pose?: number;
 }
 
 /** Bölge: 0 uzak (ıska), 1 sıyırma, 2 gövde, 3 baş */
@@ -55,53 +28,209 @@ export const MISS_MULTIPLIER = 0.1;
 /** Silüet kenarına bu kadar yakın hücre "sıyırma" sayılır: tuvalin ~%6'sı (kalem kalınlığının 2 katı) */
 export const GRAZE_DISTANCE = Math.round(LOGICAL_SIZE * 0.0625);
 
-/** Figürün ölçek 1'deki boyu (mantıksal birim) */
-export const FIGURE_HEIGHT = 170;
+/** Sabit ölçek: kukla hep aynı büyüklükte */
+export const TARGET_SCALE = 1.15;
 
-/** Silüetin sabit ölçeği: tuvalin boyunun ~%80'i, genişliğinin ~%45'i (vurmak kolay, hacim hep aynı) */
-export const TARGET_SCALE = 1.2;
-
-/** Silüetin ortasının gidebileceği alan (silüet hep tuvalin içinde kalır) */
-export const POSITION_BOUNDS = {
-  minX: Math.ceil(48 * TARGET_SCALE) + 2,
-  maxX: 256 - Math.ceil(48 * TARGET_SCALE) - 2,
-  minY: Math.ceil(85 * TARGET_SCALE) + 2,
-  maxY: 256 - Math.ceil(85 * TARGET_SCALE) - 2,
+/** Kukla ölçüleri (ölçek 1, mantıksal birim) */
+export const PUPPET = {
+  torsoHalf: 30,
+  torsoR: 17,
+  neckLen: 18,
+  neckR: 7,
+  /** Baş, eller ve ayaklar aynı yarıçapta */
+  endR: 15,
+  shoulderX: 15,
+  shoulderY: -24,
+  upperArm: 34,
+  foreArm: 30,
+  armR: 8,
+  hipX: 10,
+  upperLeg: 38,
+  lowerLeg: 34,
+  legR: 10,
 } as const;
 
-/** Yöne göre sınırlar: yan yatmış (1, 3) silüette en ve boy yer değiştirir */
-export function boundsFor(turn: number | undefined): { minX: number; maxX: number; minY: number; maxY: number } {
-  const b = POSITION_BOUNDS;
-  return normTurn(turn) % 2 === 0 ? { ...b } : { minX: b.minY, maxX: b.maxY, minY: b.minX, maxY: b.maxX };
+/** Kukla duruşu: açılar derece, 0 aşağıyı gösterir, artı yön aşağıdan sağa doğru */
+export interface PuppetAngles {
+  rot: number;
+  neck: number;
+  armL: [number, number];
+  armR: [number, number];
+  legL: [number, number];
+  legR: [number, number];
 }
 
-/** Yeri sınırlara çeker, ölçeği sabitler, yönü 0-3 yapar (savunanın seçtiği yer ya da bozuk girdi güvenle kullanılır). */
-export function clampPose(p: { cx: number; cy: number; turn?: number }): TargetPose {
-  const turn = normTurn(p.turn);
-  const b = boundsFor(turn);
-  const fx = Number.isFinite(p.cx) ? p.cx : 128;
-  const fy = Number.isFinite(p.cy) ? p.cy : 128;
-  return { cx: Math.min(b.maxX, Math.max(b.minX, fx)), cy: Math.min(b.maxY, Math.max(b.minY, fy)), scale: TARGET_SCALE, turn };
+/** Dik duruş (duruş 0): baş yukarıda, kollar yanlarda, bacaklar aşağıda */
+const STANDING: PuppetAngles = { rot: 0, neck: 180, armL: [-25, -10], armR: [25, 10], legL: [-12, -4], legR: [12, 4] };
+
+function hash(n: number, k: number): number {
+  let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(k + 1, 0xc2b2ae35);
+  h = Math.imul(h ^ (h >>> 15), 0x27d4eb2d);
+  h ^= h >>> 13;
+  return (h >>> 0) / 4294967296;
 }
 
-/** Tuvalin ortasında duruş (silüet verilmeyen hesaplar ve laboratuvar için) */
-export const DEFAULT_POSE: TargetPose = { cx: 128, cy: 128, scale: TARGET_SCALE };
+/** En geniş duruş bile tuvale sığsın: kuklanın kapladığı kutunun en uzun kenarı bu sınırı geçmez */
+const MAX_SPAN = LOGICAL_SIZE - 24;
+
+const anglesCache = new Map<number, PuppetAngles>();
 
 /**
- * Savunan yer seçmezse (botlar arası simülasyon, testler) kullanılan duruşlar: sol, sağ, orta, yukarı, aşağı. Hepsi aynı boyda.
+ * Duruş numarasından kukla açıları (tohumlu, her çağrıda aynı). 0 dik duruştur; diğerlerinde kollar, bacaklar, boyun ve tüm gövde
+ * rastgele açılarda (kukla gibi) durur. Tuvale sığmayan aday atlanır.
+ */
+export function puppetAngles(pose = 0): PuppetAngles {
+  const idx = normPose(pose);
+  if (idx === 0) return STANDING;
+  const hit = anglesCache.get(idx);
+  if (hit) return hit;
+  let found: PuppetAngles = STANDING;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const between = (k: number, lo: number, hi: number): number => lo + (hi - lo) * hash(idx * 41 + attempt, k);
+    const cand: PuppetAngles = {
+      rot: between(0, 0, 360),
+      neck: 180 + between(1, -50, 50),
+      armL: [between(2, -175, 10), between(3, -120, 120)],
+      armR: [between(4, -10, 175), between(5, -120, 120)],
+      legL: [between(6, -80, 25), between(7, -90, 90)],
+      legR: [between(8, -25, 80), between(9, -90, 90)],
+    };
+    const box = localBox(cand, TARGET_SCALE);
+    if (box.maxX - box.minX <= MAX_SPAN && box.maxY - box.minY <= MAX_SPAN) {
+      found = cand;
+      break;
+    }
+  }
+  anglesCache.set(idx, found);
+  return found;
+}
+
+export interface Circle {
+  x: number;
+  y: number;
+  r: number;
+}
+export interface Segment {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  r: number;
+}
+
+/** Silüetin parçaları (tuval koordinatı): kalın çizgiler (gövde, boyun, kollar, bacaklar), baş ve uçlar (eller, ayaklar). */
+export interface SilhouetteShape {
+  head: Circle;
+  /** Eller ve ayaklar: başla aynı büyüklükte */
+  ends: Circle[];
+  segments: Segment[];
+}
+
+const rad = (deg: number): number => (deg * Math.PI) / 180;
+/** 0° aşağı; artı açı aşağıdan sağa döner */
+const dir = (deg: number): [number, number] => [Math.sin(rad(deg)), Math.cos(rad(deg))];
+
+/** Kuklayı yerel koordinatta (gövde ortası 0,0) kurar; `rot` uygulanır. */
+function buildLocal(a: PuppetAngles, s: number): SilhouetteShape {
+  const P = PUPPET;
+  const cr = Math.cos(rad(a.rot));
+  const sr = Math.sin(rad(a.rot));
+  const R = (x: number, y: number): [number, number] => [x * cr - y * sr, x * sr + y * cr];
+  const add = (p: [number, number], d: number, len: number): [number, number] => {
+    const [dx, dy] = dir(d);
+    return [p[0] + dx * len, p[1] + dy * len];
+  };
+  const segments: Segment[] = [];
+  const seg = (p: [number, number], q: [number, number], r: number): void => {
+    const [ax, ay] = R(p[0] * s, p[1] * s);
+    const [bx, by] = R(q[0] * s, q[1] * s);
+    segments.push({ ax, ay, bx, by, r: r * s });
+  };
+  const circ = (p: [number, number]): Circle => {
+    const [x, y] = R(p[0] * s, p[1] * s);
+    return { x, y, r: P.endR * s };
+  };
+  const neckBase: [number, number] = [0, -P.torsoHalf];
+  seg(neckBase, [0, P.torsoHalf], P.torsoR);
+  const neckEnd = add(neckBase, a.neck, P.neckLen);
+  seg(neckBase, neckEnd, P.neckR);
+  const head = circ(add(neckEnd, a.neck, P.endR * 0.7));
+  const ends: Circle[] = [];
+  const limb = (root: [number, number], [a1, a2]: [number, number], l1: number, l2: number, r: number): void => {
+    const knee = add(root, a1, l1);
+    const tip = add(knee, a1 + a2, l2);
+    seg(root, knee, r);
+    seg(knee, tip, r);
+    ends.push(circ(tip));
+  };
+  limb([-P.shoulderX, P.shoulderY], a.armL, P.upperArm, P.foreArm, P.armR);
+  limb([P.shoulderX, P.shoulderY], a.armR, P.upperArm, P.foreArm, P.armR);
+  limb([-P.hipX, P.torsoHalf], a.legL, P.upperLeg, P.lowerLeg, P.legR);
+  limb([P.hipX, P.torsoHalf], a.legR, P.upperLeg, P.lowerLeg, P.legR);
+  return { head, ends, segments };
+}
+
+/** Yerel kuklanın kapladığı kutu (yarıçaplar dahil) */
+function localBox(a: PuppetAngles, s: number): { minX: number; maxX: number; minY: number; maxY: number } {
+  const sh = buildLocal(a, s);
+  const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  const take = (x: number, y: number, r: number): void => {
+    box.minX = Math.min(box.minX, x - r);
+    box.maxX = Math.max(box.maxX, x + r);
+    box.minY = Math.min(box.minY, y - r);
+    box.maxY = Math.max(box.maxY, y + r);
+  };
+  for (const g of sh.segments) {
+    take(g.ax, g.ay, g.r);
+    take(g.bx, g.by, g.r);
+  }
+  for (const c of [sh.head, ...sh.ends]) take(c.x, c.y, c.r);
+  return box;
+}
+
+/** Duruş numarasını güvenli tam sayıya çeker */
+export function normPose(p: number | undefined): number {
+  return Math.max(0, Math.floor(typeof p === 'number' && Number.isFinite(p) ? p : 0));
+}
+
+/** Bu duruşta gövde ortasının gidebileceği alan (kukla hep tuvalin içinde kalır) */
+export function boundsFor(pose = 0): { minX: number; maxX: number; minY: number; maxY: number } {
+  const b = localBox(puppetAngles(pose), TARGET_SCALE);
+  const m = 2;
+  const minX = -b.minX + m;
+  const maxX = LOGICAL_SIZE - b.maxX - m;
+  const minY = -b.minY + m;
+  const maxY = LOGICAL_SIZE - b.maxY - m;
+  return { minX: Math.min(minX, maxX), maxX: Math.max(minX, maxX), minY: Math.min(minY, maxY), maxY: Math.max(minY, maxY) };
+}
+
+/** Yeri bu duruşun sınırlarına çeker, ölçeği sabitler (savunanın seçtiği yer ya da bozuk girdi güvenle kullanılır). */
+export function clampPose(p: { cx: number; cy: number; pose?: number }): TargetPose {
+  const pose = normPose(p.pose);
+  const b = boundsFor(pose);
+  const fx = Number.isFinite(p.cx) ? p.cx : 128;
+  const fy = Number.isFinite(p.cy) ? p.cy : 128;
+  return { cx: Math.min(b.maxX, Math.max(b.minX, fx)), cy: Math.min(b.maxY, Math.max(b.minY, fy)), scale: TARGET_SCALE, pose };
+}
+
+/** Tuvalin ortasında dik duruş (silüet verilmeyen hesaplar ve laboratuvar için) */
+export const DEFAULT_POSE: TargetPose = clampPose({ cx: 128, cy: 128, pose: 0 });
+
+/**
+ * Savunan yer seçmezse (botlar arası simülasyon, testler) kullanılan duruşlar: farklı yerler ve farklı kukla duruşları.
  * Sıra `targetPoseFor` ile seçilir (zar atılmaz, tohumlu testler bozulmaz).
  */
 export const TARGET_POSES: readonly TargetPose[] = [
-  clampPose({ cx: 128, cy: 132 }),
-  clampPose({ cx: 70, cy: 140 }),
-  clampPose({ cx: 186, cy: 116 }),
-  clampPose({ cx: 104, cy: 150 }),
-  clampPose({ cx: 160, cy: 136 }),
-  clampPose({ cx: 64, cy: 110 }),
-  clampPose({ cx: 192, cy: 150 }),
-  clampPose({ cx: 136, cy: 108 }),
-  clampPose({ cx: 90, cy: 124 }),
-  clampPose({ cx: 170, cy: 146 }),
+  clampPose({ cx: 128, cy: 128, pose: 0 }),
+  clampPose({ cx: 80, cy: 140, pose: 1 }),
+  clampPose({ cx: 176, cy: 116, pose: 2 }),
+  clampPose({ cx: 110, cy: 150, pose: 3 }),
+  clampPose({ cx: 150, cy: 120, pose: 4 }),
+  clampPose({ cx: 70, cy: 100, pose: 5 }),
+  clampPose({ cx: 186, cy: 156, pose: 6 }),
+  clampPose({ cx: 136, cy: 100, pose: 7 }),
+  clampPose({ cx: 96, cy: 124, pose: 8 }),
+  clampPose({ cx: 166, cy: 146, pose: 9 }),
 ];
 
 export interface SlotLike {
@@ -115,84 +244,49 @@ export function targetPoseFor(cycle: number, attacker: SlotLike): TargetPose {
   return TARGET_POSES[i];
 }
 
-/** Silüetin parçaları (mantıksal koordinat): şapka üçgeni, baş dairesi ve cüppe (yamuk). */
-export interface SilhouetteShape {
-  hat: [number, number][];
-  head: { x: number; y: number; r: number };
-  body: [number, number][];
-}
-
+/** Kuklanın tuvaldeki parçaları. */
 export function silhouetteShape(pose: TargetPose): SilhouetteShape {
-  const s = pose.scale;
-  // Yerel koordinat: figürün ortası (0, 0), baş yukarıda; sonra yönüne göre döndürülür
-  const P = (dx: number, dy: number): [number, number] => place(pose, dx * s, (dy - FIGURE_HEIGHT / 2) * s);
-  const [hx, hy] = P(0, 46);
+  const local = buildLocal(puppetAngles(pose.pose), pose.scale);
+  const mv = (c: Circle): Circle => ({ x: c.x + pose.cx, y: c.y + pose.cy, r: c.r });
   return {
-    hat: [P(0, 0), P(-27, 30), P(27, 30)],
-    head: { x: hx, y: hy, r: 19 * s },
-    // Omuzlardan eteğe genişleyen cüppe; boyun başa değer
-    body: [P(-10, 62), P(10, 62), P(34, 76), P(48, FIGURE_HEIGHT), P(-48, FIGURE_HEIGHT), P(-34, 76)],
+    head: mv(local.head),
+    ends: local.ends.map(mv),
+    segments: local.segments.map((g) => ({ ax: g.ax + pose.cx, ay: g.ay + pose.cy, bx: g.bx + pose.cx, by: g.by + pose.cy, r: g.r })),
   };
 }
 
-/**
- * Saldıranın gördüğü kütle: silüeti saran, iki ucu eşit yuvarlatılmış simetrik bir dikdörtgen (tuval koordinatı). Şapka ucu ve cüppe
- * genişliği gibi ipuçları yoktur; başın hangi uçta olduğu anlaşılmaz.
- */
-export function silhouetteHull(pose: TargetPose): { x: number; y: number; w: number; h: number; r: number } {
-  const halfW = 48 * pose.scale;
-  const halfH = (FIGURE_HEIGHT / 2) * pose.scale;
-  const side = normTurn(pose.turn) % 2 === 1;
-  const w = (side ? halfH : halfW) * 2;
-  const h = (side ? halfW : halfH) * 2;
-  return { x: pose.cx - w / 2, y: pose.cy - h / 2, w, h, r: Math.min(w, h) / 2 };
-}
-
-function insidePolygon(x: number, y: number, poly: readonly [number, number][]): boolean {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i];
-    const [xj, yj] = poly[j];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
-function segmentDistance(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax;
-  const dy = by - ay;
+function segmentDistance(px: number, py: number, g: Segment): number {
+  const dx = g.bx - g.ax;
+  const dy = g.by - g.ay;
   const len = dx * dx + dy * dy;
-  const t = len > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len)) : 0;
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  const t = len > 0 ? Math.max(0, Math.min(1, ((px - g.ax) * dx + (py - g.ay) * dy) / len)) : 0;
+  return Math.hypot(px - (g.ax + t * dx), py - (g.ay + t * dy)) - g.r;
 }
 
-function polygonDistance(x: number, y: number, poly: readonly [number, number][]): number {
-  if (insidePolygon(x, y, poly)) return 0;
-  let best = Infinity;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) best = Math.min(best, segmentDistance(x, y, poly[j][0], poly[j][1], poly[i][0], poly[i][1]));
-  return best;
-}
+const circleDistance = (x: number, y: number, c: Circle): number => Math.hypot(x - c.x, y - c.y) - c.r;
 
 /** Tek bir noktanın bölgesi. */
 export function zoneAt(shape: SilhouetteShape, x: number, y: number): Zone {
-  const headD = Math.max(0, Math.hypot(x - shape.head.x, y - shape.head.y) - shape.head.r);
-  const hatD = polygonDistance(x, y, shape.hat);
-  if (headD === 0 || hatD === 0) return ZONE.head;
-  const bodyD = polygonDistance(x, y, shape.body);
-  if (bodyD === 0) return ZONE.body;
-  return Math.min(headD, hatD, bodyD) <= GRAZE_DISTANCE ? ZONE.graze : ZONE.far;
+  if (circleDistance(x, y, shape.head) <= 0) return ZONE.head;
+  let d = Infinity;
+  for (const g of shape.segments) d = Math.min(d, segmentDistance(x, y, g));
+  for (const c of shape.ends) d = Math.min(d, circleDistance(x, y, c));
+  if (d <= 0) return ZONE.body;
+  d = Math.min(d, circleDistance(x, y, shape.head));
+  return d <= GRAZE_DISTANCE ? ZONE.graze : ZONE.far;
 }
 
 const cache = new Map<string, Uint8Array>();
 
 /** Yoğunluk haritası hücrelerinin bölgeleri (GRID×GRID, hücre ortasına göre). Duruş başına bir kez hesaplanır. */
 export function zoneMap(pose: TargetPose): Uint8Array {
-  const key = `${pose.cx}:${pose.cy}:${pose.scale}:${normTurn(pose.turn)}`;
+  const key = `${pose.cx}:${pose.cy}:${pose.scale}:${normPose(pose.pose)}`;
   let map = cache.get(key);
   if (!map) {
     const shape = silhouetteShape(pose);
     map = new Uint8Array(GRID * GRID);
     for (let r = 0; r < GRID; r++) for (let c = 0; c < GRID; c++) map[r * GRID + c] = zoneAt(shape, (c + 0.5) * CELL, (r + 0.5) * CELL);
+    if (cache.size > 400) cache.clear();
     cache.set(key, map);
   }
   return map;

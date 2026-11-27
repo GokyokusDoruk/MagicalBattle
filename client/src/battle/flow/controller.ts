@@ -83,7 +83,10 @@ export interface TurnReport {
 export interface DrawExtras {
   /** Bu turun özel büyü şekli (saldırı çizerken): şekle ne kadar benzerse o kadar güçlü, tutarsa ×1.5. Önizlemede yalnızca şekil gösterilir. */
   specialShape?: ShapeName;
-  /** Faz 3: bu turda hedef alınan büyücünün (saldırıda rakibin, savunmada kendinin) silüet duruşu; tuvalde silüet olarak görünür */
+  /**
+   * Faz 3: savunanın silüeti (kukla). Savunmada her zaman verilir (kendi silüetin); saldırıda yalnızca kolay görüşte (Kolay seviye),
+   * Normal ve Zor'da saldıran silüeti görmez.
+   */
   target?: TargetPose;
   /** Çizim ekranında beliren yara izi sayısı */
   scars?: number;
@@ -230,7 +233,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const suggested = targetPoseFor(engine.cycle, action.attacker);
     const target = io.choosePosition ? clampPose(await io.choosePosition(action.defender, suggested, engine)) : suggested;
     if (options.signal?.aborted) return engine.winner;
-    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, target, ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
+    // Saldıran silüeti yalnızca kolay görüşte (savunan da saldırıyı görür) görür; Normal ve Zor'da körlemesine çizer
+    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, ...(showGhost ? { target } : {}), ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
     // Yara izi ve sarsıntı botun saldırı çizimini bozar (insanda yalnızca görüş engelidir): büyü kayar, titrer, boşluklar kalır
     if (attacker.control === 'bot') attack = degradeDrawing(attack, attackDegrade({ scars, shake }), random);
     if (attackChill > 0 && attacker.control === 'bot' && attack.validity.valid) {

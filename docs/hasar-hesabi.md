@@ -4,17 +4,17 @@ Kod: `client/src/battle/damage/`. Saf TypeScript, ekrandan bağımsız; savaş a
 
 ## Faz 3: "çok değil, doğru çiz"
 
-Çizim tuvalinde artık **rakibin büyücü silüeti** görünür (savunurken kendi silüetin), `battle/damage/target.ts`.
+Her büyücünün bir **silüeti** vardır: eklemli bir **kukla** (gövde, boyun ve baş, iki kol, iki bacak), `battle/damage/target.ts`.
 
-- **Başın yeri savunanın sırrıdır:** savunan, yer seçerken silüetini **döndürebilir** (baş yukarı, sağa, aşağı ya da sola).
-  **Saldıran** yalnızca silüeti saran, iki ucu eşit yuvarlak ve iyice bulanık kırmızımsı bir **kütle** görür (`silhouetteHull`): şapka ucu,
-  cüppe genişliği yoktur, başın hangi uçta olduğu anlaşılmaz. **Savunan** kendi silüetini başıyla birlikte görür (mavimsi).
-  Tuvalde hiçbir yazı yoktur. Baş bölgesi hesapta vardır (×1.25); saldıran onu tutturursa sürpriz bir bonus alır.
-- **Hacim sabit, yer değişir:** silüet her zaman aynı büyüklüktedir (`TARGET_SCALE` 1.2: tuval boyunun ~%80'i, tuvalin ~%20'si); kimse
-  kendini küçültüp bir köşeye sıkıştıramaz. Silüet tuvalin dışına taşamaz (`POSITION_BOUNDS`).
-- **Savunan yerini ve yönünü seçer:** her saldırıdan önce savunan, silüetini sürükler ve "↻ Döndür" ile çevirir ("Yerini seç", 7 sn,
-  `ui/positionPicker.ts`). Saldıran o yerdeki bulanık kütleyi görür ve nişan alır. Botlar yeri ve yönü rastgele seçer; saldıran botlar
-  başın yerini bilmediği için kütlenin ortasına nişan alır. Seçim yapılmazsa (simülasyon) sıradaki duruş kullanılır (`targetPoseFor`).
+- **Başın yeri savunanın sırrıdır:** baş, eller ve ayaklar **aynı büyüklükte yuvarlaklardır**; kollar, bacaklar, boyun ve tüm gövde her
+  duruşta başka açıdadır. Dışarıdan bakan hangi yuvarlağın baş olduğunu ayırt edemez. Baş bölgesi hesapta vardır (×1.25).
+- **Hacim sabit:** parça boyları ve kalınlıkları hep aynıdır (`TARGET_SCALE`, tuvalin ~%13-15'i); kimse küçülüp bir köşeye sıkışamaz.
+  Kukla tuvalin dışına taşamaz (`boundsFor`, `clampPose`).
+- **Savunan yerini ve duruşunu seçer:** her saldırıdan önce "Yerini seç" ekranında (7 sn, `ui/positionPicker.ts`) silüetini sürükler,
+  "🎭 Duruş" ile kollarını, bacaklarını ve başını başka yere alır. Kendi başını parlak bir halkayla görür. Botlar rastgele seçer.
+- **Saldıran ne görür:** yalnızca **Kolay** seviyede rakibin kuklasını bulanık, tek renk bir gölge olarak görür (baş elden ayırt edilmez).
+  **Normal ve Zor**'da silüeti hiç görmez: rakibin nerede durduğunu tahmin edip çizer. Botlar da öyle (Kolay'da gövdeye nişan, diğerlerinde körlemesine).
+- Seçim yapılmayan simülasyonlarda sıradaki hazır duruş kullanılır (`targetPoseFor`).
 
 ## Adımlar
 

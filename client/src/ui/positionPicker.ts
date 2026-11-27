@@ -2,23 +2,26 @@ import { LOGICAL_SIZE } from '../battle/gesture/config';
 import { clampPose, type TargetPose } from '../battle/damage/target';
 import { paintSilhouette } from './drawingCanvas';
 
+/** Sıradaki duruş: her basışta farklı, tahmin edilemeyen bir kukla duruşu */
+const nextPose = (p: number | undefined): number => 1 + (((p ?? 0) * 7919 + 104729) % 997);
+
 /** Yer seçimi için tanınan süre; dolunca o anki yer kabul edilir */
 export const POSITION_PICK_MS = 7000;
 
 /**
- * Faz 3: savunan, saldırıdan önce kendi yerini ve yönünü seçer. Tuvalde kendi silüetin durur; parmağınla/fareyle sürükleyerek
- * yerini değiştirir, "Döndür" ile başını yukarı/sağa/aşağı/sola çevirirsin. Silüetin boyu sabittir, yalnızca yeri değişir ve tuvalin dışına çıkamaz. "Tamam" ya da süre dolunca seçilen yer döner.
+ * Faz 3: savunan, saldırıdan önce kendi yerini ve kukla duruşunu seçer. Tuvalde kendi silüetin durur; parmağınla/fareyle sürükleyerek
+ * yerini değiştirir, "Duruş" ile kollarını, bacaklarını ve başını başka yere alırsın. Silüetin boyu sabittir, yalnızca yeri değişir ve tuvalin dışına çıkamaz. "Tamam" ya da süre dolunca seçilen yer döner.
  * `host` içine çizilir; bitince temizlenir.
  */
 export function pickPosition(host: HTMLElement, start: TargetPose, limitMs = POSITION_PICK_MS): Promise<TargetPose> {
   host.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold text-sky-200">Yerini seç</h2>
-      <p class="text-center text-xs text-slate-300">Silüetini sürükle, Döndür ile başını istediğin yana çevir. Rakip yalnızca bulanık bir gölge görür: başının nerede olduğunu bilmez.</p>
+      <p class="text-center text-xs text-slate-300">Silüetini sürükle, "Duruş" ile kollarını, bacaklarını ve başını başka yere al. Parlak halka başın: rakip onu ayırt edemez.</p>
       <canvas class="touch-none rounded-lg border-2 border-sky-200/50 bg-slate-950" style="width:min(88vw,60vh);aspect-ratio:1;touch-action:none;cursor:grab"></canvas>
       <div class="w-[min(88vw,60vh)]">
         <div class="h-2 overflow-hidden rounded bg-white/10"><div data-fill class="h-full w-full bg-sky-300"></div></div>
         <div class="mt-2 flex justify-between gap-2">
-          <button data-turn type="button" class="rounded bg-white/10 px-4 py-1.5 text-sky-100 hover:bg-white/20">↻ Döndür</button>
+          <button data-turn type="button" class="rounded bg-white/10 px-4 py-1.5 text-sky-100 hover:bg-white/20">🎭 Duruş</button>
           <button data-ok type="button" class="rounded bg-sky-300 px-4 py-1.5 font-bold text-slate-900">Tamam</button>
         </div>
       </div></div>`;
@@ -69,7 +72,7 @@ export function pickPosition(host: HTMLElement, start: TargetPose, limitMs = POS
     canvas.addEventListener('pointermove', (e) => {
       if (!drag || e.pointerId !== drag.id) return;
       const p = toLogical(e);
-      pose = clampPose({ cx: drag.cx + (p.x - drag.x), cy: drag.cy + (p.y - drag.y), turn: pose.turn });
+      pose = clampPose({ cx: drag.cx + (p.x - drag.x), cy: drag.cy + (p.y - drag.y), pose: pose.pose });
       render();
     });
     const release = (e: PointerEvent): void => {
@@ -79,9 +82,9 @@ export function pickPosition(host: HTMLElement, start: TargetPose, limitMs = POS
     canvas.addEventListener('pointerup', release);
     canvas.addEventListener('pointercancel', release);
     host.querySelector('[data-ok]')!.addEventListener('click', done);
-    // Çeyrek tur döndürür (baş yukarı → sağ → aşağı → sol); sınırlar yöne göre yeniden uygulanır
+    // Yeni bir kukla duruşu (kollar, bacaklar, baş başka yerde, gövde başka açıda); yer duruşun sınırlarına yeniden çekilir
     host.querySelector('[data-turn]')!.addEventListener('click', () => {
-      pose = clampPose({ cx: pose.cx, cy: pose.cy, turn: (pose.turn ?? 0) + 1 });
+      pose = clampPose({ cx: pose.cx, cy: pose.cy, pose: nextPose(pose.pose) });
       render();
     });
     render();

@@ -295,7 +295,7 @@ export class BattleScreen implements BattleIO {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
       <h2 class="text-lg font-bold ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
-      <p class="text-center text-xs text-slate-300">${role === 'attack' ? 'Rakibin silüetine çiz. Şekil ne kadar doğruysa büyü o kadar güçlü; silüetin dışına giden büyü çok az vurur.' : 'Silüetini koru: rakibin büyüsü oraya gelecek.'}</p>
+      <p class="text-center text-xs text-slate-300">${role === 'defense' ? 'Silüetini koru: rakibin büyüsü oraya gelecek.' : target ? 'Rakibin silüetine çiz. Şekil ne kadar doğruysa büyü o kadar güçlü; silüetin dışına giden büyü çok az vurur.' : 'Rakibini göremiyorsun: nerede durduğunu tahmin et ve oraya çiz. Şekil ne kadar doğruysa büyü o kadar güçlü.'}</p>
       ${special ? this.specialPreview(special) : ''}
       <div data-canvas class="flex w-full justify-center"></div></div>`;
     const canvas = new DrawingCanvas({

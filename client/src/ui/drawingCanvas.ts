@@ -1,5 +1,5 @@
 import { BRUSH_RADIUS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
-import { normTurn, silhouetteHull, silhouetteShape, type TargetPose } from '../battle/damage/target';
+import { normPose, silhouetteShape, type TargetPose } from '../battle/damage/target';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import type { DrawLoop } from '../audio/sfx/engine';
@@ -31,66 +31,65 @@ export interface DrawingCanvasOptions extends SessionOptions {
 }
 
 /**
- * Büyücü silüeti (Faz 3):
- * - **Rakip** (`enemy`, saldırırken): silüeti saran simetrik, iyice bulanık bir kırmızımsı kütle. Şapka ucu, cüppe genişliği yok;
- *   başın, kolların, ayakların nerede olduğu anlaşılmaz (onu savunan seçti).
- * - **Kendin** (`self`, yer seçerken ve savunurken): kendi silüetin, başı seçilebilir mavimsi bir gölge (neresini koruyacağını bilirsin).
+ * Büyücü silüeti (Faz 3): eklemli bir kukla (gövde, kollar, bacaklar, baş; eller ve ayaklar başla aynı büyüklükte yuvarlak).
+ * - **Rakip** (`enemy`, yalnızca Kolay'da saldırırken): bulanık, tek renk kırmızımsı gölge. Baş, eller ve ayaklar aynı görünür;
+ *   başın hangisi olduğu anlaşılmaz.
+ * - **Kendin** (`self`, yer seçerken ve savunurken): mavimsi gölge; **başın** parlak bir halkayla belli olur (neresini koruyacağını bilirsin).
  * `scale`: mantıksal birimden piksele çarpan.
  */
 export function paintSilhouette(ctx: CanvasRenderingContext2D, target: TargetPose, scale: number, tone: 'enemy' | 'self' = 'enemy'): void {
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
-  const key = `${target.cx}:${target.cy}:${target.scale}:${normTurn(target.turn)}:${scale}:${w}:${h}:${tone}`;
+  const key = `${target.cx}:${target.cy}:${target.scale}:${normPose(target.pose)}:${scale}:${w}:${h}:${tone}`;
   if (silhouetteCache?.key !== key) silhouetteCache = { key, image: renderSilhouetteLayer(target, scale, w, h, tone) };
   if (!silhouetteCache.image) return;
   ctx.save();
-  ctx.globalAlpha = tone === 'self' ? 0.28 : 0.26;
+  ctx.globalAlpha = tone === 'self' ? 0.3 : 0.28;
   ctx.shadowColor = tone === 'self' ? 'rgba(96,165,250,0.9)' : 'rgba(239,68,68,0.9)';
-  ctx.shadowBlur = (tone === 'self' ? 10 : 26) * scale;
+  ctx.shadowBlur = (tone === 'self' ? 8 : 18) * scale;
   ctx.drawImage(silhouetteCache.image, 0, 0);
   ctx.restore();
+  if (tone === 'self') {
+    // Kendi başın: yalnızca sana görünen parlak halka
+    const head = silhouetteShape(target).head;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(186,230,253,0.85)';
+    ctx.lineWidth = Math.max(1.5, 2.5 * scale);
+    ctx.beginPath();
+    ctx.arc(head.x * scale, head.y * scale, head.r * scale, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 /** Her karede yeniden çizmemek için son silüet katmanı saklanır */
 let silhouetteCache: { key: string; image: HTMLCanvasElement | null } | null = null;
 
 function renderSilhouetteLayer(target: TargetPose, scale: number, w: number, h: number, tone: 'enemy' | 'self'): HTMLCanvasElement | null {
-  // Parçalar önce ayrı bir tuvale opak çizilir (birleşimleri tek gölge olur, üst üste binen yer koyulaşmaz), sonra saydam ve bulanık basılır
   const off = document.createElement('canvas');
   off.width = w;
   off.height = h;
   const o = off.getContext('2d');
   if (!o) return null;
-  o.fillStyle = tone === 'self' ? 'rgb(96,165,250)' : 'rgb(239,68,68)';
-  if (tone === 'enemy') {
-    // Rakip: yalnızca kütle (iki ucu eşit yuvarlak), kenarları ayrıca bulanık
-    const hull = silhouetteHull(target);
-    if ('filter' in o) o.filter = `blur(${Math.round(6 * scale)}px)`;
-    o.beginPath();
-    if (typeof o.roundRect === 'function') o.roundRect(hull.x * scale, hull.y * scale, hull.w * scale, hull.h * scale, hull.r * scale);
-    else o.ellipse((hull.x + hull.w / 2) * scale, (hull.y + hull.h / 2) * scale, (hull.w / 2) * scale, (hull.h / 2) * scale, 0, 0, Math.PI * 2);
-    o.fill();
-    return off;
-  }
+  const color = tone === 'self' ? 'rgb(96,165,250)' : 'rgb(239,68,68)';
+  // Rakibin gölgesi ayrıca bulanıklaşır: kenarlar belirsiz, parçalar birbirine karışır
+  if (tone === 'enemy' && 'filter' in o) o.filter = `blur(${Math.max(1, Math.round(3 * scale))}px)`;
   const shape = silhouetteShape(target);
-  const poly = (pts: readonly [number, number][]): void => {
+  o.strokeStyle = color;
+  o.fillStyle = color;
+  o.lineCap = 'round';
+  for (const g of shape.segments) {
+    o.lineWidth = g.r * 2 * scale;
     o.beginPath();
-    pts.forEach(([x, y], i) => (i === 0 ? o.moveTo(x * scale, y * scale) : o.lineTo(x * scale, y * scale)));
-    o.closePath();
+    o.moveTo(g.ax * scale, g.ay * scale);
+    o.lineTo(g.bx * scale, g.by * scale);
+    o.stroke();
+  }
+  for (const c of [shape.head, ...shape.ends]) {
+    o.beginPath();
+    o.arc(c.x * scale, c.y * scale, c.r * scale, 0, Math.PI * 2);
     o.fill();
-  };
-  poly(shape.body);
-  poly(shape.hat);
-  o.beginPath();
-  o.arc(shape.head.x * scale, shape.head.y * scale, shape.head.r * 1.15 * scale, 0, Math.PI * 2);
-  o.fill();
-  // Boyun boşluğunu dolduran omuz örtüsü: baş gövdeden ayrı bir daire gibi seçilmesin
-  poly([
-    [shape.head.x - shape.head.r * 1.3, shape.head.y],
-    [shape.head.x + shape.head.r * 1.3, shape.head.y],
-    [shape.body[2][0], shape.body[2][1]],
-    [shape.body[5][0], shape.body[5][1]],
-  ]);
+  }
   return off;
 }
 

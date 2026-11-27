@@ -61,18 +61,19 @@ export class ElysiaBot extends Bot {
     return ELEMENTS[Math.floor(this.rand() * ELEMENTS.length)];
   }
 
-  override drawAttack(special?: ShapeName, target: TargetPose = DEFAULT_POSE): DrawingResult {
+  override drawAttack(special?: ShapeName, target?: TargetPose): DrawingResult {
     let result: DrawingResult;
     if (this.mood === 'angry') {
       // Öfkeli: büyük ve uzun çizim (silüetten taşar), ama hırsından büyüyü bozma ihtimali de yüksek
-      const cx = target.cx + this.between(-14, 14);
-      const cy = target.cy + this.between(-14, 14);
+      const spread = target ? 14 : 48;
+      const cx = (target?.cx ?? 128) + this.between(-spread, spread);
+      const cy = (target?.cy ?? 128) + this.between(-spread, spread);
       const ms = this.between(2500, 2950);
       if (this.rand() < 0.1 + 0.1 * this.angerValue) {
         result = analyzeStrokes(scribbleShape(cx, cy, ms), ms);
       } else {
         const name = SHAPE_NAMES[Math.floor(this.rand() * SHAPE_NAMES.length)];
-        result = analyzeStrokes(buildShape(name, cx, cy, this.between(56, 74) * target.scale, ms), ms);
+        result = analyzeStrokes(buildShape(name, cx, cy, this.between(56, 74) * (target ?? DEFAULT_POSE).scale, ms), ms);
       }
     } else {
       result = super.drawAttack(special, target);

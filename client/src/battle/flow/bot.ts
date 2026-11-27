@@ -4,7 +4,7 @@ import { LOGICAL_SIZE } from '../gesture/config';
 import type { DrawingResult, Stroke } from '../gesture/types';
 import { SHAPE_NAMES, buildShape, scribbleShape, type ShapeName } from './shapes';
 import type { Stroke as BotStroke } from '../gesture/types';
-import { DEFAULT_POSE, boundsFor, clampPose, poseOffset, type TargetPose } from '../damage/target';
+import { DEFAULT_POSE, boundsFor, clampPose, type TargetPose } from '../damage/target';
 
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
@@ -41,11 +41,11 @@ export class Bot {
     return strokes.map((s) => s.map((p, i) => ({ x: p.x + Math.sin(i * 0.4 + phase) * amp * 0.6 + (this.rand() - 0.5) * amp, y: p.y + Math.cos(i * 0.37 + phase) * amp * 0.6 + (this.rand() - 0.5) * amp, t: p.t })));
   }
 
-  /** Faz 3: savunacağı turda kendi yerini ve yönünü (başın hangi yanda olduğu) seçer: rastgele (boyu sabit). */
+  /** Faz 3: savunacağı turda kendi yerini ve kukla duruşunu (başın, kolların, bacakların yeri) seçer: rastgele (boyu sabit). */
   choosePosition(): TargetPose {
-    const turn = Math.floor(this.rand() * 4);
-    const b = boundsFor(turn);
-    return clampPose({ cx: this.between(b.minX, b.maxX), cy: this.between(b.minY, b.maxY), turn });
+    const pose = 1 + Math.floor(this.rand() * 997);
+    const b = boundsFor(pose);
+    return clampPose({ cx: this.between(b.minX, b.maxX), cy: this.between(b.minY, b.maxY), pose });
   }
 
   /** Hasar yedikten sonra çağrılır (kişilikli botlar tepki verir). Varsayılan bot tepki vermez. */
@@ -77,12 +77,13 @@ export class Bot {
    * Saldırı (Faz 3): rakibin silüetine nişan alır. Şekil silüetin gövdesine sığacak büyüklükte, göğüs hizasına çizilir; nişan hatası
    * beceri düştükçe artar (beceriksiz bot silüeti sıyırır ya da ıskalar). Ara sıra (≈%6) çok küçük bir karalama ("büyü yapamadı").
    */
-  drawAttack(special?: ShapeName, target: TargetPose = DEFAULT_POSE): DrawingResult {
-    const aim = 4 + 28 * (1 - this.skill);
-    // Saldıran başın nerede olduğunu bilmez: bulanık kütlenin ortasına nişan alır
-    const cx = target.cx + this.between(-aim, aim);
-    const cy = target.cy + this.between(-aim, aim);
-    const size = this.between(38, 56) * target.scale * (this.profile.attackScale ?? 1);
+  drawAttack(special?: ShapeName, target?: TargetPose): DrawingResult {
+    // Silüet görünüyorsa (Kolay) kuklanın gövdesine nişan alır; başın nerede olduğunu bilmez. Görünmüyorsa (Normal, Zor) körlemesine,
+    // tuvalin ortasına yakın bir yere çizer.
+    const aim = target ? 4 + 28 * (1 - this.skill) : 52;
+    const cx = (target?.cx ?? 128) + this.between(-aim, aim);
+    const cy = (target?.cy ?? 128) + this.between(-aim, aim);
+    const size = this.between(38, 56) * (target ?? DEFAULT_POSE).scale * (this.profile.attackScale ?? 1);
     const ms = this.between(1800, 2900);
     if (this.rand() < 0.06) return analyzeStrokes(scribbleShape(cx, cy, ms), ms);
     // Özel büyü şekli: bot beceriyle orantılı olarak denemeye çalışır (el titremesi beceri düştükçe artar)
@@ -103,9 +104,8 @@ export class Bot {
     const skill = this.defenseSkill();
     const scale = 0.6 + 0.5 * skill;
     const spread = 14 + 36 * (1 - skill);
-    const chest = poseOffset(target, 0, 10);
-    const cx = chest.x + this.between(-spread, spread);
-    const cy = chest.y + this.between(-spread, spread);
+    const cx = target.cx + this.between(-spread, spread);
+    const cy = target.cy + this.between(-spread, spread);
     return analyzeStrokes(buildShape(name, cx, cy, this.between(40, 62) * target.scale * scale, ms), ms);
   }
 

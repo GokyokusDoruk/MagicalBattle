@@ -3,7 +3,7 @@ import { buildDensity } from '../gesture/density';
 import { computeMetrics } from '../gesture/metrics';
 import type { Stroke } from '../gesture/types';
 import { ARMOR_CAP, HEADSHOT_MULTIPLIER, MIN_EFFORT_FACTOR, SHAPE_FLOOR, SPECIAL_SHAPE_BONUS } from './config';
-import { GRAZE_MULTIPLIER, MISS_MULTIPLIER } from './target';
+import { DEFAULT_POSE, GRAZE_MULTIPLIER, MISS_MULTIPLIER, clampPose, silhouetteShape } from './target';
 import { calculateDamage, powerFactor, shapeFactor, type DamageInput } from './calculate';
 import { ELEMENTS, elementMultiplier, elementRelation, type Element } from './elements';
 
@@ -21,13 +21,17 @@ const draw = (...strokes: Stroke[]) => {
   return { density, metrics: computeMetrics(strokes, density) };
 };
 
-// Faz 3: bölgeler tuvalin ortasındaki silüete göre (DEFAULT_POSE: baş ~(128, 89) r19, gövde y 105-213).
-// Aynı uzunluk ve süre: biri başın içinde, biri gövdenin içinde, biri silüeti sıyırır, biri uzağa gider
-const headAttack = draw(line(116, 89, 140, 89, 2500));
-const bodyAttack = draw(line(116, 170, 140, 170, 2500));
-const grazeAttack = draw(line(178, 138, 178, 162, 2500));
+// Faz 3: bölgeler tuvalin ortasındaki dik kuklaya göre (DEFAULT_POSE). Koordinatlar kuklanın kendisinden alınır.
+// Aynı uzunluk ve süre: biri başın içinde, biri gövdenin içinde, biri başı sıyırır, biri uzağa gider
+const SIL = silhouetteShape(DEFAULT_POSE);
+const HX = SIL.head.x;
+const HY = SIL.head.y;
+const BX = DEFAULT_POSE.cx;
+const BY = DEFAULT_POSE.cy;
+const headAttack = draw(line(HX - 12, HY, HX + 12, HY, 2500));
+const bodyAttack = draw(line(BX - 12, BY, BX + 12, BY, 2500));
+const grazeAttack = draw(line(HX + SIL.head.r + 6, HY - 12, HX + SIL.head.r + 6, HY + 12, 2500));
 const missAttack = draw(line(10, 20, 34, 20, 2500));
-
 const base = (over: Partial<DamageInput> = {}): DamageInput => ({
   basePower: 100,
   attack: bodyAttack,
@@ -117,14 +121,14 @@ describe('calculateDamage', () => {
   });
 
   it('tamamen savunulursa hasar 0', () => {
-    const r = calculateDamage(base({ defense: draw(line(80, 170, 176, 170, 1500)).density }));
+    const r = calculateDamage(base({ defense: draw(line(BX - 40, BY, BX + 40, BY, 1500)).density }));
     expect(r.defendedRatio).toBeGreaterThan(0.98);
     expect(r.finalDamage).toBeLessThanOrEqual(2);
   });
 
   it('savunma hasarı savunulan oranla orantılı azaltır', () => {
     const undefended = calculateDamage(base()).afterArmor;
-    const half = calculateDamage(base({ defense: draw(line(60, 170, 118, 170, 1500)).density }));
+    const half = calculateDamage(base({ defense: draw(line(BX - 60, BY, BX - 10, BY, 1500)).density }));
     expect(half.defendedRatio).toBeGreaterThan(0.4);
     expect(half.defendedRatio).toBeLessThan(0.65);
     expect(half.afterArmor / undefended).toBeCloseTo(1 - half.defendedRatio, 5);
@@ -156,16 +160,16 @@ describe('calculateDamage', () => {
 
   it('silüet yer değiştirince aynı çizim farklı bölgeye düşer', () => {
     const centre = calculateDamage(base({ attack: bodyAttack }));
-    const moved = calculateDamage(base({ attack: bodyAttack, target: { cx: 60, cy: 120, scale: 0.8 } }));
+    const moved = calculateDamage(base({ attack: bodyAttack, target: clampPose({ cx: 999, cy: 128, pose: 0 }) }));
     expect(centre.zoneShares.body).toBeGreaterThan(0.95);
     expect(moved.zoneShares.body).toBe(0);
     expect(moved.finalDamage).toBeLessThan(centre.finalDamage * 0.25);
   });
 
   it('başı savunulup gövdesi açıkta kalan saldırı gövde hasarı verir (baş çarpanı yok)', () => {
-    const both = draw(line(116, 89, 140, 89, 1250), line(116, 170, 140, 170, 1250));
+    const both = draw(line(HX - 12, HY, HX + 12, HY, 1250), line(BX - 12, BY, BX + 12, BY, 1250));
     const noDefense = calculateDamage(base({ attack: both }));
-    const headCovered = calculateDamage(base({ attack: both, defense: draw(line(96, 89, 160, 89, 1500)).density }));
+    const headCovered = calculateDamage(base({ attack: both, defense: draw(line(HX - 32, HY, HX + 32, HY, 1500)).density }));
     expect(noDefense.headShare).toBeGreaterThan(0.4);
     expect(headCovered.headShare).toBeLessThan(0.1);
     expect(headCovered.weightedUnblockedRatio).toBeLessThan(noDefense.weightedUnblockedRatio);
