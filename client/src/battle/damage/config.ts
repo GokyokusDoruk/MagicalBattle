@@ -1,9 +1,19 @@
 /** Hasar hesabı ayarları. Denge için ayarlanabilir; testler kuralın davranışını doğrular. */
 
-/** Tuvalin üstten bu kadarlık kısmı rakibin başıdır (0-1). Savunulmayan büyü buraya düşerse daha çok hasar verir. */
-export const HEAD_ZONE_FRACTION = 0.3;
-/** Savunulmayan büyü başa denk gelirse o kısmın çarpanı (+%50) */
-export const HEADSHOT_MULTIPLIER = 1.5;
+/**
+ * Faz 3: baş bölgesi artık tuvalin üst şeridi değil, **rakip silüetinin başıdır** (`target.ts`). Çarpan ×1.5 → ×1.25.
+ * Silüete göre bölge çarpanları: baş ×1.25, gövde ×1, sıyırma ×0.2, ıska ×0.1.
+ */
+export { HEAD_MULTIPLIER as HEADSHOT_MULTIPLIER } from './target';
+
+/**
+ * Faz 3: şeklin önemi. Çizimin özel büyü şekline benzerliği gücü çarpar: uzaklık `SHAPE_PERFECT` ve altıysa ×1,
+ * `SHAPE_WORST` ve üstüyse ×`SHAPE_FLOOR` (arası doğrusal). Şekil tutarsa (eşik altı) ayrıca ×`SPECIAL_SHAPE_BONUS`.
+ */
+export const SHAPE_PERFECT = 0.07;
+export const SHAPE_WORST = 0.22;
+export const SHAPE_FLOOR = 0.6;
+export const SPECIAL_SHAPE_BONUS = 1.5;
 
 /** Element üstünlüğü: saldıran üstünse hasar artar, savunan üstünse azalır */
 export const ELEMENT_ADVANTAGE = 1.25;
@@ -16,8 +26,12 @@ export const ARMOR_CAP = 0.75;
 export const CRIT_CAP = 0.75;
 export const CRIT_MULTIPLIER = 1.5;
 
-/** Tam güç için gereken kaplanan alan oranı (tuvale göre). Daha büyük çizim fazladan güç vermez. */
-export const FULL_POWER_COVERAGE = 0.145;
+/**
+ * Tam güç için gereken kaplanan alan oranı (tuvale göre). Daha büyük çizim fazladan güç vermez.
+ * Faz 3: 0.145 → 0.075. Rakip silüeti tuvalin bir kısmıdır; gövdeyi dolduran bir şekil (yarıçap ~50) neredeyse tam güç alır,
+ * daha küçük çizim sert düşer (yarıçap 40: ~%64, 30: ~%43). Silüetin dışına taşan kısım ise sıyırma/ıska olur.
+ */
+export const FULL_POWER_COVERAGE = 0.075;
 /** Küçük büyü doğrusaldan daha sert düşer: güç = (alan / tam alan) ^ bu üs (1 = doğrusal) */
 export const SIZE_EXPONENT = 1.3;
 /** Tuvalin aşırı kaplanması (karalayarak doldurma) hafif güç keser: tam alanın bu katından sonra güç düşmeye başlar... */
@@ -34,6 +48,6 @@ export const DEFENSE_STRENGTH_FLOOR = 0.45;
 export const WEIGHT_CAP_MULTIPLE = 3;
 /**
  * Çizime ayrılan sürenin ne kadarı kullanılırsa tam güç alınır. Aceleyle çizilen büyü, en kötü
- * bu orana kadar zayıflar (0.4 = aceleyle çizilen büyü %40 güçte kalır).
+ * bu orana kadar zayıflar. Faz 3: süre önemini yitirdi ("çok değil doğru çiz"): 0.4 → 0.75 (en kötü %75 güç).
  */
-export const MIN_EFFORT_FACTOR = 0.4;
+export const MIN_EFFORT_FACTOR = 0.75;

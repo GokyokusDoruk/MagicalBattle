@@ -9,9 +9,11 @@ import { attackDegrade, defenseDegrade, degradeDrawing } from './degrade';
 import type { Action, BattleEngine, BurnEvent, Winner } from './engine';
 import { matchShapeWithin } from '../gesture/shapeMatch';
 import { SHAPE_NAMES, type ShapeName } from './shapes';
+import { targetPoseFor, type TargetPose } from '../damage/target';
 
 /** Özel büyü şekli doğru çizilirse verilen hasar çarpanı */
-export const SPECIAL_SHAPE_BONUS = 1.25;
+/** Özel şekil tutunca güç çarpanı (Faz 3: ×1.25 → ×1.5, artık gerçekten gücü çarpar: `damage/config.ts`) */
+export { SPECIAL_SHAPE_BONUS } from '../damage/config';
 
 /**
  * Bir turun özel büyü şekli: döngü, saldıranın takımı ve sırasına göre belirlenir (zar atılmaz; tohumlu testler bozulmaz). Her döngüde
@@ -52,6 +54,8 @@ export interface TurnReport {
   shieldBroken?: boolean;
   /** Bu turun özel büyü şekli ve çizimin uyup uymadığı (başarılıysa hasar ×1.25) */
   specialShape?: ShapeName;
+  /** Faz 3: bu saldırıda rakibin silüet duruşu */
+  target?: TargetPose;
   specialOk?: boolean;
   /** Çizimin şablona uzaklığı (küçük = benzer; eşik `MATCH_THRESHOLD`) */
   specialDistance?: number;
@@ -77,8 +81,10 @@ export interface TurnReport {
 
 /** Saldırı çizerken savunanın pasiflerinden gelen ekran engelleri (Yanık İzi) */
 export interface DrawExtras {
-  /** Bu turun özel büyü şekli (saldırı çizerken): doğru çizilirse hasar ×1.25. Önizlemede yalnızca şekil gösterilir, nereye çizileceği değil. */
+  /** Bu turun özel büyü şekli (saldırı çizerken): şekle ne kadar benzerse o kadar güçlü, tutarsa ×1.5. Önizlemede yalnızca şekil gösterilir. */
   specialShape?: ShapeName;
+  /** Faz 3: bu turda hedef alınan büyücünün (saldırıda rakibin, savunmada kendinin) silüet duruşu; tuvalde silüet olarak görünür */
+  target?: TargetPose;
   /** Çizim ekranında beliren yara izi sayısı */
   scars?: number;
   /** Çizim ekranının sarsıntı şiddeti (Sarsıntılı Rüzgâr, 1-3) */
@@ -215,7 +221,9 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const scars = defender.passives.scars;
     const shake = defender.passives.shake;
     const specialShape = specialShapeFor(engine.cycle, action.attacker);
-    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
+    // Faz 3: rakibin bu saldırıdaki duruşu (silüet): saldıran ona nişan alır, savunan kendi silüetini korur
+    const target = targetPoseFor(engine.cycle, action.attacker);
+    let attack = await io.draw(action.attacker, 'attack', undefined, Math.max(1, attackSec - attackChill), { specialShape, target, ...(scars > 0 || shake > 0 ? { scars, shake } : {}) });
     // Yara izi ve sarsıntı botun saldırı çizimini bozar (insanda yalnızca görüş engelidir): büyü kayar, titrer, boşluklar kalır
     if (attacker.control === 'bot') attack = degradeDrawing(attack, attackDegrade({ scars, shake }), random);
     if (attackChill > 0 && attacker.control === 'bot' && attack.validity.valid) {
@@ -236,6 +244,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
           attack,
           defense: null,
           specialShape,
+          target,
           specialOk: false,
           attackFailed: true,
           defenseFailed: false,
@@ -254,7 +263,10 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       continue;
     }
 
-    let defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), attacker.passives.fog > 0 || attacker.passives.mud > 0 ? { fog: attacker.passives.fog, mud: attacker.passives.mud } : undefined);
+    let defense = await io.draw(action.defender, 'defense', showGhost ? attack.strokes : undefined, Math.max(1, defenseSec - defenseChill), {
+      target,
+      ...(attacker.passives.fog > 0 || attacker.passives.mud > 0 ? { fog: attacker.passives.fog, mud: attacker.passives.mud } : {}),
+    });
     // Sis ve çamur botun savunma çizimini bozar: kalkan yanlış yeri kapatır
     if (defender.control === 'bot') defense = degradeDrawing(defense, defenseDegrade(attacker.passives), random);
     const defenseFailed = !defense.validity.valid;
@@ -269,7 +281,6 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
     const bypass = 1 - (1 - attackFx.scatter) * (1 - (shieldBroken ? SHIELD_BREAK_STRENGTH : 0));
     const special = matchShapeWithin(attack.strokes, specialShape);
     const parts: { label: string; value: number }[] = [
-      { label: 'Özel büyü şekli', value: special.ok ? SPECIAL_SHAPE_BONUS : 1 },
       { label: 'Ekipman çarpanı', value: attacker.dealtMultiplier },
       { label: 'Kuşanılan eşyalar (kendi elementinden bonus)', value: 1 + attackGear.damageBonus },
       { label: 'Saldırı yetenekleri', value: attackFx.dealtMultiplier },
@@ -287,6 +298,8 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
       defenderElement,
       critical,
       defenseBypass: bypass,
+      target,
+      shapeDistance: special.distance,
       attackerDealtMultiplier: attacker.dealtMultiplier * attackFx.dealtMultiplier * (1 + attackGear.damageBonus) * (1 + chainStacks * attackFx.chainBonus),
       defenderTakenMultiplier: defender.takenMultiplier * defenseFx.takenMultiplier * defenseWand.takenMultiplier,
       defenderArmor: defenseGear.armor + defender.armorBonus,
@@ -354,6 +367,7 @@ export async function runBattle(engine: BattleEngine, io: BattleIO, options: Run
         armorGained,
         mudded: attacker.passives.mud,
         specialShape,
+        target,
         specialOk: special.ok,
         specialDistance: special.distance,
         rebounded,

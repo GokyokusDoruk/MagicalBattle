@@ -111,11 +111,25 @@ describe('Bot', () => {
     expect(a.strokes).toEqual(b.strokes);
   });
 
-  it('beceri yalnızca şeklin büyüklüğünü biraz etkiler, saldırıyı kapatmayı sağlamaz', () => {
+  it('beceri, kendi silüetini isabetli korumayı sağlar ama saldırıyı görmeden tamamen kapatamaz (Faz 3)', () => {
     const good = meanDefended(1, 21);
     const bad = meanDefended(0, 21);
     expect(good).toBeLessThan(0.9);
-    expect(Math.abs(good - bad)).toBeLessThan(0.2);
+    expect(good).toBeGreaterThan(bad);
+  });
+
+  it('saldırı rakibin silüetine nişan alır: silüet nerede ise çizim oraya gider (Faz 3)', () => {
+    const left = { cx: 70, cy: 120, scale: 0.78 };
+    const right = { cx: 186, cy: 150, scale: 0.75 };
+    const centre = (r: { strokes: { x: number }[][] }): number => {
+      const xs = r.strokes.flat().map((p) => p.x);
+      return xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+    };
+    const bot = new Bot(mulberry32(9), 0.8);
+    for (let i = 0; i < 10; i++) {
+      expect(centre(bot.drawAttack(undefined, left))).toBeLessThan(110);
+      expect(centre(bot.drawAttack(undefined, right))).toBeGreaterThan(146);
+    }
   });
 
   it('savunma geçerli, rastgele bir şekildir', () => {

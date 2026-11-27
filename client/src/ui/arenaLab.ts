@@ -1,4 +1,5 @@
 import { getSoundEngine } from '../audio/sfx/engine';
+import { DEFAULT_POSE } from '../battle/damage/target';
 import { createArenaSounds } from '../audio/sfx/arenaSounds';
 import { ArenaView, type CombatantSpec } from '../battle/arena/arenaView';
 import { ELEMENT_COLORS } from '../battle/arena/palette';
@@ -185,7 +186,7 @@ export function startArenaLab(root: HTMLElement): void {
     modal.appendChild(title);
 
     title.textContent = '1. Saldırı: büyünü çiz';
-    const atkCanvas = new DrawingCanvas({ color: `#${ELEMENT_COLORS[playerElement].main.toString(16).padStart(6, '0')}`, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(playerElement) });
+    const atkCanvas = new DrawingCanvas({ color: `#${ELEMENT_COLORS[playerElement].main.toString(16).padStart(6, '0')}`, target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(playerElement) });
     modal.appendChild(atkCanvas.element);
     const atk = await atkCanvas.start();
     modal.remove();
@@ -201,7 +202,7 @@ export function startArenaLab(root: HTMLElement): void {
     title2.className = 'text-lg font-bold text-emerald-200';
     title2.textContent = '2. Savunma: rakibin saldırısını durdur';
     modal2.appendChild(title2);
-    const defCanvas = new DrawingCanvas({ color: '#7df0c4', ghost: atk.strokes, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(opponentElement) });
+    const defCanvas = new DrawingCanvas({ color: '#7df0c4', ghost: atk.strokes, target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(opponentElement) });
     modal2.appendChild(defCanvas.element);
     const def = await defCanvas.start();
     modal2.remove();

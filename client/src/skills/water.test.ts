@@ -101,7 +101,7 @@ describe('su yetenekleri', () => {
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1, { defenderDraws: true });
     const fogged = await play(duel({ passives: owner.passives }), 1, { defenderDraws: true, defenseExtras: extras });
-    expect(extras).toEqual([{ fog: 3, mud: 0 }]);
+    expect(extras).toMatchObject([{ fog: 3, mud: 0 }]);
     expect(fogged[0].defense!.strokes).not.toEqual(plain[0].defense!.strokes); // sisli bot savunmasını yanlış çizdi
     expect(fogged[0].damage).toBeGreaterThan(plain[0].damage);
     const human = await play(duel({ passives: owner.passives }, { control: 'human' }), 1, { defenderDraws: true });

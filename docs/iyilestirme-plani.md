@@ -1,6 +1,6 @@
 # MagicalBattle iyileştirme planı (7 faz, her faz ayrı PR)
 
-Durum: **onaylandı.** Faz 1 ve Faz 2 bitti, sıradaki Faz 3.
+Durum: **onaylandı.** Faz 1, 2 ve 3 bitti, sıradaki Faz 4.
 Her faz `claude/vibrant-cori-xcmkk6` dalından açılan ayrı bir PR'dır; canlıda (magicalbattle.dorukplays.com) tek tek test edilir.
 Modeller: yalnızca CC0 (lisanssız) kaynaklar (Quaternius, Poly Haven, OpenGameArt CC0, ambientCG, Kenney). Her modelin kaynağı `docs/varliklar.md`'de listelenir.
 
@@ -119,3 +119,11 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
   Seviye kayda yazılır (`difficulty`, eski kayıtlar Normal). Sunucu güncellenene kadar seviye ayrıca bu tarayıcıda (`localStorage`) hatırlanır.
 - **Kara ↔ Ak ibresi:** durum panelinde, bonuslar ibreyle doğrusal (bkz. [diyalog-ve-ahlak.md](diyalog-ve-ahlak.md)). Faz 7'de büyücü portresinin altına taşınacak.
 - Boss dengesi Normal seviyeye göre aynen kaldı (denge testleri Normal'i ölçer).
+
+## Faz 3 notları (yapıldı)
+
+- **Rakip silüeti** çizim tuvalinde (saldırıda rakip kırmızımsı, savunmada kendi silüetin mavimsi). Her saldırıda farklı duruş; yazı yok.
+- **Hasar formülü v2**: şekil isabeti (×0,6-1), özel şekil ×1,5 (artık gerçekten uygulanıyor), baş ×1,25, sıyırma ×0,2, ıska ×0,1,
+  süre etkisi azaldı, karalama cezası arttı, dağılım cezası kalktı. Ayrıntı ve örnekler: [hasar-hesabi.md](hasar-hesabi.md).
+- Botlar silüete nişan alır ve kendi silüetini korur; denge testleri geçer (1. bölüm bossu 250 → 300 can).
+- Çizim ekranındaki açıklama: "Rakibin silüetine çiz..." / "Silüetini koru...".

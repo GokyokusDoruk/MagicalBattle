@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ARMOR_CAP, CRIT_CAP } from '../battle/damage/config';
 import { ELEMENTS } from '../battle/damage/elements';
-import { runBattle, type BattleIO } from '../battle/flow/controller';
+import { runBattle, type BattleIO , type TurnReport } from '../battle/flow/controller';
 import { BattleEngine } from '../battle/flow/engine';
 import { buildShape } from '../battle/flow/shapes';
 import { analyzeStrokes } from '../battle/gesture/analyze';
@@ -253,6 +253,7 @@ describe('savaşa bağlantı', () => {
     const stop = new AbortController();
     let damage = 0;
     let critical = false;
+    let breakdown: TurnReport['breakdown'] = null;
     const io: BattleIO = {
       announceTurn: async () => {},
       chooseElement: async () => element,
@@ -264,12 +265,13 @@ describe('savaşa bağlantı', () => {
       play: async (r) => {
         damage = r.damage;
         critical = r.critical;
+        breakdown = r.breakdown;
         stop.abort();
       },
       announceEnd: async () => {},
     };
     await runBattle(engine, io, { signal: stop.signal, random });
-    return { damage, draws, critical };
+    return { damage, draws, critical, breakdown: breakdown as TurnReport['breakdown'] };
   }
   const duel = (b: object = {}, a: object = {}) =>
     new BattleEngine([{ name: 'A', team: 0, control: 'bot', ...a }, { name: 'B', team: 1, control: 'bot', ...b }]);
@@ -312,7 +314,8 @@ describe('savaşa bağlantı', () => {
     const hit = await run(duel({}, { gear: p.gearResolver }), 'fire', () => 0);
     expect(miss.critical).toBe(false);
     expect(hit.critical).toBe(true);
-    expect(hit.damage / miss.damage).toBeCloseTo(1.5, 1);
+    // Faz 3: hasarlar küçüldüğü için yuvarlama payı büyür; çarpan yuvarlamadan önceki değerle ölçülür
+    expect(hit.breakdown!.afterCrit / miss.breakdown!.afterCrit).toBeCloseTo(1.5, 5);
     // Ekipmansız savaşçı asla kritik vurmaz
     expect((await run(duel(), 'fire', () => 0)).critical).toBe(false);
   });

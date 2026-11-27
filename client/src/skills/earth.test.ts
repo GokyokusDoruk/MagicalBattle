@@ -120,7 +120,7 @@ describe('toprak yetenekleri', () => {
     const extras: DrawExtras[] = [];
     const plain = await play(duel(), 1, { defenderDraws: true });
     const muddy = await play(duel({ passives: owner.passives }), 1, { defenderDraws: true, defenseExtras: extras });
-    expect(extras).toEqual([{ fog: 0, mud: 3 }]);
+    expect(extras).toMatchObject([{ fog: 0, mud: 3 }]);
     expect(muddy[0].defense!.strokes).not.toEqual(plain[0].defense!.strokes);
     expect(muddy[0].damage).toBeGreaterThan(plain[0].damage);
     expect(muddy[0].mudded).toBe(3);

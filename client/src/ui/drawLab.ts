@@ -1,4 +1,5 @@
 import { GRID, LOGICAL_SIZE, MIN_EXTENT, MIN_INKED_CELLS } from '../battle/gesture/config';
+import { DEFAULT_POSE } from '../battle/damage/target';
 import { calculateDamage, type DamageBreakdown } from '../battle/damage/calculate';
 import { ELEMENT_NAMES, ELEMENTS as ELEMENT_IDS, type Element } from '../battle/damage/elements';
 import type { DensityMap, DrawingResult } from '../battle/gesture/types';
@@ -165,7 +166,7 @@ export function startDrawLab(root: HTMLElement): void {
 
   const runDuel = async (stage: HTMLElement): Promise<void> => {
     stage.insertAdjacentHTML('beforeend', '<h2 class="font-bold text-amber-200">1. Saldırı: büyünü çiz</h2>');
-    const attackCanvas = new DrawingCanvas({ color, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
+    const attackCanvas = new DrawingCanvas({ color, target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
     stage.appendChild(attackCanvas.element);
     const attack = await attackCanvas.start();
 
@@ -176,7 +177,7 @@ export function startDrawLab(root: HTMLElement): void {
 
     attackCanvas.element.style.display = 'none';
     stage.insertAdjacentHTML('beforeend', '<h2 class="font-bold text-emerald-200">2. Savunma: saldırıyı durdur</h2>');
-    const defenseCanvas = new DrawingCanvas({ color: DEFENSE_COLOR, ghost: showGhost ? attack.strokes : undefined, showHeadZone: true, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
+    const defenseCanvas = new DrawingCanvas({ color: DEFENSE_COLOR, ghost: showGhost ? attack.strokes : undefined, target: DEFAULT_POSE, drawSound: () => getSoundEngine().beginDraw(elementOf(color)) });
     stage.appendChild(defenseCanvas.element);
     const defense = await defenseCanvas.start();
 

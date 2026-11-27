@@ -1,5 +1,5 @@
 import { BRUSH_RADIUS, DWELL_SAMPLE_MS, LOGICAL_SIZE } from '../battle/gesture/config';
-import { HEAD_ZONE_FRACTION } from '../battle/damage/config';
+import { silhouetteShape, type TargetPose } from '../battle/damage/target';
 import { DrawingSession, type SessionOptions } from '../battle/gesture/session';
 import type { DrawingResult, Stroke } from '../battle/gesture/types';
 import type { DrawLoop } from '../audio/sfx/engine';
@@ -9,8 +9,13 @@ export interface DrawingCanvasOptions extends SessionOptions {
   color: string;
   /** Soluk "hayalet" olarak gösterilecek çizgiler (savunan, gelen saldırıyı görür) */
   ghost?: readonly Stroke[];
-  /** Rakibin baş bölgesini (üstte, ×1.5 hasar) kesikli çizgiyle göster */
-  showHeadZone?: boolean;
+  /**
+   * Faz 3: tuvalde gösterilecek büyücü silüeti (saldırıda rakip, savunmada kendin). Silüete düşen büyü tam vurur, başa düşen daha çok;
+   * dışına giden çok az. Silüette yazı yoktur (başın nerede olduğu yazılmaz, yalnızca görülür).
+   */
+  target?: TargetPose;
+  /** Silüetin tonu: rakip (kırmızımsı) ya da kendi silüetin (mavimsi). Varsayılan rakip. */
+  targetTone?: 'enemy' | 'self';
   /** Her çizgi başlarken çağrılır; kalem hızına göre sürekli ses verir (ör. `engine.beginDraw`) */
   drawSound?: () => DrawLoop;
   /** Yanık İzi: ekranda beliren yara izi sayısı (görüşü örter, çizimi engellemez). */
@@ -255,24 +260,33 @@ export class DrawingCanvas {
     ctx.shadowBlur = 0;
   }
 
-  /** Üstteki baş bölgesinin sınırı: savunulmayan büyü buraya düşerse daha çok hasar verir. */
-  private drawHeadZone(scale: number): void {
-    const { ctx, canvas } = this;
-    const y = HEAD_ZONE_FRACTION * LOGICAL_SIZE * scale;
+  /** Büyücü silüeti: koyu, yarı saydam gövde, baş ve şapka; ince parlak kenar. Yazı yok. */
+  private drawSilhouette(target: TargetPose, scale: number): void {
+    const { ctx } = this;
+    const shape = silhouetteShape(target);
+    const self = this.options.targetTone === 'self';
+    const fill = self ? 'rgba(56,189,248,0.16)' : 'rgba(248,113,113,0.16)';
+    const edge = self ? 'rgba(125,211,252,0.55)' : 'rgba(252,165,165,0.55)';
+    const poly = (pts: readonly [number, number][]): void => {
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x * scale, y * scale) : ctx.lineTo(x * scale, y * scale)));
+      ctx.closePath();
+    };
     ctx.save();
-    ctx.fillStyle = 'rgba(248,113,113,0.07)';
-    ctx.fillRect(0, 0, canvas.width, y);
-    ctx.setLineDash([8 * scale, 6 * scale]);
-    ctx.strokeStyle = 'rgba(248,113,113,0.55)';
-    ctx.lineWidth = Math.max(1, scale);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = Math.max(1, 1.5 * scale);
+    ctx.lineJoin = 'round';
+    poly(shape.body);
+    ctx.fill();
     ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(248,113,113,0.8)';
-    ctx.font = `${Math.round(11 * scale)}px system-ui, sans-serif`;
-    ctx.fillText('BAŞ  ×1.5', 6 * scale, y - 5 * scale);
+    ctx.beginPath();
+    ctx.arc(shape.head.x * scale, shape.head.y * scale, shape.head.r * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    poly(shape.hat);
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -348,7 +362,7 @@ export class DrawingCanvas {
 
     // Faz 1: ortadaki kılavuz artı kaldırıldı (tuvalin ortasında nokta gibi görünüyordu)
 
-    if (this.options.showHeadZone) this.drawHeadZone(scale);
+    if (this.options.target) this.drawSilhouette(this.options.target, scale);
     if (this.options.ghost) this.drawStrokes(this.options.ghost, 'rgba(255,255,255,0.22)', scale, false);
     this.drawStrokes(this.session.liveStrokes, this.options.color, scale, true);
     // Görüşü engelleyenler çizginin ÜSTÜNE çizilir: yara izi, çamur ve sis çizilenin bir kısmını örter ama çizimi bozmaz

@@ -1,5 +1,6 @@
-import { CELL, DRAW_TIME_MS, GRID } from '../gesture/config';
+import { DRAW_TIME_MS } from '../gesture/config';
 import type { DensityMap, SpellMetrics } from '../gesture/types';
+import { MATCH_THRESHOLD as SHAPE_MATCH_THRESHOLD } from '../gesture/shapeMatch';
 import { matchDefense } from '../match/defense';
 import {
   ARMOR_CAP,
@@ -8,14 +9,17 @@ import {
   DEFENSE_OVERFILL_START,
   DEFENSE_STRENGTH_FLOOR,
   FULL_POWER_COVERAGE,
-  HEAD_ZONE_FRACTION,
-  HEADSHOT_MULTIPLIER,
   MIN_EFFORT_FACTOR,
   OVERFILL_FLOOR,
   OVERFILL_START,
+  SHAPE_FLOOR,
+  SHAPE_PERFECT,
+  SHAPE_WORST,
   SIZE_EXPONENT,
+  SPECIAL_SHAPE_BONUS,
   WEIGHT_CAP_MULTIPLE,
 } from './config';
+import { DEFAULT_POSE, ZONE, zoneMap, zoneMultiplier, type TargetPose, type Zone } from './target';
 import { elementMultiplier, elementRelation, type Element, type ElementRelation } from './elements';
 
 export interface DamageInput {
@@ -51,6 +55,10 @@ export interface DamageInput {
   multiplierParts?: readonly MultiplierPart[];
   /** Ateş yetenekleri (Kıvılcım Saçması, kırılan kalkan): savunmanın tuttuğu kısmın bu oranı yok sayılır (0-1) */
   defenseBypass?: number;
+  /** Faz 3: rakibin bu turdaki silüet duruşu; verilmezse tuvalin ortasında (DEFAULT_POSE) */
+  target?: TargetPose;
+  /** Faz 3: çizimin özel büyü şekline uzaklığı (shapeMatch); verilmezse şekil hesaba girmez (×1, bonus yok) */
+  shapeDistance?: number;
 }
 
 /** Hasar çarpanının bir kaynağı ("Kuşanılan eşya (element bonusu)" ×1.12) */
@@ -67,8 +75,8 @@ export interface DamageBreakdown {
   defenseStrength: number;
   /** Detay ekranı için çarpan kaynakları (verilmediyse boş) */
   multiplierParts: readonly MultiplierPart[];
-  /** 1) Çizim gücü */
-  powerFactor: { size: number; effort: number; total: number };
+  /** 1) Çizim gücü: büyüklük × süre × şekil isabeti × özel şekil bonusu */
+  powerFactor: { size: number; effort: number; shape: number; special: number; total: number };
   power: number;
   /** 2) Savunma (`defenseBypass` uygulanmış etkin oran) */
   defendedRatio: number;
@@ -76,8 +84,10 @@ export interface DamageBreakdown {
   defenseBypass: number;
   /** Savunulmayan kısım (ağırlıkça, bölge çarpanı uygulanmadan), 0-1 */
   unblockedRatio: number;
-  /** 3) Bölge: savunulmayan kısmın ne kadarı başa düştü (0-1) ve bölge çarpanıyla birlikte oran */
+  /** 3) Bölge (silüet): savunulmayan kısmın ne kadarı başa düştü (0-1) ve bölge çarpanıyla birlikte oran */
   headShare: number;
+  /** Savunulmayan kısmın bölgelere dağılımı (toplam 1): baş, gövde, sıyırma, ıska */
+  zoneShares: { head: number; body: number; graze: number; miss: number };
   weightedUnblockedRatio: number;
   afterRegion: number;
   /** 4) Element */
@@ -120,7 +130,7 @@ export function defenseOverfill(inkCells: number, size: number): number {
   return 1 - (1 - DEFENSE_STRENGTH_FLOOR) * t;
 }
 
-/** Çizimin gücü: büyüklük ve çizime harcanan süre. Küçük ya da aceleyle çizilen büyü zayıf kalır. */
+/** Çizimin gücü: büyüklük ve çizime harcanan süre. Küçük ya da aceleyle çizilen büyü zayıf kalır (şekil ayrıca `shapeFactor`). */
 export function powerFactor(metrics: SpellMetrics, effortBonus = 0, limitSec = DRAW_TIME_MS / 1000): { size: number; effort: number; total: number } {
   const size = sizeFactor(metrics.coverage);
   const timeUsed = clamp01(metrics.drawTimeSec / (limitSec > 0 ? limitSec : DRAW_TIME_MS / 1000));
@@ -129,22 +139,30 @@ export function powerFactor(metrics: SpellMetrics, effortBonus = 0, limitSec = D
   return { size, effort, total: size * effort };
 }
 
-/** Hücre satırının tuvalde rakibin başına denk gelip gelmediği. */
-function isHeadRow(row: number): boolean {
-  return (row + 0.5) * CELL < HEAD_ZONE_FRACTION * (GRID * CELL);
+/**
+ * Faz 3: şekil isabeti. Özel büyü şekline uzaklık ne kadar azsa güç o kadar tam: `SHAPE_PERFECT` ve altı ×1, `SHAPE_WORST` ve üstü
+ * ×`SHAPE_FLOOR`. Şekil tuttuysa (`matched`) ayrıca ×`SPECIAL_SHAPE_BONUS`. Uzaklık verilmezse ikisi de 1.
+ */
+export function shapeFactor(distance: number | undefined, matched: boolean): { shape: number; special: number } {
+  if (distance === undefined) return { shape: 1, special: 1 };
+  if (!Number.isFinite(distance)) return { shape: SHAPE_FLOOR, special: 1 };
+  const t = clamp01((distance - SHAPE_PERFECT) / (SHAPE_WORST - SHAPE_PERFECT));
+  return { shape: 1 - (1 - SHAPE_FLOOR) * t, special: matched ? SPECIAL_SHAPE_BONUS : 1 };
 }
 
 /**
  * Hasar hesabı, adım adım:
- * 1. Çizim gücü: taban güç × (büyüklük ve süre ağırlığı)
+ * 1. Çizim gücü: taban güç × büyüklük × süre × şekil isabeti (× özel şekil bonusu) × karalama kalitesi
  * 2. Savunma: saldırının savunulmayan kısmı
- * 3. Bölge: savunulmayan kısım rakibin başına düştüyse ×1.5
+ * 3. Bölge (rakip silüeti): baş ×1.25, gövde ×1, sıyırma ×0.2, ıska ×0.1
  * 4. Element: üstünlük ×1.5 / dezavantaj ×0.5
  * 5. Skill ve ekipman: verilen ve alınan hasar çarpanları (bölgesel değil, genel); sonra kritik vuruş ×1.5
  * 6. Zırh: oyuncunun toplam zırhı tek bir azaltma yüzdesi (baş/gövde ayrımı yok)
  */
 export function calculateDamage(input: DamageInput): DamageBreakdown {
-  const factor = powerFactor(input.attack.metrics, input.attackerEffortBonus, input.attackerDrawTimeSec);
+  const base = powerFactor(input.attack.metrics, input.attackerEffortBonus, input.attackerDrawTimeSec);
+  const sf = shapeFactor(input.shapeDistance, input.shapeDistance !== undefined && input.shapeDistance <= SHAPE_MATCH_THRESHOLD);
+  const factor = { ...base, shape: sf.shape, special: sf.special, total: base.total * sf.shape * sf.special };
   const attackQuality = clamp01(positive(input.attackQuality, 1));
   const powerBeforeQuality = Math.max(0, input.basePower) * factor.total;
   const power = powerBeforeQuality * attackQuality;
@@ -160,18 +178,19 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
   const total = match.totalAttackWeight;
 
   const bypass = clamp01(positive(input.defenseBypass, 0));
-  let unblockedHead = 0;
-  let unblockedBody = 0;
+  const zones = zoneMap(input.target ?? DEFAULT_POSE);
+  const byZone = [0, 0, 0, 0];
   for (let k = 0; k < match.unblocked.length; k++) {
     // Saçılan ya da kalkanı kırılan büyünün, savunmanın tuttuğu kısmının bir bölümü yine de geçer
-    const open = match.unblocked[k] + bypass * match.blocked[k];
-    if (isHeadRow(Math.floor(k / GRID))) unblockedHead += open;
-    else unblockedBody += open;
+    byZone[zones[k]] += match.unblocked[k] + bypass * match.blocked[k];
   }
-  const unblockedTotal = unblockedHead + unblockedBody;
+  const unblockedTotal = byZone[0] + byZone[1] + byZone[2] + byZone[3];
   const unblockedRatio = total > 0 ? unblockedTotal / total : 0;
-  const headShare = unblockedTotal > 0 ? unblockedHead / unblockedTotal : 0;
-  const weightedUnblockedRatio = total > 0 ? (unblockedHead * (HEADSHOT_MULTIPLIER + positive(input.attackerHeadBonus, 0)) + unblockedBody) / total : 0;
+  const share = (z: Zone): number => (unblockedTotal > 0 ? byZone[z] / unblockedTotal : 0);
+  const headShare = share(ZONE.head);
+  const headBonus = positive(input.attackerHeadBonus, 0);
+  const weighted = byZone.reduce((sum, w, z) => sum + w * zoneMultiplier(z as Zone, headBonus), 0);
+  const weightedUnblockedRatio = total > 0 ? weighted / total : 0;
   const afterRegion = power * weightedUnblockedRatio;
 
   const relation = elementRelation(input.attackerElement, input.defenderElement);
@@ -199,6 +218,7 @@ export function calculateDamage(input: DamageInput): DamageBreakdown {
     defenseBypass: bypass,
     unblockedRatio,
     headShare,
+    zoneShares: { head: headShare, body: share(ZONE.body), graze: share(ZONE.graze), miss: share(ZONE.far) },
     weightedUnblockedRatio,
     afterRegion,
     elementRelation: relation,
