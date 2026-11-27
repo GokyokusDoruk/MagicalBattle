@@ -12,7 +12,7 @@ Haritada **5 tehlikeli bölge** vardır: Kızıl Vadi, Kemik Ovası, Kara Çukur
 
 - Bölge başına **8-10 düşman** (toplam 47); alan başına yoğunluk normal haritanın yaklaşık **8 katıdır**.
 - Hepsi yerin kademesinden daha güçlüdür: **kademe en az 3**, bölgeler uzakta olduğundan çoğu **kademe 4 (Kadim)**. Elementler dönüşümlü.
-- Bölgedeki düşmanlar **%30 daha zengin ganimet** verir (düşme şansı çarpanı ×1.3). Her zamanki gibi yenilince 4 dakika sonra geri gelirler.
+- Bölgedeki düşmanlar **%30 daha zengin ganimet** verir (düşme şansı çarpanı ×1.3). Her zamanki gibi yenilince 10 dakika sonra geri gelirler.
 
 ## Yerleşim
 

@@ -12,18 +12,29 @@ export interface ExplainRow {
   element?: boolean;
 }
 
-/** Büyünün etkisi, bloklanan orana göre 5 kademe: çok etkisiz, etkisiz, normal, etkili, çok etkili. */
+/** Büyünün etkisi, verilen hasara göre 5 kademe: çok etkisiz, etkisiz, normal, etkili, çok etkili. */
 export type SpellEffect = 'veryWeak' | 'weak' | 'normal' | 'effective' | 'veryEffective';
 
-/** Savunmayı geçen oran bu eşiklerin üstündeyse (üstten alta): çok etkili ≥%90, etkili ≥%70, normal ≥%45, etkisiz ≥%20, aksi çok etkisiz. */
-export const EFFECT_THRESHOLDS = { veryEffective: 0.9, effective: 0.7, normal: 0.45, weak: 0.2 } as const;
+/**
+ * Faz 1: etki **hasara göre** belirlenir. Ölçü, verilen hasarın saldıranın taban gücüne (asa dahil) oranıdır: savunmasız,
+ * tam güçlü bir büyü ~%100, ortalama savunmasız vuruş ~%80 verir. Eşikler (üstten alta): çok etkili ≥%75, etkili ≥%50,
+ * normal ≥%30, etkisiz ≥%12, aksi (hasar yoksa da) çok etkisiz.
+ */
+export const EFFECT_THRESHOLDS = { veryEffective: 0.75, effective: 0.5, normal: 0.3, weak: 0.12 } as const;
 
-/** Savunmanın ne kadarını geçtiğine göre büyünün etkisi. Savunma yapılamadıysa her zaman çok etkili. */
-export function spellEffect(b: Pick<DamageBreakdown, 'unblockedRatio'>, defenseFailed: boolean): SpellEffect {
-  if (defenseFailed || b.unblockedRatio >= EFFECT_THRESHOLDS.veryEffective) return 'veryEffective';
-  if (b.unblockedRatio >= EFFECT_THRESHOLDS.effective) return 'effective';
-  if (b.unblockedRatio >= EFFECT_THRESHOLDS.normal) return 'normal';
-  return b.unblockedRatio >= EFFECT_THRESHOLDS.weak ? 'weak' : 'veryWeak';
+/** Hasarın taban güce oranı (0 ve üstü). Taban güç, çizim gücünden geri hesaplanır. */
+export function damageRatio(b: Pick<DamageBreakdown, 'finalDamage' | 'powerBeforeQuality' | 'powerFactor'>): number {
+  const base = b.powerFactor.total > 0 ? b.powerBeforeQuality / b.powerFactor.total : 0;
+  return base > 0 ? Math.max(0, b.finalDamage) / base : 0;
+}
+
+/** Verilen hasara göre büyünün etkisi. */
+export function spellEffect(b: Pick<DamageBreakdown, 'finalDamage' | 'powerBeforeQuality' | 'powerFactor'>): SpellEffect {
+  const r = damageRatio(b);
+  if (r >= EFFECT_THRESHOLDS.veryEffective) return 'veryEffective';
+  if (r >= EFFECT_THRESHOLDS.effective) return 'effective';
+  if (r >= EFFECT_THRESHOLDS.normal) return 'normal';
+  return r >= EFFECT_THRESHOLDS.weak ? 'weak' : 'veryWeak';
 }
 
 export const EFFECT_LABELS: Record<SpellEffect, string> = {

@@ -7,7 +7,7 @@ const BUTTONS: { dir: keyof Directions; label: string; cell: string }[] = [
   { dir: 'down', label: '▼', cell: 'col-start-2 row-start-3' },
 ];
 
-/** Ekranda klasik 4 yönlü D-Pad. Çoklu dokunuşu destekler (iki yön aynı anda). */
+/** Ekranın orta altında klasik 4 yönlü D-Pad. Çoklu dokunuşu destekler (iki yön aynı anda). */
 export class DPad implements DirectionSource {
   readonly element: HTMLDivElement;
   private state: Directions = { ...NO_DIRECTIONS };
@@ -15,7 +15,7 @@ export class DPad implements DirectionSource {
   constructor() {
     this.element = document.createElement('div');
     this.element.className =
-      'fixed bottom-6 left-6 z-50 grid h-40 w-40 select-none grid-cols-3 grid-rows-3 gap-1 touch-none';
+      'fixed bottom-6 left-1/2 z-50 grid h-40 w-40 -translate-x-1/2 select-none grid-cols-3 grid-rows-3 gap-1 touch-none';
     this.element.hidden = true;
 
     for (const b of BUTTONS) {

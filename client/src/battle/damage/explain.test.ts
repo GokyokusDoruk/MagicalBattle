@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DamageBreakdown } from './calculate';
-import { EFFECT_LABELS, blockedPercent, explainDamage, spellEffect } from './explain';
+import { EFFECT_LABELS, blockedPercent, damageRatio, explainDamage, spellEffect } from './explain';
 
 const base: DamageBreakdown = {
   powerFactor: { size: 1, effort: 1, total: 1 },
@@ -50,14 +50,24 @@ describe('hasar açıklaması', () => {
 });
 
 describe('büyü etkisi', () => {
-  it('bloklanan orana göre 5 kademe: çok etkisiz, etkisiz, normal, etkili, çok etkili', () => {
-    expect(spellEffect({ unblockedRatio: 0.95 }, false)).toBe('veryEffective');
-    expect(spellEffect({ unblockedRatio: 0.75 }, false)).toBe('effective');
-    expect(spellEffect({ unblockedRatio: 0.5 }, false)).toBe('normal');
-    expect(spellEffect({ unblockedRatio: 0.3 }, false)).toBe('weak');
-    expect(spellEffect({ unblockedRatio: 0.1 }, false)).toBe('veryWeak');
+  const hit = (finalDamage: number, basePower = 100) => ({ finalDamage, powerBeforeQuality: basePower * 0.8, powerFactor: { size: 1, effort: 0.8, total: 0.8 } });
+
+  it('verilen hasara göre 5 kademe: çok etkisiz, etkisiz, normal, etkili, çok etkili (Faz 1)', () => {
+    expect(spellEffect(hit(95))).toBe('veryEffective');
+    expect(spellEffect(hit(60))).toBe('effective');
+    expect(spellEffect(hit(40))).toBe('normal');
+    expect(spellEffect(hit(20))).toBe('weak');
+    expect(spellEffect(hit(5))).toBe('veryWeak');
+    expect(spellEffect(hit(0))).toBe('veryWeak');
     expect(EFFECT_LABELS.veryWeak).toBe('ÇOK ETKİSİZ SALDIRI');
+    expect(EFFECT_LABELS.normal).toBe('NORMAL SALDIRI');
     expect(EFFECT_LABELS.veryEffective).toBe('ÇOK ETKİLİ SALDIRI');
+  });
+
+  it('oran saldıranın taban gücüne göredir: güçlü asayla aynı hasar daha az etkilidir', () => {
+    expect(spellEffect(hit(60, 100))).toBe('effective');
+    expect(spellEffect(hit(60, 200))).toBe('normal');
+    expect(damageRatio(hit(50, 200))).toBeCloseTo(0.25);
   });
 
   it('çizim kalitesi ve inceltilmiş savunma ayrı satır olarak görünür', () => {
@@ -67,12 +77,13 @@ describe('büyü etkisi', () => {
     expect(rows[2]).toMatchObject({ factor: '×0.6' });
   });
 
-  it('kademeler eşiklerde değişir ve savunma yapılamadıysa her zaman çok etkilidir', () => {
-    expect(spellEffect({ unblockedRatio: 0.9 }, false)).toBe('veryEffective');
-    expect(spellEffect({ unblockedRatio: 0.7 }, false)).toBe('effective');
-    expect(spellEffect({ unblockedRatio: 0.45 }, false)).toBe('normal');
-    expect(spellEffect({ unblockedRatio: 0.2 }, false)).toBe('weak');
-    expect(spellEffect({ unblockedRatio: 0 }, true)).toBe('veryEffective');
+  it('kademeler eşiklerde değişir', () => {
+    expect(spellEffect(hit(75))).toBe('veryEffective');
+    expect(spellEffect(hit(74))).toBe('effective');
+    expect(spellEffect(hit(50))).toBe('effective');
+    expect(spellEffect(hit(30))).toBe('normal');
+    expect(spellEffect(hit(12))).toBe('weak');
+    expect(spellEffect(hit(11))).toBe('veryWeak');
   });
 
   it('bloklanan yüzdeyi verir; savunma yoksa %0', () => {

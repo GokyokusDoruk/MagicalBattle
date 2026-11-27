@@ -6,7 +6,7 @@ Haritada **32 düşman** durur (tohumla sabit yerler, `enemies/spots.ts`): yür�
 
 - **Kaç:** düşman yerinde kalır. Uzaklaşıp dönmedikçe panel yeniden açılmaz.
 - **Savaş:** boss savaşıyla aynı ekran. Oyuncu mevcut canıyla girer (kalıcı can, bkz. [han-ve-can.md](han-ve-can.md)), kazanınca kalan can yazılır. Yenilince "Tekrar dene" (girişteki canla) ya da "Pes et" (ölüm: [olum-ve-ekonomi.md](olum-ve-ekonomi.md)).
-- **Yenilen düşman 4 dakika** (oyun süresiyle, oturumda) sonra aynı yerde geri gelir.
+- **Yenilen düşman 10 dakika** (oyun süresiyle, oturumda) sonra aynı yerde geri gelir.
 
 | Element | Düşman | Malzeme |
 |---|---|---|

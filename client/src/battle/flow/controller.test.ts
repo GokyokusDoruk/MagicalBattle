@@ -337,7 +337,8 @@ describe('runBattle: tam savaşlar (botlara karşı)', () => {
       expect(log.turns.length).toBeGreaterThan(2);
       expect(log.turns.length).toBeLessThan(120);
     }
-  });
+    // 25 tam savaş (özel şekil araması her saldırıda): ~4 sn sürüyor, varsayılan 5 sn sınırına çok yakın
+  }, 60000);
 
   it('2v2 her tohumda sonlanır; ölenler atlanır, kazanan takımda hayatta biri vardır', async () => {
     for (let seed = 1; seed <= 15; seed++) {
@@ -350,7 +351,8 @@ describe('runBattle: tam savaşlar (botlara karşı)', () => {
         expect(e.team(winner === 0 ? 1 : 0).every((x) => x.hp === 0)).toBe(true);
       }
     }
-  });
+    // 15 tam 2v2 savaşı: her saldırıda özel şekil 50 şablonla aranır; varsayılan 5 sn sınırı yavaş makinede yetmiyordu
+  }, 60000);
 
   it('verilen toplam hasar, kaybedilen toplam cana eşittir', async () => {
     const log = { turns: [] as string[], hits: {} as Record<string, number> };

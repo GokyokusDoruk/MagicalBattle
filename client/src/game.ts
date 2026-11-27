@@ -8,7 +8,7 @@ import { watchTouchDevice } from './input/device';
 import { InputManager } from './input/inputManager';
 import { KeyboardSource } from './input/keyboard';
 import { QuestEngine, type QuestCompletion } from './quests/engine';
-import { normalizeSave, savePointForCity, type SaveData } from './save/saveData';
+import { normalizeSave, savePointForCity, validatePlayerName, type SaveData } from './save/saveData';
 import { SaveManager } from './save/saveManager';
 import { Carry } from './inventory/carry';
 import { applyDrop, dropCandidates } from './inventory/exitDrop';
@@ -92,13 +92,13 @@ const progress = new Progress(gates, quests);
 // --- Hesap ve kayıt -------------------------------------------------------------------------
 const api = new ApiClient(resolveApiUrl(location.hostname, import.meta.env.VITE_API_URL));
 
-/** Açık oturum varsa onu kullanır, yoksa giriş ekranını gösterir. null = kayıtsız oyna. */
-async function authenticate(): Promise<ApiUser | null> {
+/** Açık oturum varsa onu kullanır, yoksa giriş ekranını (büyücü adı + şifre) gösterir. Kayıtsız oyun yoktur. */
+async function authenticate(): Promise<ApiUser> {
   try {
     const existing = await api.me();
     if (existing) return existing;
   } catch {
-    // Sunucuya ulaşılamadı: giriş ekranı kendi hata mesajını gösterir, "Kayıtsız oyna" açık kalır
+    // Sunucuya ulaşılamadı: giriş ekranı kendi hata mesajını gösterir, oyuncu tekrar deneyebilir
   }
   return showAuthScreen(api);
 }
@@ -106,20 +106,19 @@ async function authenticate(): Promise<ApiUser | null> {
 const user = await authenticate();
 
 let save: SaveData | null = null;
-let savingEnabled = user !== null;
+let savingEnabled = true;
 let loadFailed = false;
-if (user) {
-  try {
-    const raw = await api.getSave();
-    save = raw ? normalizeSave(raw) : null;
-  } catch {
-    // Kayıt yüklenemediyse üzerine yazmamak için bu oturumda kaydetme kapatılır
-    savingEnabled = false;
-    loadFailed = true;
-  }
+try {
+  const raw = await api.getSave();
+  save = raw ? normalizeSave(raw) : null;
+} catch {
+  // Kayıt yüklenemediyse üzerine yazmamak için bu oturumda kaydetme kapatılır
+  savingEnabled = false;
+  loadFailed = true;
 }
 
-const playerName = save?.playerName ?? (await askPlayerName(user?.firstName ?? ''));
+// Yeni oyunda büyücünün adı giriş adıdır (ayrıca sorulmaz); kayıt kurallarına uymazsa ad ekranı açılır
+const playerName = save?.playerName ?? (validatePlayerName(user.username) ? await askPlayerName(user.username) : user.username);
 if (save) progress.restore({ completedChapters: save.completedChapters });
 
 // Ekonomi (altın, XP, çanta), yan görevler ve toplanan eşyalar. Yükleme sırası: önce oyuncu, sonra görevler.
@@ -165,8 +164,8 @@ if (!save && savingEnabled) void saves.saveAt(null);
 
 document.body.appendChild(
   createUserBadge(
-    `${playerName}${user ? (user.isGuest ? ' (misafir)' : '') : ' (kayıtsız)'}`,
-    user ? () => void api.logout().finally(() => location.reload()) : null,
+    playerName,
+    () => void api.logout().finally(() => location.reload()),
   ),
 );
 if (loadFailed) toast.show('Kayıt yüklenemedi. Bu oturumda ilerleme kaydedilmeyecek.');
@@ -578,6 +577,8 @@ async function enterMine(id: string): Promise<void> {
       const r = await fightSpot(foes[i], MINE_DROP_BOOST, true);
       if (r !== 'won') return;
     }
+    // 10 dakikalık dinlenme, maden temizlendiği andan itibaren yeniden sayılır (Faz 1)
+    mineBoard.start(id);
     toast.show(`${mine.name} temizlendi! 10 dakika dinlenecek.`);
     handleCompletions(sideQuests.onEvent({ type: 'mineCleared' }));
   } finally {
@@ -788,17 +789,17 @@ void import('./world/bootWorld').then((m) =>
       // Sahne, boss savaşı ve seçimler bitince bölüm tamamlanır: kapı açılır, sonraki görev belirir.
       void playChapter(marker.chapter);
     },
-    // Şehre girmek kayıt noktasıdır: ilerleme sunucuya yazılır
+    // 4 surlu şehre her girişte otomatik kayıt: ilerleme sunucuya yazılır
     onCityEnter: (cityId) => {
       const city = LOCATIONS.find((l) => l.id === cityId);
       if (!city) return;
       void saves.saveAt(savePointForCity(city)).then((result) => {
         if (result === 'saved') {
           setDirty(false);
-          toast.show(`Kayıt noktası: ${city.name}. İlerleme kaydedildi.`);
+          toast.show(`💾 Otomatik kayıt: ${city.name}. İlerlemen kaydedildi.`);
         }
-        else if (result === 'failed') toast.show('Kayıt başarısız oldu. Sonraki kayıt noktasında tekrar denenecek.');
-        else toast.show(`Kayıt noktası: ${city.name} (bu oturumda ilerleme kaydedilmiyor)`);
+        else if (result === 'failed') toast.show('Kayıt yapılamadı (bağlantı?). Bir sonraki şehirde tekrar denenecek.');
+        else toast.show(`${city.name}: kayıt yüklenemediği için bu oturumda kaydedilmiyor. Sayfayı yenileyip tekrar gir.`);
       });
     },
     merchants: merchantSpots(map),

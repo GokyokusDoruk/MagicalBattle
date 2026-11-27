@@ -73,6 +73,44 @@ describe('yumuşak arazi çizici', () => {
   });
 });
 
+describe('karo karo arazi (Faz 1)', () => {
+  it('her karo kendi alanını doldurur: çim karosunun her pikseli yeşil, su karosu mavi kalır (taşma yok)', () => {
+    const rows = Array.from({ length: 3 }, () => [Tile.Water, Tile.Grass, Tile.Water]);
+    const S = 12;
+    const img = renderSmoothTerrain(rows, { pixelsPerTile: S, tileAligned: true });
+    for (let y = 0; y < img.height; y++) {
+      for (let x = 0; x < img.width; x++) {
+        const o = (y * img.width + x) * 4;
+        const [r, g, b] = [img.data[o], img.data[o + 1], img.data[o + 2]];
+        const tile = Math.floor(x / S) === 1 ? 'grass' : 'water';
+        if (tile === 'grass') expect(g).toBeGreaterThan(b);
+        else expect(b + 1).toBeGreaterThan(r); // su (kıyı köpüğü de mavimsi beyazdır)
+      }
+    }
+  });
+
+  it('aynı tür karolar arasında çizgi yoktur: sınırın iki yanındaki pikseller aynı dokudan akar', () => {
+    const rows = [[Tile.Sand, Tile.Sand]];
+    const S = 12;
+    const img = renderSmoothTerrain(rows, { pixelsPerTile: S, tileAligned: true });
+    const px = (x: number, y: number): number[] => {
+      const o = (y * img.width + x) * 4;
+      return [img.data[o], img.data[o + 1], img.data[o + 2]];
+    };
+    const diff = (a: number[], b: number[]): number => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+    let maxDiff = 0;
+    for (let y = 0; y < S; y++) maxDiff = Math.max(maxDiff, diff(px(S - 1, y), px(S, y)));
+    expect(maxDiff).toBeLessThan(60); // kum beneği dışında koyu bir ızgara çizgisi yok
+  });
+
+  it('bölge çizimi (parça parça) karo karo modda da tüm haritayla aynı', () => {
+    const map = generateMap();
+    const full = renderSmoothTerrain(map.tiles, { pixelsPerTile: 4, tileAligned: true, region: { x0: 60, y0: 60, x1: 70, y1: 70 } });
+    const top = renderSmoothTerrain(map.tiles, { pixelsPerTile: 4, tileAligned: true, region: { x0: 60, y0: 60, x1: 70, y1: 65 } });
+    expect(Array.from(full.data.slice(0, top.data.length))).toEqual(Array.from(top.data));
+  });
+});
+
 describe('çalılık zemini', () => {
   it('geçilebilir bir zemindir ve haritada bulunur', () => {
     expect(isBlockedTile(Tile.Thicket)).toBe(false);

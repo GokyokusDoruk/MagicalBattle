@@ -4,8 +4,10 @@ Node.js + TypeScript + Fastify + Prisma + PostgreSQL. Kod: `server/`.
 
 ## Hesap sistemi
 
-- **Kayıt:** ad, soyad, e-posta, kullanıcı adı, şifre.
-- **Misafir:** yalnızca kullanıcı adı ve şifre. Misafir hesabının da ilerlemesi (Task 8) kaydedilir.
+- **Oyundaki giriş (Faz 1):** yalnızca büyücü adı ve şifre. İstemci önce `/auth/login` dener; hesap yoksa (401) aynı ad ve
+  şifreyle `/auth/guest` ile hesap açar. Ad alınmışsa (409) "şifre hatalı" denir. Kayıt formu ve kayıtsız oyun oyundan kaldırıldı.
+- **Kayıt:** ad, soyad, e-posta, kullanıcı adı, şifre (uç nokta duruyor, oyun kullanmıyor).
+- **Misafir:** yalnızca kullanıcı adı ve şifre. Oyunun açtığı hesaplar bu türdendir; ilerlemesi (Task 8) kaydedilir.
 - Kullanıcı adı: 3-20 karakter, yalnızca `a-z`, `A-Z`, `0-9`, `_`. Büyük/küçük harfe duyarsız benzersiz (`Doruk` ile `doruk` aynı hesap).
 - Şifre: 8-72 karakter.
 - Oturum, **HttpOnly çerez** (`mb_session`) ile tutulur. Tarayıcıda (localStorage vb.) hiçbir şey saklanmaz.

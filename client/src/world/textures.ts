@@ -6,12 +6,17 @@ export const PLAYER_KEY = 'player';
 type Scene = PhaserTypes.Scene;
 
 export function createPlayerTexture(scene: Scene): void {
+  // Faz 1: karakter tam bir karoyu (32x32) doldurur; asa karonun sağ kenarında durur (ayrı sprite)
   const g = scene.add.graphics();
-  g.fillStyle(0x3a3f9e, 1).fillTriangle(12, 14, 3, 31, 21, 31); // cüppe
-  g.fillStyle(0xf0c8a0, 1).fillCircle(12, 11, 5); // yüz
-  g.fillStyle(0x6a2fa0, 1).fillTriangle(12, 0, 5, 9, 19, 9); // şapka
-  g.fillStyle(0x6a2fa0, 1).fillRect(4, 8, 16, 2); // şapka kenarı
-  g.generateTexture(PLAYER_KEY, 26, 32);
+  g.fillStyle(0x000000, 0.25).fillEllipse(15, 30, 24, 4); // gölge
+  g.fillStyle(0x3a3f9e, 1).fillTriangle(15, 15, 3, 31, 27, 31); // cüppe
+  g.fillStyle(0x000000, 0.18).fillTriangle(15, 15, 15, 31, 27, 31); // cüppe gölgesi
+  g.fillStyle(0xd7b66d, 1).fillRect(8, 25, 14, 2); // kuşak
+  g.fillStyle(0xf0c8a0, 1).fillCircle(15, 13, 5); // yüz
+  g.fillStyle(0x111111, 1).fillCircle(13, 13, 0.9).fillCircle(17, 13, 0.9); // gözler
+  g.fillStyle(0x6a2fa0, 1).fillTriangle(15, 0, 7, 10, 23, 10); // şapka
+  g.fillStyle(0x8b4fc4, 1).fillRect(4, 9, 22, 2.5); // şapka kenarı
+  g.generateTexture(PLAYER_KEY, 32, 32);
   g.clear();
   // Asa ayrı bir dokudur (Task 61): yürürken aşağı yukarı oynar. 8x24: direk ve ucunda küre.
   g.fillStyle(0x8a5a2b, 1).fillRect(3, 6, 2, 18); // asa
