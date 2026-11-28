@@ -13,9 +13,11 @@ export interface GearEffects {
   crit: number;
   /** O büyünün elementindeki ekipman parçalarından gelen hasar bonusu (0.04 = +%4) */
   damageBonus: number;
+  /** Faz 6: kolyeden gelen alan gücü (hücre) */
+  areaCells?: number;
 }
 
-export const NO_GEAR: GearEffects = { armor: 0, timeBonusSec: 0, crit: 0, damageBonus: 0 };
+export const NO_GEAR: GearEffects = { armor: 0, timeBonusSec: 0, crit: 0, damageBonus: 0, areaCells: 0 };
 
 /** (büyünün elementi) → o büyü için ekipman etkisi; savaşçıya verilir, her turda seçilen elemente göre çalışır */
 export type GearResolver = (element: Element) => GearEffects;
@@ -40,6 +42,8 @@ export function gearEffects(equipped: EquippedMap, element?: Element): GearEffec
     time += item?.timeBonus ?? 0;
     crit += item?.crit ?? 0;
   }
+  const necklace = equipped.necklace ? getItem(equipped.necklace) : undefined;
+  const areaCells = necklace?.areaCells ?? 0;
   let damageBonus = 0;
   if (element !== undefined) {
     for (const slot of GEAR_SLOT_LIST) {
@@ -52,6 +56,7 @@ export function gearEffects(equipped: EquippedMap, element?: Element): GearEffec
     timeBonusSec: Math.round(time * 1000) / 1000,
     crit: Math.min(CRIT_CAP, Math.round(crit * 1000) / 1000),
     damageBonus: Math.round(damageBonus * 10000) / 10000,
+    areaCells,
   };
 }
 

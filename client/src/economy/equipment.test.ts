@@ -209,7 +209,14 @@ describe('ekipman etkileri', () => {
   it('çanta ve ayakkabı zırha, süreye ve kritiğe katkı vermez', () => {
     const eq = { bag: equipmentId('bag', 'fire', 6), boots: equipmentId('boots', 'fire', 6) };
     expect(gearEffects(eq, 'fire')).toMatchObject({ armor: 0, timeBonusSec: 0, crit: 0 });
-    expect(gearEffects({})).toEqual({ armor: 0, timeBonusSec: 0, crit: 0, damageBonus: 0 });
+    expect(gearEffects({})).toEqual({ armor: 0, timeBonusSec: 0, crit: 0, damageBonus: 0, areaCells: 0 });
+  });
+
+  it('kolye alan gücü verir (Faz 6): nadirlik arttıkça büyür, diğer yuvalar vermez', () => {
+    const area = (r: 1 | 6) => gearEffects({ necklace: equipmentId('necklace', 'fire', r) }).areaCells!;
+    expect(area(1)).toBeGreaterThan(0);
+    expect(area(6)).toBeGreaterThan(area(1));
+    expect(gearEffects({ ring: equipmentId('ring', 'fire', 6) }).areaCells).toBe(0);
   });
 
   it('ayakkabı yürüme hızı verir', () => {

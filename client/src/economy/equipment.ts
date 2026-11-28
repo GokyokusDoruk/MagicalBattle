@@ -82,6 +82,9 @@ export const RING_TIME_SEC: readonly number[] = [0.2, 0.35, 0.5, 0.7, 0.9, 1.2];
 /** Kritik şansı (0.02 = %2), yüzük için, seviye 1'de */
 export const RING_CRIT: readonly number[] = [0.02, 0.03, 0.045, 0.06, 0.08, 0.1];
 
+/** Faz 6: kolyenin alan gücü (hücre), nadirliğe göre (seviyeyle ölçeklenir) */
+export const NECKLACE_AREA: readonly number[] = [12, 20, 28, 38, 50, 64];
+
 /** Yüzük, bileklik, kolye arasında süre ve kritik dağılımı: bileklik kritik, kolye süre ağırlıklıdır. */
 export const CRIT_SLOT_WEIGHTS: Record<'ring' | 'bracelet' | 'necklace', { time: number; crit: number }> = {
   ring: { time: 1, crit: 1 },
@@ -136,6 +139,7 @@ export function makeEquipment(slot: GearSlot, element: Element, rarity: Rarity, 
     const w = CRIT_SLOT_WEIGHTS[slot];
     item.timeBonus = round3(RING_TIME_SEC[i] * w.time * scale);
     item.crit = round3(RING_CRIT[i] * w.crit * scale);
+    if (slot === 'necklace') item.areaCells = Math.round(NECKLACE_AREA[i] * scale);
   }
   return item;
 }

@@ -67,7 +67,7 @@ export class StatusBar {
     this.element.className =
       'pointer-events-none fixed left-3 top-14 z-40 w-48 rounded-lg bg-black/60 px-3 py-2 text-xs text-amber-50 shadow';
     this.element.innerHTML = `
-      <div class="flex items-center justify-between font-bold"><span data-level></span></div>
+      <div data-head class="flex items-center gap-2 font-bold"><span data-level></span></div>
       <div data-wallet class="mt-1 grid grid-cols-4 gap-0.5 text-center text-[10px]"></div>
       <div class="mt-1 h-1.5 overflow-hidden rounded bg-white/15"><div data-fill class="h-full bg-sky-400 transition-all duration-300"></div></div>
       <div class="mt-1 flex items-center justify-between text-[11px]"><span>❤ Can</span><b data-hp></b></div>
@@ -104,6 +104,11 @@ export class StatusBar {
     this.difficultyBtn = q<HTMLButtonElement>('[data-difficulty]');
     this.difficultyBtn.hidden = !onDifficulty;
     if (onDifficulty) this.difficultyBtn.addEventListener('click', onDifficulty);
+  }
+
+  /** Faz 7: büyücünün portresi panelin başında (basınca karakter ekranı açılır) */
+  attachPortrait(el: HTMLElement): void {
+    this.element.querySelector('[data-head]')!.prepend(el);
   }
 
   update(view: StatusView): void {

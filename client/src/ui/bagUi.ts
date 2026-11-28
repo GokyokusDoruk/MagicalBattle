@@ -98,7 +98,7 @@ export class BagUi {
         <button type="button" data-action="unequip" data-slot="${slot}" class="shrink-0 rounded bg-slate-700 px-2 py-1 text-xs">Çıkar</button></div>`;
     }).join('');
     const g = player.gearFor();
-    const summary = `Zırh <b>${pct(g.armor)}</b> · Hız <b>+${pct(player.speedBonus)}</b> · Kritik <b>${pct(g.crit)}</b> · Büyü süresi <b>+${g.timeBonusSec.toFixed(2)} sn</b>`;
+    const summary = `Zırh <b>${pct(g.armor)}</b> · Hız <b>+${pct(player.speedBonus)}</b> · Kritik <b>${pct(g.crit)}</b> · Büyü süresi <b>+${g.timeBonusSec.toFixed(2)} sn</b>${g.areaCells ? ` · Alan gücü <b>+${g.areaCells}</b>` : ''}`;
     return `<div class="mb-1 grid gap-2 sm:grid-cols-2" data-equipped>${slots}</div>
       <p class="mb-3 text-[11px] text-slate-400" data-gear-summary>${summary}. Kuşandığın her ekipman, kendi elementinin büyüsünde hasarı artırır (%1 × nadirlik katsayısı: Sıradan 0.25 ... Mistik 1.5).</p>`;
   }

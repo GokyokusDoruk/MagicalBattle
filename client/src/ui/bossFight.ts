@@ -95,6 +95,8 @@ export async function runBossFight(chapter: number, player: PlayerStats, path: F
       const engine = new BattleEngine(scaleEnemies(bossFighters(chapter, { ...player, hp: entryHp }, path), difficulty.profile), { maxCycles: boss.maxCycles ?? MAX_CYCLES });
       let again = false;
       const screen = new BattleScreen(root, engine, {
+        // Faz 7: oyuncu kuşandıklarıyla görünür
+        appearance: (f) => (f.control === 'human' ? { kind: 'hero', gear: player.look ?? {} } : undefined),
         botSkill: 0.5,
         // Rakibin saldırısı yalnızca Kolay seviyede görünür; Sis (Morga) Kolay'da da gizler
         showAttackToDefender: difficulty.profile.showEnemyAttack && !boss.gimmick?.hideGhost,

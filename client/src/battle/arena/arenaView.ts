@@ -11,10 +11,14 @@ import { SpellVisual } from './spell';
 import { SIGIL_SIZE, strokesToPaths, type PlanePoint } from './strokeMap';
 import { Tweens, clamp01, easeInOut, easeOutCubic } from './tween';
 import { FirstPersonHand } from './firstPersonHand';
+import type { Appearance, HeroGear } from './heroModel';
+import { GRID } from '../gesture/config';
 
 export interface CombatantSpec {
   name: string;
   element: Element;
+  /** Faz 7: görünüm (oyuncu ekipmanıyla, boss kendi modeliyle) */
+  appearance?: Appearance;
 }
 
 export interface ImpactInfo {
@@ -36,9 +40,13 @@ export interface CastHooks {
   onClash?: () => void;
   /** Faz 5: saldırının savunulan oranı (0-1). Bu kadarlık parçası kalkana çarpınca saçılır, kalanı rakibe devam eder. */
   blockedRatio?: number;
+  /** Faz 6: alan büyüsünün doldurulan hücreleri (32×32 ızgara): büyünün içi dolu görünür */
+  areaCells?: readonly number[];
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+/** Çizim yoğunluk ızgarasının kenarı (alan büyüsü hücreleri) */
+const AREA_GRID = GRID;
 const MAX_DT = 0.1;
 
 /** Çizim yoksa (ya da hiç geçerli çizgi çıkmadıysa) gösterilecek yedek mühür: halka. */
@@ -91,6 +99,8 @@ export class ArenaView {
   private readonly particles = new ParticleSystem(700);
   private readonly tweens = new Tweens();
   private readonly combatants = new Map<string, Combatant>();
+  /** Faz 7: oyuncunun ekipmanı (birinci kişi elde aynı asa ve cüppe) */
+  private readonly gears = new Map<string, HeroGear>();
   private slots: Slot[] = [];
   private shield: { owner: SlotRef; visual: SpellVisual } | null = null;
   private readonly spells = new Set<SpellVisual>();
@@ -209,15 +219,17 @@ export class ArenaView {
       c.dispose();
     });
     this.combatants.clear();
+    this.gears.clear();
 
     this.slots = layoutTeams([teams[0].length, teams[1].length]);
     for (const slot of this.slots) {
       const spec = teams[slot.team][slot.index];
-      const c = new Combatant(spec.name, spec.element);
+      const c = new Combatant(spec.name, spec.element, spec.appearance);
       c.group.position.set(slot.position.x, slot.position.y, slot.position.z);
       c.group.rotation.y = slot.yaw;
       this.scene.add(c.group);
       this.combatants.set(slotKey(slot), c);
+      if (spec.appearance?.kind === 'hero') this.gears.set(slotKey(slot), spec.appearance.gear);
     }
     this.teamLights[0].color.setHex(ELEMENT_COLORS[teams[0][0].element].main);
     this.teamLights[1].color.setHex(ELEMENT_COLORS[teams[1][0].element].main);
@@ -261,7 +273,7 @@ export class ArenaView {
     const sdt = dt * this.timeScale;
     this.tweens.update(sdt);
     this.combatants.forEach((c) => c.update(sdt));
-    this.hand.update(dt);
+    this.hand.update(dt, this.camera.aspect, this.camera.fov);
     this.particles.update(sdt);
     this.crystals.forEach((c, i) => {
       c.rotation.y += dt * 0.8;
@@ -313,6 +325,7 @@ export class ArenaView {
     await this.tweens.wait(0.25);
     me.setVisible(false);
     this.hand.setElement(element);
+    this.hand.setGear(this.gears.get(slotKey(ref)));
     this.hand.show(true);
     await this.tweens.wait(0.3);
   }
@@ -345,6 +358,7 @@ export class ArenaView {
     const paths = strokesToPaths(strokes);
     const shape = paths.length > 0 ? paths : DEFAULT_RING;
     const visual = this.addSpell(new SpellVisual(shape, colors.main, colors.glow));
+    if (hooks.areaCells?.length) visual.setFill(hooks.areaCells, AREA_GRID, colors.glow, SIGIL_SIZE);
     const blocked = clamp01(hooks.blockedRatio ?? 0);
 
     const dir = targetPos.clone().sub(casterPos).setY(0).normalize();
@@ -468,7 +482,7 @@ export class ArenaView {
   }
 
   /** Savunma: savunanın çizdiği mühür, saldırının önüne kalkan olarak kurulur ve vuruşa kadar durur. */
-  async showShield(owner: SlotRef, attacker: SlotRef, strokes: readonly Stroke[], element?: Element): Promise<void> {
+  async showShield(owner: SlotRef, attacker: SlotRef, strokes: readonly Stroke[], element?: Element, areaCells?: readonly number[]): Promise<void> {
     this.removeShield();
     const ownerPos = this.position(owner);
     const attackerPos = this.position(attacker);
@@ -477,6 +491,7 @@ export class ArenaView {
     const visual = new SpellVisual(paths.length > 0 ? paths : DEFAULT_RING, element ? ELEMENT_COLORS[element].main : SHIELD_COLORS.main, element ? ELEMENT_COLORS[element].glow : SHIELD_COLORS.glow);
     visual.group.position.copy(ownerPos).add(toAttacker.clone().multiplyScalar(1.7)).add(new THREE.Vector3(0, 2.0, 0));
     visual.group.scale.setScalar(0.95);
+    if (areaCells?.length) visual.setFill(areaCells, AREA_GRID, element ? ELEMENT_COLORS[element].glow : SHIELD_COLORS.glow, SIGIL_SIZE);
     visual.setOpacity(0);
     this.scene.add(visual.group);
     this.shield = { owner, visual };

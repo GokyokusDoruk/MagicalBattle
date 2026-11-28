@@ -121,8 +121,18 @@ describe('katalog: asa kimliği ve özellikleri', () => {
     expect(PRICE_PER_LEVEL).toBeGreaterThan(0);
   });
 
-  it('açıklama dört satır: saldırı, savunma, süre, element', () => {
-    expect(describeWand(makeWand({ element: 'water', role: 'defense', rarity: 3, level: 9 }))).toHaveLength(4);
+  it('açıklama beş satır: saldırı, savunma, süre, alan gücü (Faz 6), element', () => {
+    const lines = describeWand(makeWand({ element: 'water', role: 'defense', rarity: 3, level: 9 }));
+    expect(lines).toHaveLength(5);
+    expect(lines[3]).toMatch(/Alan gücü \d+/);
+  });
+
+  it('alan gücü nadirlik ve seviyeyle artar (Faz 6)', () => {
+    const a = (rarity: 1 | 2 | 3 | 4 | 5 | 6, level: number) => makeWand({ element: 'fire', role: 'attack', rarity, level }).areaCells;
+    expect(a(1, 1)).toBe(30);
+    expect(a(6, 1)).toBe(120);
+    expect(a(3, 10)).toBeGreaterThan(a(3, 1));
+    for (let r = 2; r <= 6; r++) expect(a(r as 2, 1)).toBeGreaterThan(a((r - 1) as 1, 1));
   });
 });
 

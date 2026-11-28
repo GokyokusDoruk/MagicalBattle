@@ -34,6 +34,8 @@ export interface ItemDef {
   rarity?: 1 | 2 | 3 | 4 | 5 | 6;
   /** Ekipmansa seviye (1-30); oyuncu bu seviyeye gelmeden kuşanamaz. Eski çantalarda yoktur. */
   level?: number;
+  /** Faz 6: kolyeyse alan gücü (hücre): alan büyüsünde doldurulabilecek bölgeyi büyütür */
+  areaCells?: number;
   /** Yüzük, bileklik ve kolyeyse kritik vuruş şansı (0.05 = %5) */
   crit?: number;
   /** Zırh parçasıysa (cüppe, şapka, pantalon) toplam zırha katkısı (0-1, hasar azaltma) */

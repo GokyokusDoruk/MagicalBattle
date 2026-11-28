@@ -24,6 +24,9 @@ export class SpellVisual {
   private readonly coreMaterial: THREE.MeshBasicMaterial;
   private readonly glowMaterial: THREE.MeshBasicMaterial;
   private tip: THREE.Vector3 | null = null;
+  /** Faz 6: alan büyüsünün dolu yüzeyi (doldurulan hücreler), yoksa null */
+  private fill: THREE.Mesh | null = null;
+  private fillMaterial: THREE.MeshBasicMaterial | null = null;
 
   constructor(paths: readonly PlanePoint[][], color: number, glowColor: number) {
     this.coreMaterial = new THREE.MeshBasicMaterial({
@@ -54,6 +57,35 @@ export class SpellVisual {
     }
     this.total = Math.max(1e-6, start);
     this.setReveal(0);
+  }
+
+  /**
+   * Faz 6: alan büyüsü: doldurulan hücreler (tuvalin `grid`×`grid` ızgarasında) mühür düzleminde parlayan yarı saydam bir yüzey olur.
+   * `size` mührün dünyadaki genişliği (strokesToPaths ile aynı).
+   */
+  setFill(cells: readonly number[], grid: number, color: number, size: number): void {
+    if (this.fill) {
+      this.group.remove(this.fill);
+      this.fill.geometry.dispose();
+    }
+    if (cells.length === 0) return;
+    const step = size / grid;
+    const pos = new Float32Array(cells.length * 18);
+    cells.forEach((k, i) => {
+      const x0 = (k % grid) * step - size / 2;
+      const y0 = size / 2 - (Math.floor(k / grid) + 1) * step;
+      const q = [x0, y0, x0 + step, y0, x0 + step, y0 + step, x0, y0, x0 + step, y0 + step, x0, y0 + step];
+      for (let j = 0; j < 6; j++) {
+        pos[i * 18 + j * 3] = q[j * 2];
+        pos[i * 18 + j * 3 + 1] = q[j * 2 + 1];
+        pos[i * 18 + j * 3 + 2] = -0.01;
+      }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.fillMaterial ??= new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    this.fill = new THREE.Mesh(geo, this.fillMaterial);
+    this.group.add(this.fill);
   }
 
   get isEmpty(): boolean {
@@ -88,6 +120,7 @@ export class SpellVisual {
     const o = Math.min(1, Math.max(0, v));
     this.coreMaterial.opacity = o;
     this.glowMaterial.opacity = GLOW_OPACITY * o;
+    if (this.fillMaterial) this.fillMaterial.opacity = 0.45 * o;
   }
 
   dispose(): void {
@@ -97,5 +130,7 @@ export class SpellVisual {
     }
     this.coreMaterial.dispose();
     this.glowMaterial.dispose();
+    this.fill?.geometry.dispose();
+    this.fillMaterial?.dispose();
   }
 }

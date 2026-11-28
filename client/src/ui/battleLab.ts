@@ -61,6 +61,16 @@ export function startBattleLab(root: HTMLElement): void {
     root.innerHTML = '';
     const skill = DIFFICULTIES.find((d) => d.id === settings.difficulty)!.skill;
     const s = new BattleScreen(root, new BattleEngine(fighters()), {
+      // Faz 7: denemede oyuncu, seçilen asayla ve o elementin cüppesi ve şapkasıyla görünür
+      appearance: (f) =>
+        f.control === 'human'
+          ? {
+              kind: 'hero',
+              gear: settings.wandRole
+                ? { wand: { element: settings.wandElement, rarity: settings.wandRarity }, robe: { element: settings.wandElement, rarity: settings.wandRarity }, hat: { element: settings.wandElement, rarity: settings.wandRarity } }
+                : {},
+            }
+          : undefined,
       botSkill: skill,
       showAttackToDefender: settings.showGhost,
       onFinish: (playAgain) => {

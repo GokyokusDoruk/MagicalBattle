@@ -7,6 +7,7 @@ import { elementRelation, ELEMENT_NAMES, type Element } from '../battle/damage/e
 import type { TargetPose } from '../battle/damage/target';
 import { SPECIAL_SHAPE_BONUS } from '../battle/damage/config';
 import { pickPosition } from './positionPicker';
+import { BOSS_LOOKS, type Appearance } from '../battle/arena/heroModel';
 import { chooseElementFullScreen } from './elementFx';
 
 /** Elementlerin simgesi: savaş ekranında element adı yazılmaz, yalnız simge ve renk görünür (Faz 1) */
@@ -32,6 +33,8 @@ const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', 
 const LOOKS: Record<0 | 1, Element[]> = { 0: ['fire', 'air'], 1: ['water', 'earth'] };
 
 export interface BattleScreenOptions {
+  /** Faz 7: savaşçının görünümü (oyuncu: kuşanılan ekipman); verilmezse boss adından ya da elementinden */
+  appearance?: (f: Fighter) => Appearance | undefined;
   /** Bot becerisi (0-1): savunmada gelen saldırıyı ne kadar iyi kapattığı */
   botSkill: number;
   showAttackToDefender: boolean;
@@ -85,8 +88,14 @@ export class BattleScreen implements BattleIO {
     this.arena = new ArenaView(stage, createArenaSounds(this.sfx));
     this.root.appendChild(createSoundToggle(this.sfx));
 
+    // Faz 7: görünüm: oyuncu ekipmanıyla, boss kendi modeliyle, diğer büyücüler en çok kullandıkları elementin renginde
     const specs = (team: 0 | 1): CombatantSpec[] =>
-      engine.team(team).map((f) => ({ name: f.name, element: LOOKS[team][f.index] }));
+      engine.team(team).map((f) => {
+        const appearance = options.appearance?.(f) ?? (BOSS_LOOKS[f.name] ? { kind: 'boss' as const, ...BOSS_LOOKS[f.name] } : undefined);
+        const favourite = f.ai?.elements ? (Object.entries(f.ai.elements).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0]?.[0] as Element | undefined) : undefined;
+        const element = appearance && appearance.kind !== 'hero' ? appearance.element : (favourite ?? (f.persona === 'elysia' ? 'air' : LOOKS[team][f.index]));
+        return { name: f.name, element, appearance };
+      });
     this.arena.setTeams([specs(0), specs(1)]);
 
     for (const f of engine.all()) {
@@ -272,7 +281,7 @@ export class BattleScreen implements BattleIO {
     const element = this.roundElements.get(key(ref)) ?? 'fire';
     await this.arena.enterFirstPerson(ref, element);
     try {
-      return await this.drawByHand(role, element, ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined, extras?.target);
+      return await this.drawByHand(role, element, ghost, limitSec, role === 'attack' ? extras?.scars : undefined, role === 'attack' ? extras?.shake : undefined, role === 'defense' ? extras?.fog : undefined, role === 'defense' ? extras?.mud : undefined, role === 'attack' ? extras?.specialShape : undefined, extras?.target, extras?.areaCapacity);
     } finally {
       this.arena.exitFirstPerson();
     }
@@ -283,7 +292,7 @@ export class BattleScreen implements BattleIO {
     return role === 'attack' ? 900 : 700;
   }
 
-  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName, target?: TargetPose): Promise<DrawingResult> {
+  private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName, target?: TargetPose, areaCapacity?: number): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
     this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-950/60 via-transparent to-transparent p-3">
       <h2 class="text-lg font-bold drop-shadow ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
@@ -296,6 +305,8 @@ export class BattleScreen implements BattleIO {
       element,
       // Faz 5: birinci kişi bakış: tuval yarı saydam, el ve asa kalemi izler
       overlay: true,
+      // Faz 6: kapalı bölgeler canlı (yeşil dolar, kırmızı sığmaz)
+      areaCapacity,
       onAim: (nx, ny, down) => this.arena.aimHand(nx, ny, down),
       ghost,
       target,
@@ -392,13 +403,13 @@ export class BattleScreen implements BattleIO {
 
     const defense = report.defense;
     if (!report.defenseFailed && defense) {
-      await this.arena.showShield(action.defender, action.attacker, defense.strokes as Stroke[], report.defenderElement);
+      await this.arena.showShield(action.defender, action.attacker, defense.strokes as Stroke[], report.defenderElement, report.defenseArea?.cells);
     } else {
       void this.say(this.center, `Savunma yapılamadı! <span class="font-normal">(${this.name(action.defender)})</span>`, 1200, 'bg-red-900/80 text-red-100');
     }
     // Faz 5: büyü beklemeden fırlar, kamera onunla ilerler; savunulan parçalar kalkanda saçılır, kalanı rakibe çarpar
     const blockedRatio = report.defenseFailed ? 0 : (report.breakdown?.defendedRatio ?? 0);
-    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement, { blockedRatio });
+    await this.arena.castSpell(action.attacker, action.defender, report.attack.strokes as Stroke[], report.attackerElement, { blockedRatio, areaCells: report.attackArea?.cells });
     const fatal = report.defeated;
     const playerWon = fatal && this.engine.winner === action.attacker.team && this.engine.all().some((f: Fighter) => f.control === 'human' && f.team === action.attacker.team);
     // Çarptığı an: hasar sayısı ve etki yazısı birlikte (bekleme yok); son büyüde rakip arkaya devrilir
@@ -415,6 +426,9 @@ export class BattleScreen implements BattleIO {
     await shown;
     // Ateş yetenekleri: kısa duyurular
     const notes: string[] = [];
+    // Faz 6: alan büyüsü doldu (saldırı ya da savunma)
+    if (report.attackArea?.filledCells) notes.push(`🟢 ${this.name(action.attacker)}: alan büyüsü (${report.attackArea.filledCells} hücre doldu)`);
+    if (!report.defenseFailed && report.defenseArea?.filledCells) notes.push(`🟢 ${this.name(action.defender)}: alanlı kalkan (${report.defenseArea.filledCells} hücre)`);
     if (report.chainStacks) notes.push(`⛓️ Alev Zinciri ×${report.chainStacks}`);
     if (report.scatter) notes.push('✨ Kıvılcımlar savunmayı aştı');
     if (report.shieldBroken) notes.push('🛡️💥 Kalkan kırıldı!');

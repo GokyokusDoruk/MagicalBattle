@@ -11,6 +11,12 @@ import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
+import type { HeroGear } from '../battle/arena/heroModel';
+import mineFire from '../assets/world/mine_fire.png';
+import mineWater from '../assets/world/mine_water.png';
+import mineEarth from '../assets/world/mine_earth.png';
+import mineAir from '../assets/world/mine_air.png';
+import bushFront from '../assets/world/bush_1.png';
 import { BUSH_KEY, STAFF_KEY, CHEST_KEY, QUEST_FLAG_KEY, QUEST_RING_KEY, enemyKey, mineKey, PILE_KEY, PLAYER_KEY, STALL_KEY, createPlayerTexture, createWorldItemTextures } from './textures';
 import { Tile, TILE_SIZE, isBlockedTile } from './tiles';
 
@@ -24,6 +30,10 @@ const ENEMY_RANGE = TILE_SIZE * 0.8;
 /** Dünyanın dışarıyla (arayüz, durum) konuştuğu her şey. */
 /** Düşman isim etiketlerinin rengi (elementine göre: ateş kırmızı, su mavi, toprak kahverengi, hava beyaz) */
 const ENEMY_LABEL_COLORS: Record<string, string> = { fire: '#fca5a5', water: '#93c5fd', earth: '#e0b36a', air: '#f8fafc' };
+
+/** Maden girişleri (KayKit Medieval Hexagon, CC0): fener renkleri elemente göre */
+const MINE_ART = { fire: mineFire, water: mineWater, earth: mineEarth, air: mineAir } as const;
+const BUSH_FRONT_ART = bushFront;
 
 export interface WorldContext {
   map: WorldMap;
@@ -40,6 +50,8 @@ export interface WorldContext {
   onMarkerEnter: (marker: MainQuestMarker) => void;
   /** Her karede oyuncunun dünya konumu (piksel) */
   onFrame?: (player: { x: number; y: number }) => void;
+  /** Faz 7: oyuncunun kuşandıkları (haritadaki görseli için) */
+  heroGear?: () => HeroGear;
   /** Oyunun başlayacağı karo (kayıttan devam); yoksa haritanın başlangıç noktası */
   startTile?: { x: number; y: number };
   /** Oyuncu bir şehrin surlarının içine yeni girdi (kayıt noktası) */
@@ -100,6 +112,8 @@ export class WorldScene extends Phaser.Scene {
   private chestSprites = new Map<string, Phaser.GameObjects.Image>();
   private insideChests = new Set<string>();
   private mineSprites = new Map<string, Phaser.GameObjects.Image>();
+  /** Çalılıkta karakterin önüne gelen yaprak katmanı (gerçek çalı görselinin alt kısmı gelince değişir) */
+  private bushKey = BUSH_KEY;
   private insideMines = new Set<string>();
 
   constructor(private readonly ctx: WorldContext) {
@@ -140,6 +154,9 @@ export class WorldScene extends Phaser.Scene {
     this.player = this.add.image(this.pos.x, this.pos.y, PLAYER_KEY).setOrigin(0.5, 0.5).setDepth(10);
     this.staff = this.add.image(this.pos.x, this.pos.y, STAFF_KEY).setOrigin(0.5, 1).setDepth(10.5);
     this.placeStaff(0);
+    // Gerçek büyücü modelinden çekilmiş görseller hazır olunca eski çizimlerin yerini alır
+    void this.upgradeSprites();
+    void this.upgradeWorldArt();
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, map.width * TILE_SIZE, map.height * TILE_SIZE);
@@ -204,6 +221,8 @@ export class WorldScene extends Phaser.Scene {
     this.checkMines();
     this.checkChests();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
+    // Ekipman değiştiyse karakter görseli yenilenir (saniyede bir bakılır)
+    if (++this.gearCheck % 60 === 0) void this.refreshPlayerSprite();
   }
 
   /**
@@ -222,7 +241,8 @@ export class WorldScene extends Phaser.Scene {
         if (x < 0 || y < 0 || x >= map.width || y >= map.height || tileAt(map, x, y) !== Tile.Thicket) continue;
         let img = this.bushes[used];
         if (!img) {
-          img = this.add.image(0, 0, BUSH_KEY).setOrigin(0.5, 1).setDepth(11);
+          img = this.add.image(0, 0, this.bushKey).setOrigin(0.5, 1).setDepth(11);
+          if (this.bushKey !== BUSH_KEY) img.setDisplaySize(TILE_SIZE * 1.1, TILE_SIZE * 0.62);
           this.bushes.push(img);
         }
         const sway = Math.sin(time / 420 + x * 1.7 + y) * 0.9;
@@ -277,6 +297,92 @@ export class WorldScene extends Phaser.Scene {
       if (!label) continue;
       const near = Math.hypot(spot.tileX * TILE_SIZE + TILE_SIZE / 2 - this.pos.x, spot.tileY * TILE_SIZE + TILE_SIZE / 2 - this.pos.y) <= TILE_SIZE * 7;
       label.setVisible(near && (this.ctx.isEnemyActive?.(spot.id) ?? true));
+    }
+  }
+
+  /**
+   * Karakter ve dünya düşmanları için gerçek büyücü modelinden (Quaternius Wizard, CC0) çekilmiş görseller. Model ayrı bir parça olarak
+   * arkada yüklenir; hazır olunca eski çizimlerin yerini alır. WebGL yoksa ya da yüklenemezse eski çizimler kalır.
+   */
+  private async upgradeSprites(): Promise<void> {
+    try {
+      const { renderWizardSprite } = await import('../battle/arena/wizardModel');
+      const size = TILE_SIZE * 1.2;
+      await this.refreshPlayerSprite();
+      if (!this.sys.isActive()) return;
+      // Modelin kendi asası var: ayrı asa çizimi gizlenir
+      this.staff.setVisible(false);
+      for (const el of ['fire', 'water', 'earth', 'air'] as const) {
+        const canvas = await renderWizardSprite(el);
+        if (!this.sys.isActive()) return;
+        this.textures.addCanvas(`enemy-model-${el}`, canvas)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+        for (const spot of this.ctx.enemies ?? []) {
+          if (spot.element !== el) continue;
+          this.enemySprites.get(spot.id)?.setTexture(`enemy-model-${el}`).setDisplaySize(size, size);
+        }
+      }
+    } catch {
+      // Model yüklenemedi: eski çizimler kalır
+    }
+  }
+
+  private heroKey = '';
+  private gearCheck = 0;
+  private heroSeq = 0;
+
+  /** Faz 7: karakter görseli kuşandıklarıyla (KayKit Mage); ekipman değişince yeniden çizilir. */
+  private async refreshPlayerSprite(): Promise<void> {
+    const gear = this.ctx.heroGear?.() ?? {};
+    const key = JSON.stringify(gear);
+    if (key === this.heroKey) return;
+    this.heroKey = key;
+    const seq = ++this.heroSeq;
+    try {
+      const { renderHeroSprite } = await import('../battle/arena/heroPortrait');
+      const canvas = await renderHeroSprite(gear);
+      if (!this.sys.isActive() || seq !== this.heroSeq) return;
+      const tex = `player-model-${seq}`;
+      this.textures.addCanvas(tex, canvas)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      const size = TILE_SIZE * 1.25;
+      this.player.setTexture(tex).setDisplaySize(size, size);
+      this.staff.setVisible(false);
+    } catch {
+      // eski görsel kalır
+    }
+  }
+
+  /** Madenler (KayKit maden girişi, element renginde fenerli) ve çalılıkta karakterin önüne gelen gerçek çalı katmanı. */
+  private async upgradeWorldArt(): Promise<void> {
+    const load = (url: string): Promise<HTMLImageElement> =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = url;
+      });
+    try {
+      for (const el of ['fire', 'water', 'earth', 'air'] as const) {
+        const img = await load(MINE_ART[el]);
+        if (!this.sys.isActive()) return;
+        const key = `mine-model-${el}`;
+        if (!this.textures.exists(key)) this.textures.addImage(key, img)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+        for (const m of this.ctx.mines ?? []) {
+          if (m.element !== el) continue;
+          const w = TILE_SIZE * 2.1;
+          this.mineSprites.get(m.id)?.setTexture(key).setDisplaySize(w, (img.height / img.width) * w);
+        }
+      }
+      // Çalı ön katmanı: çalının alt %55'i (karakterin bacakları çalının içinde kalır)
+      const bush = await load(BUSH_FRONT_ART);
+      const c = document.createElement('canvas');
+      c.width = bush.width;
+      c.height = Math.round(bush.height * 0.55);
+      c.getContext('2d')!.drawImage(bush, 0, bush.height - c.height, bush.width, c.height, 0, 0, c.width, c.height);
+      if (!this.textures.exists('bush-front-model')) this.textures.addCanvas('bush-front-model', c)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      this.bushKey = 'bush-front-model';
+      for (const b of this.bushes) b.setTexture(this.bushKey).setDisplaySize(TILE_SIZE * 1.1, TILE_SIZE * 0.62);
+    } catch {
+      // Görseller yüklenemedi: eski çizimler kalır
     }
   }
 
@@ -368,9 +474,10 @@ export class WorldScene extends Phaser.Scene {
     for (const m of this.ctx.mines ?? []) {
       const x = m.tileX * TILE_SIZE + TILE_SIZE / 2;
       const y = m.tileY * TILE_SIZE + TILE_SIZE / 2;
-      this.mineSprites.set(m.id, this.add.image(x, y, mineKey(m.element)).setOrigin(0.5, 0.8).setDepth(4));
+      // Maden girişi: 2×2 karo kaplayan kayalık tepe (KayKit, CC0); görsel gelene kadar eski çizim
+      this.mineSprites.set(m.id, this.add.image(x, y + TILE_SIZE / 2, mineKey(m.element)).setOrigin(0.5, 1).setDepth(4));
       this.add
-        .text(x, y - 34, m.name, { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#fde68a', stroke: '#000000', strokeThickness: 3 })
+        .text(x, y - TILE_SIZE * 1.55, m.name, { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#fde68a', stroke: '#000000', strokeThickness: 3 })
         .setOrigin(0.5)
         .setDepth(5);
     }
