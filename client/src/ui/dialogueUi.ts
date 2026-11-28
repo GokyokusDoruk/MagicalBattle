@@ -46,7 +46,7 @@ export class DialogueUi {
 
     if (node.type === 'line') {
       this.element.innerHTML = `
-        <div class="border-t-2 border-amber-300/60 bg-slate-950/95 p-4 sm:p-6" data-panel>
+        <div class="border-t-2 border-amber-300/60 bg-slate-950/95 p-4 sm:p-6 mobile:pb-[calc(var(--sab)+1rem)] mobile:pl-[calc(var(--sal)+1rem)] mobile:pr-[calc(var(--sar)+1rem)]" data-panel>
           <span class="mb-2 inline-block rounded bg-amber-300/90 px-3 py-0.5 text-sm font-bold text-slate-900" data-speaker>${esc(node.speaker)}</span>
           <p class="min-h-[4rem] text-lg leading-relaxed text-amber-50 sm:text-xl" data-text aria-live="polite">${esc(node.text)}</p>
           <div class="mt-2 text-right text-sm text-amber-200"><span class="animate-pulse">Devam ▶</span></div>
@@ -57,7 +57,7 @@ export class DialogueUi {
 
     const options = runner.availableOptions();
     this.element.innerHTML = `
-      <div class="border-t-2 border-amber-300/60 bg-slate-950/95 p-4 sm:p-6" data-panel>
+      <div class="border-t-2 border-amber-300/60 bg-slate-950/95 p-4 sm:p-6 mobile:pb-[calc(var(--sab)+1rem)] mobile:pl-[calc(var(--sal)+1rem)] mobile:pr-[calc(var(--sar)+1rem)]" data-panel>
         <span class="mb-2 inline-block rounded bg-purple-300/90 px-3 py-0.5 text-sm font-bold text-slate-900">Karar</span>
         ${node.prompt ? `<p class="mb-3 text-lg font-bold text-amber-50" data-text>${esc(node.prompt)}</p>` : ''}
         <div class="flex flex-col gap-2">${options

@@ -64,22 +64,29 @@ export class StatusBar {
   /** `onSkills` verilirse durum çubuğunda yetenek ağacını açan bir düğme çıkar (dokunmatik için). */
   constructor(onSkills?: () => void, onWands?: () => void, onBag?: () => void, onQuests?: () => void, onDifficulty?: () => void) {
     this.element = document.createElement('div');
+    // Telefonda (768px altı) panel küçülür: portre, seviye, para ve can. Düğmeler sağ kenarda yuvarlak simgelere (ray) taşınır,
+    // ibre ve görev listesi ⚖ düğmesiyle açılıp kapanır. Masaüstü görünümü aynen kalır.
     this.element.className =
-      'pointer-events-none fixed left-3 top-14 z-40 w-48 rounded-lg bg-black/60 px-3 py-2 text-xs text-amber-50 shadow';
+      'pointer-events-none fixed left-3 top-14 z-40 w-48 rounded-lg bg-black/60 px-3 py-2 text-xs text-amber-50 shadow mobile:left-[calc(0.5rem+var(--sal))] mobile:top-[calc(var(--sat)+3.75rem)] mobile:w-36 mobile:px-2 mobile:py-1.5';
     this.element.innerHTML = `
       <div data-head class="flex items-center gap-2 font-bold"><span data-level></span></div>
       <div data-wallet class="mt-1 grid grid-cols-4 gap-0.5 text-center text-[10px]"></div>
       <div class="mt-1 h-1.5 overflow-hidden rounded bg-white/15"><div data-fill class="h-full bg-sky-400 transition-all duration-300"></div></div>
       <div class="mt-1 flex items-center justify-between text-[11px]"><span>❤ Can</span><b data-hp></b></div>
       <div class="h-1.5 overflow-hidden rounded bg-white/15"><div data-hpfill class="h-full bg-rose-400 transition-all duration-300"></div></div>
-      <button type="button" data-quests-btn class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">📜 Görevler (J)</button>
-      <button type="button" data-skills class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">✦ Yetenekler (K)</button>
-      <button type="button" data-wands class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🪄 Asalar (Q)</button>
-      <button type="button" data-bag class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20">🎒 Çanta (B)</button>
-      <button type="button" data-difficulty class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20"></button>
-      <div data-moral class="pointer-events-auto mt-1.5"></div>
-      <div data-dirty class="mt-1 hidden text-[10px] text-amber-300">● Kaydedilmedi: bir şehre girince kaydedilir</div>
-      <div data-quests class="mt-1 flex flex-col gap-0.5 text-[11px] text-slate-200"></div>`;
+      <div class="hud-rail">
+        <button type="button" data-quests-btn class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20" aria-label="Görevler"><span class="hud-ico">📜</span><span class="hud-only-desktop"> Görevler (J)</span></button>
+        <button type="button" data-skills class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20" aria-label="Yetenekler"><span class="hud-ico">✦</span><span class="hud-only-desktop" data-label></span><span class="hud-only-mobile" data-badge></span></button>
+        <button type="button" data-wands class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20" aria-label="Asalar"><span class="hud-ico">🪄</span><span class="hud-only-desktop"> Asalar (Q)</span></button>
+        <button type="button" data-bag class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20" aria-label="Çanta"><span class="hud-ico">🎒</span><span class="hud-only-desktop" data-label></span><span class="hud-only-mobile" data-badge></span></button>
+        <button type="button" data-difficulty class="pointer-events-auto mt-1 w-full rounded bg-white/10 px-2 py-1 text-left text-[11px] hover:bg-white/20" aria-label="Oyun seviyesi"><span class="hud-ico">⚙</span><span class="hud-only-desktop" data-label></span></button>
+        <button type="button" data-details class="hud-only-mobile" aria-label="Kara ↔ Ak ibresi ve görevler" aria-expanded="false"><span class="hud-ico">⚖</span></button>
+      </div>
+      <div data-extra class="mobile:hidden">
+        <div data-moral class="pointer-events-auto mt-1.5"></div>
+        <div data-quests class="mt-1 flex flex-col gap-0.5 text-[11px] text-slate-200"></div>
+      </div>
+      <div data-dirty class="mt-1 hidden text-[10px] text-amber-300">● Kaydedilmedi<span class="mobile:hidden">: bir şehre girince kaydedilir</span></div>`;
     const q = <T extends HTMLElement>(sel: string): T => this.element.querySelector<T>(sel)!;
     this.levelEl = q('[data-level]');
     this.walletEl = q('[data-wallet]');
@@ -104,6 +111,13 @@ export class StatusBar {
     this.difficultyBtn = q<HTMLButtonElement>('[data-difficulty]');
     this.difficultyBtn.hidden = !onDifficulty;
     if (onDifficulty) this.difficultyBtn.addEventListener('click', onDifficulty);
+    // Telefonda ibre ve takip edilen görevler: ⚖ ile aç/kapat (masaüstünde hep açık)
+    const details = q<HTMLButtonElement>('[data-details]');
+    const extra = q('[data-extra]');
+    details.addEventListener('click', () => {
+      const open = extra.classList.toggle('mobile:hidden') === false;
+      details.setAttribute('aria-expanded', String(open));
+    });
   }
 
   /** Faz 7: büyücünün portresi panelin başında (basınca karakter ekranı açılır) */
@@ -119,11 +133,18 @@ export class StatusBar {
     this.hpEl.textContent = `${view.hp}/${view.maxHp}`;
     this.hpEl.classList.toggle('text-amber-300', view.hp < view.maxHp);
     this.hpFillEl.style.width = `${(view.hp / view.maxHp) * 100}%`;
-    this.skillsBtn.textContent = view.skillPoints > 0 ? `✦ Yetenekler (K) · ${view.skillPoints} puan!` : '✦ Yetenekler (K)';
+    const set = (btn: HTMLElement, sel: string, text: string): void => {
+      const el = btn.querySelector<HTMLElement>(sel);
+      if (el && el.textContent !== text) el.textContent = text;
+    };
+    set(this.skillsBtn, '[data-label]', view.skillPoints > 0 ? ` Yetenekler (K) · ${view.skillPoints} puan!` : ' Yetenekler (K)');
+    set(this.skillsBtn, '[data-badge]', view.skillPoints > 0 ? String(view.skillPoints) : '');
     this.skillsBtn.classList.toggle('text-emerald-300', view.skillPoints > 0);
-    this.bagBtn.textContent = `🎒 Çanta (B) · ${view.bagSummary}`;
+    set(this.bagBtn, '[data-label]', ` Çanta (B) · ${view.bagSummary}`);
+    set(this.bagBtn, '[data-badge]', view.bagFull ? '!' : '');
     this.bagBtn.classList.toggle('text-amber-300', view.bagFull);
-    this.difficultyBtn.textContent = `⚙ Oyun seviyesi: ${view.difficultyName}`;
+    set(this.difficultyBtn, '[data-label]', ` Oyun seviyesi: ${view.difficultyName}`);
+    this.difficultyBtn.setAttribute('aria-label', `Oyun seviyesi: ${view.difficultyName}`);
     // İbre yeniden çizilirse kayma animasyonu kaybolur: yalnızca etiket değişince çiz, yoksa ibreyi kaydır
     const needle = this.moralEl.querySelector<HTMLElement>('[data-needle]');
     const key = `${view.moralityLabel}|${view.moralBonus}`;

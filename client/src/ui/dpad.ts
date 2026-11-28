@@ -15,7 +15,7 @@ export class DPad implements DirectionSource {
   constructor() {
     this.element = document.createElement('div');
     this.element.className =
-      'fixed bottom-6 left-1/2 z-50 grid h-40 w-40 -translate-x-1/2 select-none grid-cols-3 grid-rows-3 gap-1 touch-none';
+      'fixed bottom-6 left-1/2 z-50 grid h-40 w-40 -translate-x-1/2 select-none grid-cols-3 grid-rows-3 gap-1 touch-none mobile:bottom-[calc(var(--sab)+1rem)] mobile:gap-1.5 mobile:landscape:bottom-[calc(var(--sab)+0.75rem)] mobile:landscape:left-[calc(var(--sal)+1rem)] mobile:landscape:h-36 mobile:landscape:w-36 mobile:landscape:translate-x-0';
     this.element.hidden = true;
 
     for (const b of BUTTONS) {

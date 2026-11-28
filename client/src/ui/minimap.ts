@@ -46,7 +46,7 @@ export class Minimap {
     this.element.height = h;
     this.element.setAttribute('aria-label', 'Minimap');
     this.element.className =
-      'pointer-events-none fixed right-3 top-3 z-40 h-36 w-36 rounded-lg border-2 border-amber-200/70 opacity-90 shadow-lg';
+      'pointer-events-none fixed right-3 top-3 z-40 h-36 w-36 rounded-lg border-2 border-amber-200/70 opacity-90 shadow-lg mobile:right-[calc(0.5rem+var(--sar))] mobile:top-[calc(0.5rem+var(--sat))] mobile:h-24 mobile:w-24';
     this.ctx = this.element.getContext('2d')!;
   }
 

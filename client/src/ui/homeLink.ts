@@ -8,7 +8,7 @@ export const DORUKPLAYS_URL = 'https://dorukplays.com';
 export function createHomeLink(className: string, confirmLeave?: string): HTMLAnchorElement {
   const a = document.createElement('a');
   a.href = DORUKPLAYS_URL;
-  a.textContent = '← dorukplays';
+  a.innerHTML = '<span aria-hidden="true">←</span><span class="mobile:hidden"> dorukplays</span>';
   a.title = "dorukplays'e dön";
   a.setAttribute('aria-label', "dorukplays'e dön");
   a.className = className;

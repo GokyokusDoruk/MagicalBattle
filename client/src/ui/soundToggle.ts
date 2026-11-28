@@ -17,8 +17,9 @@ export function installAudioUnlock(engine: SoundEngine): void {
 export function createSoundToggle(engine: SoundEngine): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
+  button.dataset.soundToggle = '';
   button.className =
-    'fixed bottom-3 right-3 z-30 rounded-full bg-black/60 px-3 py-2 text-lg leading-none text-amber-50 shadow hover:bg-black/80';
+    'fixed bottom-3 right-3 z-30 rounded-full bg-black/60 px-3 py-2 text-lg leading-none text-amber-50 shadow hover:bg-black/80 mobile:bottom-[calc(var(--sab)+0.75rem)] mobile:right-[calc(var(--sar)+0.5rem)] mobile:h-12 mobile:w-12 mobile:p-0';
   const render = (): void => {
     button.textContent = engine.isMuted ? '🔇' : '🔊';
     button.setAttribute('aria-label', engine.isMuted ? 'Sesi aç' : 'Sesi kapat');

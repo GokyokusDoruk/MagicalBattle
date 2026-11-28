@@ -161,22 +161,24 @@ export class CharacterScreen {
     const { player } = this.deps;
     const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
     this.element.innerHTML = `
-      <div class="flex items-center gap-3 px-4 pb-2 pt-3">
+      <div class="flex items-center gap-3 px-4 pb-2 pt-3 mobile:pt-[calc(var(--sat)+0.75rem)] mobile:pl-[calc(var(--sal)+1rem)] mobile:pr-[calc(var(--sar)+1rem)] mobile:landscape:pb-1 mobile:landscape:pt-[calc(var(--sat)+0.5rem)]">
         <div class="min-w-0 flex-1">
           <div class="truncate text-lg font-bold text-amber-200">${esc(this.deps.name())} <span class="text-sm font-normal text-slate-300">· Seviye ${player.level}</span></div>
           <div class="mt-1 flex items-center gap-2 text-xs"><span>❤</span><div class="h-2 flex-1 overflow-hidden rounded bg-white/15"><div class="h-full bg-rose-400" style="width:${hpRatio * 100}%"></div></div><b class="tabular-nums">${player.hp}/${player.maxHp}</b></div>
         </div>
         <button type="button" data-close class="rounded-lg bg-white/10 px-3 py-2 text-sm">Kapat</button>
       </div>
-      <div data-stage class="relative min-h-0 flex-[1.4]">
+      <div class="flex min-h-0 flex-1 flex-col mobile:landscape:flex-row">
+      <div data-stage class="relative min-h-0 flex-[1.4] mobile:ml-[var(--sal)]">
         <canvas data-view class="absolute inset-0 h-full w-full"></canvas>
         <svg data-lines class="pointer-events-none absolute inset-0 h-full w-full"></svg>
         <div class="pointer-events-none absolute inset-y-2 left-2 flex flex-col justify-between">${LEFT.map((s) => this.slotHtml(s, 'left')).join('')}</div>
         <div class="pointer-events-none absolute inset-y-2 right-2 flex flex-col justify-between">${RIGHT.map((s) => this.slotHtml(s, 'right')).join('')}</div>
       </div>
-      <div class="flex min-h-0 flex-1 flex-col border-t border-white/10 bg-black/30 px-3 pb-3 pt-2">
+      <div class="flex min-h-0 flex-1 flex-col border-t border-white/10 bg-black/30 px-3 pb-3 pt-2 mobile:pb-[calc(var(--sab)+0.75rem)] mobile:landscape:border-l mobile:landscape:border-t-0 mobile:landscape:pr-[calc(var(--sar)+0.75rem)]">
         <div class="mb-2 text-sm font-bold text-amber-200">🎒 Çanta</div>
         <div class="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(52px,1fr))] gap-2 overflow-y-auto" style="touch-action:pan-y" data-scrollable>${this.bagHtml()}</div>
+      </div>
       </div>
       <div data-detail></div>`;
     this.element.querySelector('[data-close]')!.addEventListener('click', () => this.close());

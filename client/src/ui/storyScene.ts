@@ -27,9 +27,9 @@ export class StoryPlayer {
     this.element.setAttribute('aria-label', 'Hikâye sahnesi');
     this.element.innerHTML = `
       <div data-art class="min-h-0 flex-1 overflow-hidden [&>svg]:h-full [&>svg]:w-full"></div>
-      <div data-panel class="border-t-2 border-amber-300/60 bg-slate-950/95 p-4 sm:p-6">
+      <div data-panel class="border-t-2 border-amber-300/60 bg-slate-950/95 p-4 sm:p-6 mobile:pb-[calc(var(--sab)+1rem)] mobile:pl-[calc(var(--sal)+1rem)] mobile:pr-[calc(var(--sar)+1rem)]">
         <span data-speaker class="mb-2 inline-block rounded bg-amber-300/90 px-3 py-0.5 text-sm font-bold text-slate-900"></span>
-        <p data-text aria-live="polite" class="min-h-[5rem] text-lg leading-relaxed text-amber-50 sm:text-xl"></p>
+        <p data-text aria-live="polite" class="min-h-[5rem] text-lg leading-relaxed text-amber-50 sm:text-xl mobile:landscape:min-h-[3rem] mobile:landscape:text-base"></p>
         <div class="mt-3 flex items-center justify-between gap-3 text-sm text-slate-400">
           <span data-counter></span>
           <span data-hint class="animate-pulse text-amber-200"></span>
