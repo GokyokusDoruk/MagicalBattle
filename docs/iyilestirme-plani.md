@@ -1,6 +1,6 @@
 # MagicalBattle iyileştirme planı (7 faz, her faz ayrı PR)
 
-Durum: **onaylandı.** Faz 1-6 bitti, sıradaki Faz 7.
+Durum: **onaylandı.** Faz 1-7 bitti.
 Her faz `claude/vibrant-cori-xcmkk6` dalından açılan ayrı bir PR'dır; canlıda (magicalbattle.dorukplays.com) tek tek test edilir.
 Modeller: yalnızca CC0 (lisanssız) kaynaklar (Quaternius, Poly Haven, OpenGameArt CC0, ambientCG, Kenney). Her modelin kaynağı `docs/varliklar.md`'de listelenir.
 
@@ -163,3 +163,16 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
 - **Harita kalitesi:** çim, arnavut kaldırımı patika, kum, taş sur ve ahşap kapı gerçek dokularla (Poly Haven, CC0); ağaçlar, çalılar
   ve maden girişleri KayKit (CC0) 3D modellerinin render'ı, karolara oturur; maden girişi 2×2 karo. Su daha derin ve doğal.
   Çalılıkta karakterin önüne gelen katman da gerçek çalıdan. Kaynaklar: [varliklar.md](varliklar.md).
+
+## Faz 7 notları (yapıldı)
+
+- **Oyuncu modeli:** KayKit Mage (CC0, parçalı). Şapka ve pelerin yalnızca kuşanılınca görünür; cüppe, şapka, eldiven ve pantolon
+  kendi elementinin rengine boyanır (ateş kırmızı, su mavi, toprak kahverengi, hava beyaz). Destansı ve üstü parçalar hafifçe parlar.
+- **Asa:** Sıradan-Nadir asalar tek elle tutulan değnek, Destansı ve üstü büyük asa; ucunda elementinin renginde ışık küresi.
+  Kolye göğüste elementinin renginde taş olarak görünür.
+- **Bosslar:** her boss'un kendi modeli (Şövalye, Barbar, Kapüşonlu Haydut ya da Malakor için koyu büyük büyücü), rengi, boyu ve
+  ayak altında elementinin halkası (`BOSS_LOOKS`). Diğer büyücüler Quaternius büyücüsü olarak elementlerinin renginde kalır.
+- **Harita:** oyuncunun haritadaki görseli kuşandıklarıyla 3D modelden render edilir; ekipman değişince yenilenir.
+- **Karakter ekranı:** sol üstteki yuvarlak portreye basınca tam ekran açılır. Üstte can ve seviye; ortada yavaşça dönen büyücü;
+  solda şapka, kolye, cüppe, eldiven, yüzük; sağda asa, bileklik, pantolon, çanta, çizme yuvaları, her biri vücuttaki yerine ince
+  çizgiyle bağlı. Eşyaya basınca büyük görüntü, özellikleri ve Kuşan/Çıkar. Altta çanta: eşya ve asalar küçük simge.

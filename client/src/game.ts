@@ -70,6 +70,8 @@ import { QuestHud } from './ui/questHud';
 import { mainEntry, pickTracked, sideEntry, type TrackEntry } from './quests/tracking';
 import { SIDE_QUESTS } from './quests/catalog';
 import { TILE_SIZE } from './world/tiles';
+import { heroGearFrom } from './battle/arena/heroGear';
+import { CharacterScreen } from './ui/characterScreen';
 import { DIFFICULTY_NAMES, DIFFICULTY_PROFILES, difficulty, isDifficulty, type Difficulty } from './settings/difficulty';
 import { chooseDifficulty } from './ui/difficultyUi';
 
@@ -227,7 +229,9 @@ const exitDropUi = new ExitDropUi();
 document.body.appendChild(exitDropUi.element);
 /** Başka bir panel (sahne, tüccar, diyalog ya da diğer çekmeceler) açıkken yeni panel açılmaz */
 const otherOpen = (except: { isOpen: boolean }): boolean =>
-  [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi, groundPileUi, exitDropUi, questLog].some((p) => p !== except && p.isOpen);
+  [story, merchantUi, dialogueUi, skillUi, wandUi, bagUi, groundPileUi, exitDropUi, questLog, characterScreen].some((p) => p !== except && p.isOpen);
+const characterScreen = new CharacterScreen({ player: hero, wands, name: () => playerName, onChanged: () => setDirty(true) });
+document.body.appendChild(characterScreen.element);
 const statusBar = new StatusBar(
   () => {
     if (!otherOpen(skillUi)) skillUi.toggle();
@@ -249,6 +253,8 @@ const statusBar = new StatusBar(
   },
 );
 document.body.appendChild(statusBar.element);
+// Faz 7: sol üstte büyücünün portresi; basınca karakter ekranı (kuşanılanlar vücutta, altta çanta)
+statusBar.attachPortrait(characterScreen.portrait);
 
 // --- Görev günlüğü ve aktif görev göstergesi (Task 41) ---
 /** Oyuncunun son dünya konumu (piksel); yönlendirme oku için */
@@ -321,6 +327,16 @@ hero.onChange(() => wandUi.isOpen && wandUi.refresh()); // seviye değişince as
 sideQuests.onChange(refreshHud);
 skillTree.onChange(refreshHud);
 wands.onChange(refreshHud);
+// Ekipman ya da asa değişince portre yenilenir
+let lastGearKey = '';
+const refreshPortraitIfChanged = (): void => {
+  const k = JSON.stringify(heroGearFrom(hero.equipped, wands.equipped));
+  if (k === lastGearKey) return;
+  lastGearKey = k;
+  void characterScreen.refreshPortrait();
+};
+hero.onChange(refreshPortraitIfChanged);
+wands.onChange(refreshPortraitIfChanged);
 morality.onChange(() => {
   applyMoralEffects();
   refreshHud();
@@ -429,7 +445,7 @@ const enemyBoard = new EnemyBoard(() => performance.now());
 const encounters = new EncounterGuard(() => performance.now());
 const lootRand = mulberry32(Date.now());
 const modalOpen = (): boolean =>
-  chapterBusy || fightBusy || mineBusy || chestBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen || questLog.isOpen;
+  chapterBusy || fightBusy || mineBusy || chestBusy || story.isOpen || merchantUi.isOpen || skillUi.isOpen || wandUi.isOpen || bagUi.isOpen || dialogueUi.isOpen || groundPileUi.isOpen || exitDropUi.isOpen || questLog.isOpen || characterScreen.isOpen;
 
 /** Bir bölümün ahlak seçimlerini (bölümde 2) sırayla oynatır; bölüm 8'de ardından final sahnesi gelir. */
 async function playChapterChoices(chapter: number): Promise<void> {
@@ -549,7 +565,7 @@ async function fightSpot(spot: EnemySpot, dropBoost = 1, fromMine = false, intro
     if (introHandle) window.setTimeout(() => introHandle.release(), 200);
     const { outcome, hp: hpLeft } = await runWorldFight(
       spot,
-      { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: wandBattlePassives(wands), wands: wands.resolver },
+      { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: wandBattlePassives(wands), wands: wands.resolver, look: heroGearFrom(hero.equipped, wands.equipped) },
       hero.maxHp,
       {
         // Savaş öncesi panel yok (Task 55): sabit düşmanda savaşın içinde Kaç ve Rüşvet düğmeleri çıkar; çalılık, maden ve sandıkta çıkış yok
@@ -673,7 +689,7 @@ async function playChapter(chapter: number): Promise<void> {
       await dialogueUi.run(linesTree(`boss-${chapter}`, boss.intro), ctx);
       const { outcome, hp: hpLeft } = await runBossFight(
         chapter,
-        { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: wandBattlePassives(wands), wands: wands.resolver },
+        { name: playerName, level: hero.level, hp: hero.hp, armor: hero.armor, gear: hero.gearResolver, spells: skillTree.resolver, passives: wandBattlePassives(wands), wands: wands.resolver, look: heroGearFrom(hero.equipped, wands.equipped) },
         morality.finalPath,
         healHooks,
       );
@@ -817,6 +833,8 @@ void import('./world/bootWorld').then((m) =>
     getAxis: () => (modalOpen() ? STILL : input.getAxis()),
     // Ayakkabı yürüme hızını artırır; kendi elementinin şehrinde (köyde iki elementten biri) %50 daha çok
     getSpeedMultiplier: () => 1 + hero.speedBonusIn(elementsHere()) + activePassive(wands).speed,
+    // Faz 7: haritadaki karakter kuşandıklarıyla görünür
+    heroGear: () => heroGearFrom(hero.equipped, wands.equipped),
     gates,
     quests,
     notify: (message) => toast.show(message),

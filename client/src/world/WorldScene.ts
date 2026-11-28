@@ -11,6 +11,7 @@ import type { EnemySpot } from '../enemies/spots';
 import type { MineSpot } from '../enemies/mines';
 import type { ChestSpot } from '../enemies/chests';
 import { MAIN_QUEST_MARKERS, markersInRange, type MainQuestMarker, type QuestTracker } from './questMarkers';
+import type { HeroGear } from '../battle/arena/heroModel';
 import mineFire from '../assets/world/mine_fire.png';
 import mineWater from '../assets/world/mine_water.png';
 import mineEarth from '../assets/world/mine_earth.png';
@@ -49,6 +50,8 @@ export interface WorldContext {
   onMarkerEnter: (marker: MainQuestMarker) => void;
   /** Her karede oyuncunun dünya konumu (piksel) */
   onFrame?: (player: { x: number; y: number }) => void;
+  /** Faz 7: oyuncunun kuşandıkları (haritadaki görseli için) */
+  heroGear?: () => HeroGear;
   /** Oyunun başlayacağı karo (kayıttan devam); yoksa haritanın başlangıç noktası */
   startTile?: { x: number; y: number };
   /** Oyuncu bir şehrin surlarının içine yeni girdi (kayıt noktası) */
@@ -218,6 +221,8 @@ export class WorldScene extends Phaser.Scene {
     this.checkMines();
     this.checkChests();
     this.ctx.onFrame?.({ x: this.pos.x, y: this.pos.y });
+    // Ekipman değiştiyse karakter görseli yenilenir (saniyede bir bakılır)
+    if (++this.gearCheck % 60 === 0) void this.refreshPlayerSprite();
   }
 
   /**
@@ -303,13 +308,10 @@ export class WorldScene extends Phaser.Scene {
     try {
       const { renderWizardSprite } = await import('../battle/arena/wizardModel');
       const size = TILE_SIZE * 1.2;
-      const player = await renderWizardSprite('water');
+      await this.refreshPlayerSprite();
       if (!this.sys.isActive()) return;
-      this.textures.addCanvas('player-model', player);
-      this.player.setTexture('player-model').setDisplaySize(size, size);
       // Modelin kendi asası var: ayrı asa çizimi gizlenir
       this.staff.setVisible(false);
-      this.textures.get('player-model').setFilter(Phaser.Textures.FilterMode.LINEAR);
       for (const el of ['fire', 'water', 'earth', 'air'] as const) {
         const canvas = await renderWizardSprite(el);
         if (!this.sys.isActive()) return;
@@ -321,6 +323,31 @@ export class WorldScene extends Phaser.Scene {
       }
     } catch {
       // Model yüklenemedi: eski çizimler kalır
+    }
+  }
+
+  private heroKey = '';
+  private gearCheck = 0;
+  private heroSeq = 0;
+
+  /** Faz 7: karakter görseli kuşandıklarıyla (KayKit Mage); ekipman değişince yeniden çizilir. */
+  private async refreshPlayerSprite(): Promise<void> {
+    const gear = this.ctx.heroGear?.() ?? {};
+    const key = JSON.stringify(gear);
+    if (key === this.heroKey) return;
+    this.heroKey = key;
+    const seq = ++this.heroSeq;
+    try {
+      const { renderHeroSprite } = await import('../battle/arena/heroPortrait');
+      const canvas = await renderHeroSprite(gear);
+      if (!this.sys.isActive() || seq !== this.heroSeq) return;
+      const tex = `player-model-${seq}`;
+      this.textures.addCanvas(tex, canvas)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      const size = TILE_SIZE * 1.25;
+      this.player.setTexture(tex).setDisplaySize(size, size);
+      this.staff.setVisible(false);
+    } catch {
+      // eski görsel kalır
     }
   }
 

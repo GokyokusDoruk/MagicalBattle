@@ -156,6 +156,8 @@ export const getBoss = (chapter: number): BossDef | undefined => BY_CHAPTER.get(
 import { HP_PER_LEVEL, playerMaxHp } from '../economy/health';
 export { HP_PER_LEVEL, playerMaxHp };
 
+import type { HeroGear } from '../battle/arena/heroModel';
+
 export interface PlayerStats {
   name: string;
   level: number;
@@ -172,6 +174,8 @@ export interface PlayerStats {
   wands?: WandResolver;
   /** Ekipman (zırh ve yüzük) çözücüsü; verilirse `armor` yerine kullanılır (büyünün elementine göre) */
   gear?: GearResolver;
+  /** Faz 7: görünüm: kuşanılan ekipman (savaşta oyuncunun modelinde görünür) */
+  look?: HeroGear;
 }
 
 /** Yoldaşın (Elysia) ayarları */

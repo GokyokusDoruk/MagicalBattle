@@ -2,7 +2,8 @@ import { wandGeometry } from './wandModel';
 import * as THREE from 'three';
 import type { Element } from '../damage/elements';
 import { ELEMENT_COLORS } from './palette';
-import { createWizard, type WizardClip, type WizardInstance } from './wizardModel';
+import type { WizardClip } from './wizardModel';
+import { createAppearance, type Appearance, type ModelInstance } from './heroModel';
 
 const SKIN = 0xf0c8a0;
 const FLASH = new THREE.Color(0xffffff);
@@ -32,7 +33,7 @@ export class Combatant {
   /** Faz 5: yenilgi biçimi: yana yığılma ya da vuruşla arkaya düşüp yere serilme */
   private fallStyle: 'collapse' | 'backward' = 'collapse';
   /** Gerçek büyücü modeli (Quaternius Wizard, CC0); yüklenene kadar ya da yüklenemezse basit büyücü görünür */
-  private model: WizardInstance | null = null;
+  private model: ModelInstance | null = null;
   private clip: WizardClip | null = null;
   private hidden = false;
   private disposed = false;
@@ -40,6 +41,8 @@ export class Combatant {
   constructor(
     readonly name: string,
     readonly element: Element,
+    /** Faz 7: görünüm (oyuncu ekipmanıyla, boss kendi modeliyle); verilmezse elementin renginde büyücü */
+    appearance?: Appearance,
   ) {
     const colors = ELEMENT_COLORS[element];
     const cloak = this.material(colors.main, 0.12);
@@ -85,7 +88,7 @@ export class Combatant {
     this.group.add(this.body, ring);
 
     // Gerçek modeli arkada yükle; gelince basit büyücünün yerini alır
-    void createWizard(element)
+    void createAppearance(appearance ?? { kind: 'wizard', element })
       .then((m) => {
         if (this.disposed) {
           m.dispose();
@@ -247,6 +250,7 @@ export class Combatant {
   private updateModel(dt: number): void {
     const m = this.model!;
     m.mixer.update(dt);
+    if (m.aura) m.aura.rotation.z += dt * 0.8;
     if (!this.defeated) {
       const oneShot = this.clip === 'cast' || this.clip === 'hit';
       const running = oneShot && m.actions.get(this.clip!)!.isRunning();
@@ -258,7 +262,10 @@ export class Combatant {
     const flash = 0.35 + k * this.hitStrength * 0.9;
     m.root.traverse((o) => {
       const mat = (o as THREE.Mesh).material as THREE.MeshLambertMaterial | undefined;
-      if (mat && 'emissive' in mat) mat.emissive.setScalar(flash);
+      if (!mat || !('emissive' in mat) || !mat.emissiveMap) return;
+      mat.emissive.setScalar(flash);
+      const glow = mat.userData.baseEmissive as THREE.Color | undefined;
+      if (glow) mat.emissive.add(glow);
     });
   }
 

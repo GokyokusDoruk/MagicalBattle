@@ -56,6 +56,8 @@ export async function runWorldFight(spot: EnemySpot, player: PlayerStats, maxHp:
     const bribe = options.escape?.bribe;
     const skills = [...enemySkills(spot.element, spot.tier).levels].map(([id, lv]) => `${getSkill(id)?.name ?? id} Sv${lv}`).join(', ');
     const screen = new BattleScreen(root, engine, {
+      // Faz 7: oyuncu kuşandıklarıyla görünür
+      appearance: (f) => (f.control === 'human' ? { kind: 'hero', gear: player.look ?? {} } : undefined),
       botSkill: stats.skill,
       // Rakibin saldırı çizgileri yalnızca Kolay seviyede görünür
       showAttackToDefender: difficulty.profile.showEnemyAttack,

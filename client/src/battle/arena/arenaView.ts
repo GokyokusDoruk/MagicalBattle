@@ -11,11 +11,14 @@ import { SpellVisual } from './spell';
 import { SIGIL_SIZE, strokesToPaths, type PlanePoint } from './strokeMap';
 import { Tweens, clamp01, easeInOut, easeOutCubic } from './tween';
 import { FirstPersonHand } from './firstPersonHand';
+import type { Appearance } from './heroModel';
 import { GRID } from '../gesture/config';
 
 export interface CombatantSpec {
   name: string;
   element: Element;
+  /** Faz 7: görünüm (oyuncu ekipmanıyla, boss kendi modeliyle) */
+  appearance?: Appearance;
 }
 
 export interface ImpactInfo {
@@ -218,7 +221,7 @@ export class ArenaView {
     this.slots = layoutTeams([teams[0].length, teams[1].length]);
     for (const slot of this.slots) {
       const spec = teams[slot.team][slot.index];
-      const c = new Combatant(spec.name, spec.element);
+      const c = new Combatant(spec.name, spec.element, spec.appearance);
       c.group.position.set(slot.position.x, slot.position.y, slot.position.z);
       c.group.rotation.y = slot.yaw;
       this.scene.add(c.group);

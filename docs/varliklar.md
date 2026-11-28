@@ -34,3 +34,15 @@ Model FBX'ten projenin kendi three.js'i (FBXLoader + GLTFExporter) ile GLB'ye ç
 
 Modeller projenin kendi three.js'iyle (GLTFLoader) tarayıcıda 3/4 üstten, ışıklı ve şeffaf zeminli olarak çizilip PNG'ye çevrildi (toplam ~250 KB).
 Zemin dokuları 256×256 JPEG; harita karo başına 20 pikselle çizilir, doku karolar boyunca kesintisiz akar.
+
+## Oyuncu ve boss modelleri (Faz 7)
+
+| Dosya | Kaynak | Yazar | Lisans | Nerede |
+|---|---|---|---|---|
+| `client/src/assets/models/mage.glb` | [KayKit Adventurers (Mage)](https://kaylousberg.itch.io/kaykit-adventurers) | Kay Lousberg | CC0 | Oyuncunun büyücüsü (savaş, harita görseli, portre, karakter ekranı); şapka, pelerin, değnek, büyük asa ve animasyonlar |
+| `client/src/assets/models/knight.glb` | aynı paket (Knight) | Kay Lousberg | CC0 | General Vael, Kaelen, Morwenna, Tapınak Bekçisi |
+| `client/src/assets/models/barbarian.glb` | aynı paket (Barbarian) | Kay Lousberg | CC0 | Ambargo Komutanı, Soylu Şampiyonu |
+| `client/src/assets/models/rogue_hooded.glb` | aynı paket (Rogue_Hooded) | Kay Lousberg | CC0 | Cadı Morga, Rüzgâr Çırağı, Gölge |
+
+Dört model aynı iskeleti paylaşır; animasyonlar (Idle, Spellcast_Shoot, Spellcast_Long, Blocking, Hit_A, Death_A …) yalnız `mage.glb`'de
+durur ve hepsine uygulanır. Dosyalar projenin three.js'iyle (GLTFLoader + GLTFExporter) kullanılmayan animasyonlardan arındırıldı.
