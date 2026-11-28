@@ -11,7 +11,7 @@ import { SpellVisual } from './spell';
 import { SIGIL_SIZE, strokesToPaths, type PlanePoint } from './strokeMap';
 import { Tweens, clamp01, easeInOut, easeOutCubic } from './tween';
 import { FirstPersonHand } from './firstPersonHand';
-import type { Appearance } from './heroModel';
+import type { Appearance, HeroGear } from './heroModel';
 import { GRID } from '../gesture/config';
 
 export interface CombatantSpec {
@@ -99,6 +99,8 @@ export class ArenaView {
   private readonly particles = new ParticleSystem(700);
   private readonly tweens = new Tweens();
   private readonly combatants = new Map<string, Combatant>();
+  /** Faz 7: oyuncunun ekipmanı (birinci kişi elde aynı asa ve cüppe) */
+  private readonly gears = new Map<string, HeroGear>();
   private slots: Slot[] = [];
   private shield: { owner: SlotRef; visual: SpellVisual } | null = null;
   private readonly spells = new Set<SpellVisual>();
@@ -217,6 +219,7 @@ export class ArenaView {
       c.dispose();
     });
     this.combatants.clear();
+    this.gears.clear();
 
     this.slots = layoutTeams([teams[0].length, teams[1].length]);
     for (const slot of this.slots) {
@@ -226,6 +229,7 @@ export class ArenaView {
       c.group.rotation.y = slot.yaw;
       this.scene.add(c.group);
       this.combatants.set(slotKey(slot), c);
+      if (spec.appearance?.kind === 'hero') this.gears.set(slotKey(slot), spec.appearance.gear);
     }
     this.teamLights[0].color.setHex(ELEMENT_COLORS[teams[0][0].element].main);
     this.teamLights[1].color.setHex(ELEMENT_COLORS[teams[1][0].element].main);
@@ -269,7 +273,7 @@ export class ArenaView {
     const sdt = dt * this.timeScale;
     this.tweens.update(sdt);
     this.combatants.forEach((c) => c.update(sdt));
-    this.hand.update(dt);
+    this.hand.update(dt, this.camera.aspect, this.camera.fov);
     this.particles.update(sdt);
     this.crystals.forEach((c, i) => {
       c.rotation.y += dt * 0.8;
@@ -321,6 +325,7 @@ export class ArenaView {
     await this.tweens.wait(0.25);
     me.setVisible(false);
     this.hand.setElement(element);
+    this.hand.setGear(this.gears.get(slotKey(ref)));
     this.hand.show(true);
     await this.tweens.wait(0.3);
   }

@@ -187,6 +187,28 @@ function tipGlow(holder: THREE.Object3D, element: Element, size: number): THREE.
   return g;
 }
 
+/**
+ * Faz 7: birinci kişi bakış için kuşanılı asanın modeli (Mage dosyasındaki değnek ya da büyük asa).
+ * Tutamak başlangıç noktasında, asa +Y yönünde uzanır; `length` boyuna ölçeklenir. `tipY` ucun yüksekliğidir.
+ */
+export async function loadWandModel(look: GearLook, length: number): Promise<{ object: THREE.Object3D; tipY: number; dispose: () => void }> {
+  const base = await loadKay('mage');
+  const staff = look.rarity >= 4;
+  const src = base.scene.getObjectByName(staff ? '2H_Staff' : '1H_Wand') as THREE.Mesh | undefined;
+  if (!src?.isMesh) throw new Error('asa modeli yok');
+  const old = src.material as THREE.MeshStandardMaterial;
+  const m = new THREE.MeshLambertMaterial({ map: old.map, emissiveMap: old.map, emissive: 0x000000 });
+  if (look.rarity >= 4) m.emissive.setHex(ELEMENT_COLORS[look.element].glow).multiplyScalar(0.1 * (look.rarity - 3));
+  const mesh = new THREE.Mesh(src.geometry, m);
+  src.geometry.computeBoundingBox();
+  const box = src.geometry.boundingBox!;
+  const k = length / Math.max(0.001, box.max.y - box.min.y);
+  mesh.scale.setScalar(k);
+  // Büyük asanın tutamağı biraz aşağıda kalsın (el ortasından tutar)
+  mesh.position.y = staff ? -0.12 * length : 0;
+  return { object: mesh, tipY: box.max.y * k + mesh.position.y, dispose: () => m.dispose() };
+}
+
 async function createHero(gear: HeroGear): Promise<ModelInstance> {
   const base = await loadKay('mage');
   const root = cloneSkinned(base.scene);

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Element } from '../damage/elements';
 import { ELEMENT_COLORS } from './palette';
+import { loadWandModel, type HeroGear } from './heroModel';
 import { wandGeometry } from './wandModel';
 
 const SKIN = 0xe9bf98;
@@ -18,6 +19,10 @@ export class FirstPersonHand {
   private readonly sleeveMaterial: THREE.MeshStandardMaterial;
   private readonly disposables: { dispose(): void }[] = [];
   private readonly orbLight = new THREE.PointLight(0xffffff, 0, 3, 2);
+  private readonly rod: THREE.Mesh;
+  private readonly orb: THREE.Mesh;
+  private modelWand: { object: THREE.Object3D; dispose: () => void } | null = null;
+  private gearKey = '';
   /** Hedef ve mevcut nişan (ekran koordinatı, -1..1) */
   private readonly aimTarget = new THREE.Vector2(0.25, -0.1);
   private readonly aim = new THREE.Vector2(0.25, -0.1);
@@ -26,6 +31,7 @@ export class FirstPersonHand {
   private time = 0;
   private shown = 0;
   private visible = false;
+  private disposed = false;
 
   constructor() {
     const skin = this.mat(new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.75 }));
@@ -65,10 +71,10 @@ export class FirstPersonHand {
     thumb.rotation.set(0.3, 0, -0.9);
 
     // Asa: elin içinden yukarı-ileri uzanır, ucunda element küresi
-    const rod = new THREE.Mesh(wandGeometry(), wood);
+    const rod = (this.rod = new THREE.Mesh(wandGeometry(), wood));
     rod.scale.setScalar(0.2);
     rod.position.y = -0.15;
-    const orb = mesh(new THREE.SphereGeometry(0.026, 16, 12), this.orbMaterial);
+    const orb = (this.orb = mesh(new THREE.SphereGeometry(0.026, 16, 12), this.orbMaterial));
     orb.position.y = -0.15 + 2.5 * 0.2 + 0.02;
     this.orbLight.position.copy(orb.position);
     this.wand.add(rod, orb, this.orbLight);
@@ -94,6 +100,44 @@ export class FirstPersonHand {
     this.orbLight.color.setHex(c.glow);
   }
 
+  /**
+   * Faz 7: kuşanılı ekipman. Asa, karakterin kendi asa modeli olur (Sıradan-Nadir değnek, Destansı ve üstü büyük asa);
+   * cüppe kolu cüppenin elementinin renginde. Model yüklenemezse basit asa kalır.
+   */
+  setGear(gear: HeroGear | undefined): void {
+    if (gear?.robe) this.sleeveMaterial.color.setHex(ELEMENT_COLORS[gear.robe.element].main).multiplyScalar(0.8);
+    const w = gear?.wand;
+    const key = w ? `${w.element}:${w.rarity}` : '';
+    if (key === this.gearKey) return;
+    this.gearKey = key;
+    this.clearModelWand();
+    if (!w) return;
+    const length = w.rarity >= 4 ? 0.56 : 0.46;
+    void loadWandModel(w, length)
+      .then((model) => {
+        if (this.gearKey !== key || this.disposed) return model.dispose();
+        this.modelWand = model;
+        this.wand.add(model.object);
+        this.rod.visible = false;
+        this.orb.position.y = model.tipY + 0.015;
+        this.orb.scale.setScalar(w.rarity >= 4 ? 1.5 : 1);
+        this.orbLight.position.copy(this.orb.position);
+      })
+      .catch(() => undefined);
+  }
+
+  private clearModelWand(): void {
+    if (this.modelWand) {
+      this.wand.remove(this.modelWand.object);
+      this.modelWand.dispose();
+      this.modelWand = null;
+    }
+    this.rod.visible = true;
+    this.orb.position.y = -0.15 + 2.5 * 0.2 + 0.02;
+    this.orb.scale.setScalar(1);
+    this.orbLight.position.copy(this.orb.position);
+  }
+
   show(on: boolean): void {
     this.visible = on;
     if (on) this.group.visible = true;
@@ -107,7 +151,11 @@ export class FirstPersonHand {
     this.drawing = down;
   }
 
-  update(dt: number): void {
+  /**
+   * `aspect`: kameranın en/boy oranı, `fovDeg`: dikey görüş açısı. El, ekranın sağ altına oranla yerleşir;
+   * dar (dikey telefon) ekranda da görünür kalır ve biraz küçülür.
+   */
+  update(dt: number, aspect = 1.6, fovDeg = 48): void {
     this.time += dt;
     this.shown = THREE.MathUtils.clamp(this.shown + (this.visible ? dt / 0.35 : -dt / 0.25), 0, 1);
     if (this.shown === 0 && !this.visible) {
@@ -119,8 +167,11 @@ export class FirstPersonHand {
     this.swing *= Math.exp(-4 * dt);
     const ease = 1 - Math.pow(1 - this.shown, 3);
     // Sağ alttan içeri; nişana doğru uzanır (el ekranda nişanın sağ altında kalır, asa ucu nişana bakar)
-    const x = 0.26 + this.aim.x * 0.2;
-    const y = -0.3 + this.aim.y * 0.14 - (1 - ease) * 0.5;
+    const halfW = 0.62 * Math.tan(THREE.MathUtils.degToRad(fovDeg / 2)) * aspect;
+    const size = THREE.MathUtils.clamp(aspect * 0.95, 0.62, 1);
+    this.group.scale.setScalar(size);
+    const x = halfW * (0.55 + this.aim.x * 0.35);
+    const y = -0.3 + (1 - size) * 0.25 + this.aim.y * 0.14 - (1 - ease) * 0.5;
     const bob = Math.sin(this.time * 2.2) * 0.008 + Math.sin(this.time * 17) * 0.012 * this.swing;
     this.group.position.set(x, y + bob, -0.62);
     this.group.rotation.set(0.25 + this.aim.y * 0.35, -0.35 - this.aim.x * 0.45, 0.18 + this.swing * 0.12 * Math.sin(this.time * 11));
@@ -130,6 +181,8 @@ export class FirstPersonHand {
   }
 
   dispose(): void {
+    this.disposed = true;
+    this.clearModelWand();
     this.disposables.forEach((d) => d.dispose());
   }
 }

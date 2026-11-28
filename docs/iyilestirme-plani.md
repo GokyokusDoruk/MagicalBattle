@@ -172,6 +172,8 @@ Web oyunu: Android emülatöründe Chrome ile canlı adres (veya yerelde `http:/
   Kolye göğüste elementinin renginde taş olarak görünür.
 - **Bosslar:** her boss'un kendi modeli (Şövalye, Barbar, Kapüşonlu Haydut ya da Malakor için koyu büyük büyücü), rengi, boyu ve
   ayak altında elementinin halkası (`BOSS_LOOKS`). Diğer büyücüler Quaternius büyücüsü olarak elementlerinin renginde kalır.
+- **Birinci kişi el:** çizerken elde görünen asa, karakterin kendi asa modeli (değnek ya da büyük asa, ucunda element ışığı);
+  cüppe kolu cüppenin elementinin renginde. El, dikey telefon ekranında da görünecek şekilde ekran oranına göre yerleşir.
 - **Harita:** oyuncunun haritadaki görseli kuşandıklarıyla 3D modelden render edilir; ekipman değişince yenilenir.
 - **Karakter ekranı:** sol üstteki yuvarlak portreye basınca tam ekran açılır. Üstte can ve seviye; ortada yavaşça dönen büyücü;
   solda şapka, kolye, cüppe, eldiven, yüzük; sağda asa, bileklik, pantolon, çanta, çizme yuvaları, her biri vücuttaki yerine ince
