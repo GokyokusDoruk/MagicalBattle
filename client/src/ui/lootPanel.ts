@@ -52,7 +52,7 @@ export function showLootPanel(parent: HTMLElement, view: LootView): Promise<void
         <span class="text-emerald-300" data-money>+${view.money} ${esc(view.moneyName)}</span><span class="text-sky-300" data-xp>+${view.xp} XP</span>
       </div>
       ${view.levelUp ? `<p class="rounded bg-amber-300 px-3 py-1 text-center text-sm font-bold text-slate-900" data-levelup>Seviye atladın! Seviye ${view.levelUp.level} · yetenek puanın: ${view.levelUp.skillPoints} (K)</p>` : ''}
-      <ul class="flex min-h-0 flex-col gap-1 overflow-y-auto" data-scrollable style="max-height:40vh;touch-action:pan-y">${[...itemRows, ...wandRows].join('') || ''}</ul>
+      <ul class="flex min-h-0 flex-col gap-1 overflow-y-auto" data-scrollable style="max-height:40vh;max-height:40dvh;touch-action:pan-y">${[...itemRows, ...wandRows].join('') || ''}</ul>
       ${empty ? '<p class="text-center text-sm text-slate-400">Bu sefer eşya düşmedi.</p>' : ''}
       ${view.dropped > 0 ? `<p class="text-center text-xs text-amber-300" data-dropped>Çantan dolu: ${view.dropped} parça yere düştü, 10 dakika içinde alabilirsin.</p>` : ''}
       <button data-ok type="button" class="rounded bg-amber-300 px-4 py-3 font-bold text-slate-900">Devam</button>

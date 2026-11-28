@@ -14,7 +14,7 @@ export class QuestHud {
 
   constructor() {
     this.element = document.createElement('div');
-    this.element.className = 'pointer-events-none fixed left-1/2 top-2 z-40 hidden max-w-[70vw] -translate-x-1/2 items-center gap-2 rounded-full bg-black/65 px-4 py-1.5 text-xs text-amber-50 shadow sm:text-sm';
+    this.element.className = 'pointer-events-none fixed left-1/2 top-2 z-40 hidden max-w-[70vw] -translate-x-1/2 items-center gap-2 rounded-full bg-black/65 px-4 py-1.5 text-xs text-amber-50 shadow sm:text-sm mobile:top-auto mobile:bottom-[calc(var(--sab)+11.5rem)] mobile:max-w-[calc(100vw-7.5rem)] mobile:px-3 mobile:landscape:top-[calc(var(--sat)+0.5rem)] mobile:landscape:bottom-auto mobile:landscape:max-w-[calc(100vw-20rem)]';
     this.element.innerHTML = '<span data-text class="min-w-0 truncate"></span><span data-arrow class="inline-block text-lg leading-none text-amber-300 transition-transform duration-150"></span><span data-dist class="shrink-0 text-[11px] text-amber-200"></span>';
     this.textEl = this.element.querySelector('[data-text]')!;
     this.arrowEl = this.element.querySelector('[data-arrow]')!;

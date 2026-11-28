@@ -14,11 +14,11 @@ export const POSITION_PICK_MS = 7000;
  * `host` içine çizilir; bitince temizlenir.
  */
 export function pickPosition(host: HTMLElement, start: TargetPose, limitMs = POSITION_PICK_MS): Promise<TargetPose> {
-  host.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3">
-      <h2 class="text-lg font-bold text-sky-200">Yerini seç</h2>
-      <p class="text-center text-xs text-slate-300">Silüetini sürükle, "Duruş" ile kollarını, bacaklarını ve başını başka yere al. Parlak halka başın: rakip onu ayırt edemez.</p>
-      <canvas class="touch-none rounded-lg border-2 border-sky-200/50 bg-slate-950" style="width:min(88vw,60vh);aspect-ratio:1;touch-action:none;cursor:grab"></canvas>
-      <div class="w-[min(88vw,60vh)]">
+  host.innerHTML = `<div data-focus-ui class="flex h-full flex-col items-center justify-center gap-3 bg-slate-950/85 p-3 mobile:pb-[calc(var(--sab)+0.75rem)] mobile:landscape:gap-1 mobile:landscape:py-1">
+      <h2 class="text-lg font-bold text-sky-200 mobile:landscape:text-base">Yerini seç</h2>
+      <p class="text-center text-xs text-slate-300 mobile:landscape:hidden">Silüetini sürükle, "Duruş" ile kollarını, bacaklarını ve başını başka yere al. Parlak halka başın: rakip onu ayırt edemez.</p>
+      <canvas class="mb-draw touch-none rounded-lg border-2 border-sky-200/50 bg-slate-950" style="width:min(88vw,60vh);width:min(88vw,60dvh);aspect-ratio:1;touch-action:none;cursor:grab"></canvas>
+      <div class="mb-draw w-[min(88vw,60vh)] w-[min(88vw,60dvh)]">
         <div class="h-2 overflow-hidden rounded bg-white/10"><div data-fill class="h-full w-full bg-sky-300"></div></div>
         <div class="mt-2 flex justify-between gap-2">
           <button data-turn type="button" class="rounded bg-white/10 px-4 py-1.5 text-sky-100 hover:bg-white/20">🎭 Duruş</button>

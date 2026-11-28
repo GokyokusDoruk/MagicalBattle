@@ -22,7 +22,7 @@ export class QuestLogUi {
 
   constructor(private readonly deps: QuestLogDeps) {
     this.element = document.createElement('div');
-    this.element.className = 'fixed inset-0 z-[56] hidden items-center justify-center bg-black/70 p-3';
+    this.element.className = 'fixed inset-0 z-[56] hidden items-center justify-center bg-black/70 p-3 mb-sheet';
     this.element.setAttribute('role', 'dialog');
     this.element.setAttribute('aria-modal', 'true');
     this.element.addEventListener('click', (e) => this.onClick(e));

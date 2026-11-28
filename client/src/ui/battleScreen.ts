@@ -108,7 +108,7 @@ export class BattleScreen implements BattleIO {
     }
 
     this.buildHud();
-    this.banner = this.overlay('pointer-events-none absolute inset-x-0 top-24 z-10 flex justify-center px-2');
+    this.banner = this.overlay('pointer-events-none absolute inset-x-0 top-24 z-10 flex justify-center px-2 mobile:top-[calc(var(--sat)+5rem)]');
     this.center = this.overlay('pointer-events-none absolute inset-x-0 top-[38%] z-10 flex justify-center px-2');
     this.calc = this.overlay('pointer-events-none absolute inset-x-0 top-[20%] z-10 flex justify-center px-2');
     this.modals = this.overlay('absolute inset-0 z-20');
@@ -118,7 +118,7 @@ export class BattleScreen implements BattleIO {
 
   /** Savaşın içinde köşede Kaç ve Rüşvet düğmeleri: kaçarsan düşman yerinde kalır, rüşvet verirsen çekilir. */
   private buildEscape(escape: NonNullable<BattleScreenOptions['escape']>): void {
-    const bar = this.overlay('absolute bottom-2 left-2 z-40 flex gap-2');
+    const bar = this.overlay('absolute bottom-2 left-2 z-40 flex gap-2 mobile:bottom-[calc(var(--sab)+0.5rem)] mobile:left-[calc(var(--sal)+0.5rem)]');
     bar.style.pointerEvents = 'auto';
     const bribe = escape.bribe;
     const canBribe = bribe ? bribe.balance() >= bribe.cost : false;
@@ -145,7 +145,7 @@ export class BattleScreen implements BattleIO {
 
   /** Can çubukları: takım 0 solda, takım 1 sağda. */
   private buildHud(): void {
-    const bar = this.overlay('pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between gap-2 p-2');
+    const bar = this.overlay('pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between gap-2 p-2 mobile:pt-[calc(var(--sat)+0.5rem)] mobile:pl-[calc(var(--sal)+0.5rem)] mobile:pr-[calc(var(--sar)+0.5rem)]');
     for (const team of [0, 1] as const) {
       const col = document.createElement('div');
       col.className = `flex w-[46%] max-w-[260px] flex-col gap-1 ${team === 1 ? 'items-end' : ''}`;
@@ -294,9 +294,9 @@ export class BattleScreen implements BattleIO {
 
   private drawByHand(role: Role, element: Element, ghost?: readonly Stroke[], limitSec?: number, scars?: number, shake?: number, fog?: number, mud?: number, special?: ShapeName, target?: TargetPose, areaCapacity?: number): Promise<DrawingResult> {
     this.modals.style.pointerEvents = 'auto';
-    this.modals.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-950/60 via-transparent to-transparent p-3">
-      <h2 class="text-lg font-bold drop-shadow ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
-      <p class="text-center text-xs text-slate-200 drop-shadow">${role === 'defense' ? 'Silüetini koru: rakibin büyüsü oraya gelecek.' : target ? 'Rakibin silüetine çiz. Şekil ne kadar doğruysa büyü o kadar güçlü; silüetin dışına giden büyü çok az vurur.' : 'Rakibini göremiyorsun: nerede durduğunu tahmin et ve oraya çiz. Şekil ne kadar doğruysa büyü o kadar güçlü.'}</p>
+    this.modals.innerHTML = `<div data-focus-ui class="flex h-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-950/60 via-transparent to-transparent p-3 mobile:pb-[calc(var(--sab)+0.75rem)] mobile:landscape:gap-1 mobile:landscape:py-1">
+      <h2 class="text-lg font-bold drop-shadow mobile:landscape:text-base ${role === 'attack' ? 'text-amber-200' : 'text-emerald-200'}">${role === 'attack' ? 'Saldırı: büyünü çiz' : 'Savunma: saldırıyı durdur'}</h2>
+      <p class="text-center text-xs text-slate-200 drop-shadow mobile:landscape:hidden">${role === 'defense' ? 'Silüetini koru: rakibin büyüsü oraya gelecek.' : target ? 'Rakibin silüetine çiz. Şekil ne kadar doğruysa büyü o kadar güçlü; silüetin dışına giden büyü çok az vurur.' : 'Rakibini göremiyorsun: nerede durduğunu tahmin et ve oraya çiz. Şekil ne kadar doğruysa büyü o kadar güçlü.'}</p>
       ${special ? this.specialPreview(special) : ''}
       <div data-canvas class="flex w-full justify-center"></div></div>`;
     const canvas = new DrawingCanvas({

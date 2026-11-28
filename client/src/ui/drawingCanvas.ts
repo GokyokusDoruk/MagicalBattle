@@ -181,10 +181,10 @@ export class DrawingCanvas {
     this.session = new DrawingSession(options);
 
     this.element = document.createElement('div');
-    this.element.className = 'flex w-full flex-col items-center gap-3';
+    this.element.className = 'flex w-full flex-col items-center gap-3 mobile:landscape:gap-1.5';
     this.element.innerHTML = `
-      <canvas class="touch-none rounded-lg border-2 ${options.overlay ? 'border-amber-200/30 bg-slate-950/25 backdrop-blur-[1px]' : 'border-amber-200/50 bg-slate-950'}" style="width:min(88vw,60vh);aspect-ratio:1;touch-action:none"></canvas>
-      <div class="w-[min(88vw,60vh)]">
+      <canvas class="mb-draw touch-none rounded-lg border-2 ${options.overlay ? 'border-amber-200/30 bg-slate-950/25 backdrop-blur-[1px]' : 'border-amber-200/50 bg-slate-950'}" style="width:min(88vw,60vh);width:min(88vw,60dvh);aspect-ratio:1;touch-action:none"></canvas>
+      <div class="mb-draw w-[min(88vw,60vh)] w-[min(88vw,60dvh)]">
         <div class="h-2 overflow-hidden rounded bg-white/10"><div data-fill class="h-full w-full bg-amber-300"></div></div>
         <div class="mt-2 flex items-center justify-between text-sm text-slate-300">
           <span data-label></span>
